@@ -68,8 +68,8 @@ begin
       new.raw_user_meta_data ->> 'avatar_url',
       new.raw_user_meta_data ->> 'picture'
     ),
-    case when admin_exists then 'member' else 'admin' end,
-    case when admin_exists then 'pending' else 'approved' end
+    (case when admin_exists then 'member' else 'admin' end)::public.user_role,
+    (case when admin_exists then 'pending' else 'approved' end)::public.user_status
   );
   return new;
 end;
