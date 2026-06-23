@@ -47,3 +47,51 @@ export type AppNotification = {
   read: boolean;
   created_at: string;
 };
+
+// ---- Scouting ---------------------------------------------------------------
+
+export type AnswerValue = 'yes' | 'no' | 'did_not_see';
+
+export type ScoutedTeam = {
+  id: string;
+  team_number: number;
+  team_name: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CapabilityQuestion = {
+  id: string;
+  prompt: string;
+  category: string;
+  weight: number;
+  sort_order: number;
+  active: boolean;
+  created_at: string;
+};
+
+/** Row from the team_scores view. */
+export type TeamScore = {
+  team_id: string;
+  team_number: number;
+  team_name: string | null;
+  score: number;
+  entry_count: number;
+};
+
+export type PitEntry = {
+  id: string;
+  scouted_team_id: string;
+  scouter_id: string | null;
+  notes: string | null;
+  created_at: string;
+};
+
+export type PitAnswer = {
+  id: string;
+  entry_id: string;
+  question_id: string;
+  answer: AnswerValue;
+};
