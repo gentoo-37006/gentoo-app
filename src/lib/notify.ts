@@ -48,6 +48,17 @@ export async function notifyByFunctionalRole(
   await notifyUsers(ids, payload);
 }
 
+/** Notify approved members holding ANY of the given functional roles (deduped). */
+export async function notifyByAnyFunctionalRole(
+  roles: FunctionalRole[],
+  payload: NotifyPayload,
+  opts?: { excludeUserId?: string }
+): Promise<void> {
+  let ids = await approvedIdsWhere((q) => q.overlaps('functional_roles', roles));
+  if (opts?.excludeUserId) ids = ids.filter((id) => id !== opts.excludeUserId);
+  await notifyUsers(ids, payload);
+}
+
 /** Notify every approved member. */
 export async function notifyAllApproved(
   payload: NotifyPayload,

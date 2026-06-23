@@ -152,3 +152,20 @@ export function matchTeamNumbers(m: {
 export function matchTitle(m: { label: string | null; match_number: number }): string {
   return m.label || `Match ${m.match_number}`;
 }
+
+// ---- Talkie -----------------------------------------------------------------
+
+export type TalkieStatus = 'open' | 'claimed' | 'resolved';
+
+export type TalkieRequest = {
+  id: string;
+  requester_id: string | null;
+  team_number: number;
+  reason: string;
+  status: TalkieStatus;
+  claimed_by: string | null;
+  claimed_at: string | null;
+  response: string | null;
+  resolved_at: string | null;
+  created_at: string;
+};
