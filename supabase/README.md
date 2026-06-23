@@ -37,3 +37,14 @@ In **Supabase → Authentication → URL Configuration**:
 
 The **first account to sign in becomes the admin** (auto-approved). Everyone after lands in
 *pending* until an admin approves them in the in-app **Admin** screen.
+
+## 6. Push notifications (optional)
+
+In-app realtime notifications work as soon as the DB is set up. For OS-level **push** on
+iOS/Android:
+
+1. Deploy the function: `supabase functions deploy send-push`.
+2. Create a **Database Webhook** (Database → Webhooks) on `public.notifications`, event **INSERT**,
+   that POSTs to the `send-push` function URL.
+3. Native push tokens require an **EAS project id** — set `expo.extra.eas.projectId` in `app.json`
+   (run `eas init`) and use a dev/standalone build. Web uses in-app realtime only.
