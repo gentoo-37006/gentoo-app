@@ -6,7 +6,7 @@ import {
   ListChecks,
   CalendarClock,
   Users,
-  TrendingUp,
+  FolderKanban,
   ChevronRight,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -14,44 +14,12 @@ import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
+import { useAuth } from '@/lib/auth';
+import { useTeamScores } from '@/lib/queries/scouting';
+import { useTalkieRequests } from '@/lib/queries/talkie';
+import { useProjects, useMyOpenTaskCount } from '@/lib/queries/tasks';
 
 type Stat = { label: string; value: string; icon: LucideIcon; tint: string };
-
-const STATS: Stat[] = [
-  { label: 'Teams scouted', value: '—', icon: Users, tint: 'text-primary' },
-  { label: 'Pick-list strength', value: '—', icon: TrendingUp, tint: 'text-success' },
-  { label: 'Open talkies', value: '—', icon: Radio, tint: 'text-warning' },
-  { label: 'My open tasks', value: '—', icon: ListChecks, tint: 'text-destructive' },
-];
-
-type QuickAction = { label: string; description: string; href: string; icon: LucideIcon };
-
-const QUICK_ACTIONS: QuickAction[] = [
-  {
-    label: 'Pit scouting',
-    description: 'Log a team’s capabilities',
-    href: '/scouting',
-    icon: ClipboardList,
-  },
-  {
-    label: 'Raise a talkie',
-    description: 'Ask the pit crew for intel',
-    href: '/talkie',
-    icon: Radio,
-  },
-  {
-    label: 'View tasks',
-    description: 'Projects and to-dos',
-    href: '/tasks',
-    icon: ListChecks,
-  },
-  {
-    label: 'Pit schedule',
-    description: 'Who’s staffing the pit',
-    href: '/schedule',
-    icon: CalendarClock,
-  },
-];
 
 function StatCard({ stat }: { stat: Stat }) {
   return (
@@ -64,6 +32,15 @@ function StatCard({ stat }: { stat: Stat }) {
     </Card>
   );
 }
+
+type QuickAction = { label: string; description: string; href: string; icon: LucideIcon };
+
+const QUICK_ACTIONS: QuickAction[] = [
+  { label: 'Pit scouting', description: 'Log a team’s capabilities', href: '/scouting/pit', icon: ClipboardList },
+  { label: 'Raise a talkie', description: 'Ask the pit crew for intel', href: '/talkie', icon: Radio },
+  { label: 'View tasks', description: 'Projects and to-dos', href: '/tasks', icon: ListChecks },
+  { label: 'Pit schedule', description: 'Who’s staffing the pit', href: '/schedule', icon: CalendarClock },
+];
 
 function QuickActionCard({ action }: { action: QuickAction }) {
   return (
@@ -87,15 +64,46 @@ function QuickActionCard({ action }: { action: QuickAction }) {
 }
 
 export default function DashboardScreen() {
+  const { profile, session } = useAuth();
+  const teams = useTeamScores();
+  const talkies = useTalkieRequests();
+  const projects = useProjects();
+  const myTasks = useMyOpenTaskCount(session?.user?.id);
+
+  const num = (q: { isLoading: boolean }, value: number) => (q.isLoading ? '—' : String(value));
+  const firstName = profile?.full_name?.split(' ')[0];
+
+  const stats: Stat[] = [
+    { label: 'Teams scouted', value: num(teams, teams.data?.length ?? 0), icon: Users, tint: 'text-primary' },
+    {
+      label: 'Open talkies',
+      value: num(talkies, (talkies.data ?? []).filter((t) => t.status !== 'resolved').length),
+      icon: Radio,
+      tint: 'text-warning',
+    },
+    {
+      label: 'My open tasks',
+      value: myTasks.isLoading ? '—' : String(myTasks.data ?? 0),
+      icon: ListChecks,
+      tint: 'text-destructive',
+    },
+    {
+      label: 'Active projects',
+      value: num(projects, (projects.data ?? []).filter((p) => p.status === 'active').length),
+      icon: FolderKanban,
+      tint: 'text-success',
+    },
+  ];
+
   return (
     <Screen>
       <ScreenHeader
-        title="Dashboard"
+        title={firstName ? `Welcome, ${firstName}` : 'Dashboard'}
         description="Your team’s competition command center."
       />
 
       <View className="flex-row flex-wrap gap-3">
-        {STATS.map((s) => (
+        {stats.map((s) => (
           <StatCard key={s.label} stat={s} />
         ))}
       </View>

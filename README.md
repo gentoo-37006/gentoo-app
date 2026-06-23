@@ -18,8 +18,15 @@ Built with **Expo Router**, **NativeWind** + **React Native Reusables**, and **S
 
 ```bash
 npm install
-npm start          # then press w (web), i (iOS), a (Android)
+cp .env.example .env   # then fill in your Supabase URL + anon key
+npm start              # then press w (web), i (iOS), a (Android)
 ```
+
+> **Backend required.** The app needs a Supabase project for auth and data. Follow
+> [`supabase/README.md`](supabase/README.md) to create the project, run the migrations in
+> `supabase/migrations/` (in order), enable Google sign-in, and optionally deploy the
+> `send-push` Edge Function. Without credentials the app runs in a read-only "not configured"
+> state with setup guidance on the sign-in screen.
 
 ### Useful scripts
 
@@ -34,12 +41,25 @@ npm start          # then press w (web), i (iOS), a (Android)
 
 ```
 src/
-  app/            # Expo Router routes (file-based)
-    (app)/        # authenticated app shell + feature screens
+  app/                 # Expo Router routes (file-based)
+    (auth)/            # sign-in + awaiting-approval screens
+    (app)/             # authenticated shell + features
+      scouting/        # hub, pit/, matches/, picklist/
+      tasks/           # projects + tasks
+      schedule.tsx     # pit-duty scheduler
+      admin.tsx, notifications.tsx, settings.tsx
   components/
-    ui/           # design-system primitives (Text, Button, Card, …)
-  lib/            # utils, theme, navigation config, hooks
+    ui/                # design-system primitives (Text, Button, Card, …)
+    responsive-shell.tsx
+  lib/
+    auth.tsx, supabase.ts, notify.ts, push.ts
+    scoring.ts         # weighted pick-list score
+    scheduler.ts       # fair pit-duty rotation
+    queries/           # TanStack Query hooks per domain
+supabase/
+  migrations/          # 0001…0008 — run in order
+  functions/send-push/ # Expo push Edge Function
 ```
 
-> Backend setup (Supabase project, Google OAuth, push) is documented in later phases as those
-> features land.
+The UI is responsive: a sidebar + multi-column layout on tablet/desktop web, and bottom
+tabs + single column on phones. Light/dark themes follow the device (toggle in Settings).

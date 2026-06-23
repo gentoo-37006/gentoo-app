@@ -33,6 +33,23 @@ export type TaskWithAssignee = Task & {
   assignee: { full_name: string | null; avatar_url: string | null } | null;
 };
 
+/** Count of unfinished tasks assigned to the given user (for the dashboard). */
+export function useMyOpenTaskCount(uid?: string) {
+  return useQuery({
+    queryKey: ['my_open_tasks', uid],
+    enabled: !!uid,
+    queryFn: async (): Promise<number> => {
+      const { count, error } = await supabase
+        .from('tasks')
+        .select('id', { count: 'exact', head: true })
+        .eq('assignee_id', uid!)
+        .neq('status', 'done');
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+}
+
 export function useProject(projectId: string) {
   return useQuery({
     queryKey: taskKeys.project(projectId),
