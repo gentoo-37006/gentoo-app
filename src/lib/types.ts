@@ -52,6 +52,15 @@ export type AppNotification = {
 
 export type AnswerValue = 'yes' | 'no' | 'did_not_see';
 
+export type PicklistTier = 'tier1' | 'tier2' | 'tier3' | 'dnp';
+
+export const PICKLIST_TIERS: { value: PicklistTier; label: string; short: string }[] = [
+  { value: 'tier1', label: 'Tier 1', short: 'T1' },
+  { value: 'tier2', label: 'Tier 2', short: 'T2' },
+  { value: 'tier3', label: 'Tier 3', short: 'T3' },
+  { value: 'dnp', label: 'Do not pick', short: 'DNP' },
+];
+
 export type ScoutedTeam = {
   id: string;
   team_number: number;
@@ -60,6 +69,9 @@ export type ScoutedTeam = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  picklist_tier: PicklistTier | null;
+  picklist_rank: number | null;
+  picklist_notes: string | null;
 };
 
 export type CapabilityQuestion = {

@@ -45,7 +45,7 @@ const SECTIONS: Section[] = [
     label: 'Pick-list',
     description: 'Tier and rank teams from scouted data for alliance selection.',
     icon: ListOrdered,
-    soon: true,
+    href: '/scouting/picklist',
   },
 ];
 
