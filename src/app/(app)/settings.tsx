@@ -2,13 +2,17 @@ import * as React from 'react';
 import { View } from 'react-native';
 import Constants from 'expo-constants';
 import { useColorScheme } from 'nativewind';
-import { Sun, Moon, SunMoon, type LucideIcon } from 'lucide-react-native';
+import { Sun, Moon, SunMoon, LogOut, type LucideIcon } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Pressable } from 'react-native';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/lib/auth';
+import { Avatar } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 type Mode = 'light' | 'dark' | 'system';
 const MODES: { value: Mode; label: string; icon: LucideIcon }[] = [
@@ -57,10 +61,45 @@ function AppearancePicker() {
   );
 }
 
+function AccountCard() {
+  const { profile, signOut } = useAuth();
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Account</CardTitle>
+      </CardHeader>
+      <CardContent className="gap-4">
+        <View className="flex-row items-center gap-3">
+          <Avatar name={profile?.full_name} uri={profile?.avatar_url} size={48} />
+          <View className="flex-1">
+            <Text className="font-semibold" numberOfLines={1}>
+              {profile?.full_name ?? 'Member'}
+            </Text>
+            {profile?.email ? (
+              <Text variant="small" numberOfLines={1}>
+                {profile.email}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+        <View className="flex-row flex-wrap gap-2">
+          <Badge variant={profile?.role === 'admin' ? 'default' : 'muted'} label={profile?.role ?? 'member'} />
+          {(profile?.functional_roles ?? []).map((r) => (
+            <Badge key={r} variant="secondary" label={r} />
+          ))}
+        </View>
+        <Button variant="outline" label="Sign out" icon={LogOut} onPress={signOut} />
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SettingsScreen() {
   return (
     <Screen maxWidth="max-w-2xl">
       <ScreenHeader title="Settings" description="Personalize the app and manage your account." />
+
+      <AccountCard />
 
       <Card>
         <CardHeader>
@@ -69,16 +108,6 @@ export default function SettingsScreen() {
         </CardHeader>
         <CardContent>
           <AppearancePicker />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Account</CardTitle>
-          <CardDescription>Sign-in and profile management arrive with accounts.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Text variant="muted">Connect your Google account to scout, take assignments, and get notified.</Text>
         </CardContent>
       </Card>
 
