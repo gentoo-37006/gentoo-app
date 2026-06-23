@@ -95,3 +95,60 @@ export type PitAnswer = {
   question_id: string;
   answer: AnswerValue;
 };
+
+// ---- Match scouting ---------------------------------------------------------
+
+export type AssignmentStatus = 'assigned' | 'submitted';
+
+export type Match = {
+  id: string;
+  match_number: number;
+  label: string | null;
+  scheduled_time: string | null;
+  red1: number | null;
+  red2: number | null;
+  blue1: number | null;
+  blue2: number | null;
+  created_at: string;
+};
+
+export type ScoutingAssignment = {
+  id: string;
+  match_id: string;
+  scouter_id: string;
+  team_number: number | null;
+  status: AssignmentStatus;
+  assigned_by: string | null;
+  created_at: string;
+};
+
+export type MatchReport = {
+  id: string;
+  assignment_id: string | null;
+  match_id: string;
+  scouter_id: string | null;
+  team_number: number;
+  rating: number | null;
+  played_defense: boolean;
+  notes: string | null;
+  created_at: string;
+};
+
+/** Alliance team slots in display order. */
+export function matchTeams(m: Match): { red: (number | null)[]; blue: (number | null)[] } {
+  return { red: [m.red1, m.red2], blue: [m.blue1, m.blue2] };
+}
+
+/** Non-null team numbers in a match (red then blue). */
+export function matchTeamNumbers(m: {
+  red1: number | null;
+  red2: number | null;
+  blue1: number | null;
+  blue2: number | null;
+}): number[] {
+  return [m.red1, m.red2, m.blue1, m.blue2].filter((n): n is number => n != null);
+}
+
+export function matchTitle(m: { label: string | null; match_number: number }): string {
+  return m.label || `Match ${m.match_number}`;
+}

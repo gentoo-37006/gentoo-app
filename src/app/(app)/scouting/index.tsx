@@ -33,7 +33,7 @@ const SECTIONS: Section[] = [
     label: 'Match assignments',
     description: 'Assign scouters to matches and collect their reports.',
     icon: CalendarRange,
-    soon: true,
+    href: '/scouting/matches',
   },
   {
     label: 'Talkie',
