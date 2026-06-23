@@ -181,3 +181,55 @@ export type TalkieRequest = {
   resolved_at: string | null;
   created_at: string;
 };
+
+// ---- Projects & tasks -------------------------------------------------------
+
+export type ProjectStatus = 'planning' | 'active' | 'on_hold' | 'done';
+export type TaskStatus = 'todo' | 'in_progress' | 'blocked' | 'done';
+export type Priority = 'low' | 'medium' | 'high' | 'urgent';
+
+export const PROJECT_STATUSES: { value: ProjectStatus; label: string }[] = [
+  { value: 'planning', label: 'Planning' },
+  { value: 'active', label: 'Active' },
+  { value: 'on_hold', label: 'On hold' },
+  { value: 'done', label: 'Done' },
+];
+
+export const TASK_STATUSES: { value: TaskStatus; label: string }[] = [
+  { value: 'todo', label: 'To do' },
+  { value: 'in_progress', label: 'In progress' },
+  { value: 'blocked', label: 'Blocked' },
+  { value: 'done', label: 'Done' },
+];
+
+export const PRIORITIES: { value: Priority; label: string }[] = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'urgent', label: 'Urgent' },
+];
+
+export type Project = {
+  id: string;
+  name: string;
+  description: string | null;
+  status: ProjectStatus;
+  priority: Priority;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Task = {
+  id: string;
+  project_id: string;
+  title: string;
+  status: TaskStatus;
+  assignee_id: string | null;
+  due_date: string | null;
+  priority: Priority;
+  tags: string[];
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
