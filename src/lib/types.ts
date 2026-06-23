@@ -233,3 +233,14 @@ export type Task = {
   created_at: string;
   updated_at: string;
 };
+
+// ---- Pit-duty schedule ------------------------------------------------------
+
+export type PitShift = {
+  id: string;
+  start_time: string;
+  end_time: string;
+  assignee_id: string | null;
+  generated: boolean;
+  created_at: string;
+};
