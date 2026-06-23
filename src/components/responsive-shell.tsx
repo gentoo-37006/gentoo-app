@@ -5,14 +5,34 @@ import { Link, usePathname } from 'expo-router';
 import { Bot } from 'lucide-react-native';
 import { cn } from '@/lib/utils';
 import { useBreakpoint } from '@/lib/use-breakpoint';
+import { useAuth } from '@/lib/auth';
+import { useUnreadCount, useNotificationsRealtime } from '@/lib/queries/notifications';
+import { registerForPushNotifications } from '@/lib/push';
 import { PRIMARY_NAV, SECONDARY_NAV, ALL_NAV, type NavItem } from '@/lib/nav-items';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Separator } from '@/components/ui/separator';
+import { Avatar } from '@/components/ui/avatar';
 
 function isActiveRoute(href: string, pathname: string) {
   if (href === '/') return pathname === '/';
   return pathname === href || pathname.startsWith(href + '/');
+}
+
+function CountBadge({ count, className }: { count: number; className?: string }) {
+  if (count <= 0) return null;
+  return (
+    <View
+      className={cn(
+        'min-w-[18px] items-center justify-center rounded-full bg-destructive px-1.5 py-0.5',
+        className
+      )}
+    >
+      <Text className="text-[10px] font-bold text-destructive-foreground">
+        {count > 99 ? '99+' : count}
+      </Text>
+    </View>
+  );
 }
 
 function Brand({ compact }: { compact?: boolean }) {
@@ -33,7 +53,15 @@ function Brand({ compact }: { compact?: boolean }) {
   );
 }
 
-function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
+function SidebarLink({
+  item,
+  active,
+  badgeCount = 0,
+}: {
+  item: NavItem;
+  active: boolean;
+  badgeCount?: number;
+}) {
   return (
     <Link href={item.href as any} asChild>
       <Pressable
@@ -49,18 +77,51 @@ function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
         />
         <Text
           className={cn(
-            'text-sm font-medium',
+            'flex-1 text-sm font-medium',
             active ? 'text-primary-foreground' : 'text-foreground'
           )}
         >
           {item.label}
         </Text>
+        {!active ? <CountBadge count={badgeCount} /> : null}
       </Pressable>
     </Link>
   );
 }
 
-function Sidebar({ pathname, isAdmin }: { pathname: string; isAdmin: boolean }) {
+function UserChip({ name, role, avatarUrl }: { name?: string | null; role?: string; avatarUrl?: string | null }) {
+  return (
+    <Link href={'/settings' as any} asChild>
+      <Pressable className="flex-row items-center gap-3 rounded-lg p-2 active:bg-accent">
+        <Avatar name={name} uri={avatarUrl} size={36} />
+        <View className="flex-1">
+          <Text className="text-sm font-semibold" numberOfLines={1}>
+            {name ?? 'Member'}
+          </Text>
+          <Text variant="small" className="capitalize">
+            {role ?? 'member'}
+          </Text>
+        </View>
+      </Pressable>
+    </Link>
+  );
+}
+
+function Sidebar({
+  pathname,
+  isAdmin,
+  unread,
+  name,
+  role,
+  avatarUrl,
+}: {
+  pathname: string;
+  isAdmin: boolean;
+  unread: number;
+  name?: string | null;
+  role?: string;
+  avatarUrl?: string | null;
+}) {
   const secondary = SECONDARY_NAV.filter((i) => !i.adminOnly || isAdmin);
   return (
     <View className="h-full w-64 border-r border-border bg-card">
@@ -76,9 +137,18 @@ function Sidebar({ pathname, isAdmin }: { pathname: string; isAdmin: boolean }) 
           <Separator />
         </View>
         {secondary.map((item) => (
-          <SidebarLink key={item.name} item={item} active={isActiveRoute(item.href, pathname)} />
+          <SidebarLink
+            key={item.name}
+            item={item}
+            active={isActiveRoute(item.href, pathname)}
+            badgeCount={item.name === 'notifications' ? unread : 0}
+          />
         ))}
       </ScrollView>
+      <Separator />
+      <View className="p-3">
+        <UserChip name={name} role={role} avatarUrl={avatarUrl} />
+      </View>
     </View>
   );
 }
@@ -106,17 +176,39 @@ function TabBarItem({ item, active }: { item: NavItem; active: boolean }) {
   );
 }
 
-function MobileHeader({ pathname }: { pathname: string }) {
+function MobileHeader({
+  pathname,
+  unread,
+  name,
+  avatarUrl,
+}: {
+  pathname: string;
+  unread: number;
+  name?: string | null;
+  avatarUrl?: string | null;
+}) {
   const current = ALL_NAV.find((i) => isActiveRoute(i.href, pathname));
   const bell = SECONDARY_NAV.find((i) => i.name === 'notifications')!;
   return (
     <View className="flex-row items-center justify-between border-b border-border bg-card px-4 py-3">
       <Text className="text-lg font-bold tracking-tight">{current?.label ?? 'Gentoo'}</Text>
-      <Link href={bell.href as any} asChild>
-        <Pressable className="h-9 w-9 items-center justify-center rounded-full active:bg-accent">
-          <Icon as={bell.icon} size={22} className="text-foreground" />
-        </Pressable>
-      </Link>
+      <View className="flex-row items-center gap-1">
+        <Link href={bell.href as any} asChild>
+          <Pressable className="h-9 w-9 items-center justify-center rounded-full active:bg-accent">
+            <Icon as={bell.icon} size={22} className="text-foreground" />
+            {unread > 0 ? (
+              <View className="absolute right-0.5 top-0.5">
+                <CountBadge count={unread} />
+              </View>
+            ) : null}
+          </Pressable>
+        </Link>
+        <Link href={'/settings' as any} asChild>
+          <Pressable className="ml-1">
+            <Avatar name={name} uri={avatarUrl} size={32} />
+          </Pressable>
+        </Link>
+      </View>
     </View>
   );
 }
@@ -124,13 +216,28 @@ function MobileHeader({ pathname }: { pathname: string }) {
 export function ResponsiveShell({ children }: { children: React.ReactNode }) {
   const { isWide } = useBreakpoint();
   const pathname = usePathname();
-  // TODO(phase 2): derive from the authenticated profile.
-  const isAdmin = true;
+  const { profile, isAdmin, session } = useAuth();
+  const unread = useUnreadCount();
+  useNotificationsRealtime();
+
+  // Register this device for push once the member is signed in & approved.
+  const userId = session?.user?.id;
+  const isApproved = profile?.status === 'approved';
+  React.useEffect(() => {
+    if (userId && isApproved) registerForPushNotifications(userId);
+  }, [userId, isApproved]);
 
   if (isWide) {
     return (
       <View className="flex-1 flex-row bg-background">
-        <Sidebar pathname={pathname} isAdmin={isAdmin} />
+        <Sidebar
+          pathname={pathname}
+          isAdmin={isAdmin}
+          unread={unread}
+          name={profile?.full_name}
+          role={profile?.role}
+          avatarUrl={profile?.avatar_url}
+        />
         <View className="flex-1">{children}</View>
       </View>
     );
@@ -138,7 +245,12 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
-      <MobileHeader pathname={pathname} />
+      <MobileHeader
+        pathname={pathname}
+        unread={unread}
+        name={profile?.full_name}
+        avatarUrl={profile?.avatar_url}
+      />
       <View className="flex-1">{children}</View>
       <View className="flex-row border-t border-border bg-card">
         {PRIMARY_NAV.map((item) => (
