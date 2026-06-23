@@ -1,18 +1,27 @@
 import { supabase } from '@/lib/supabase';
+import { SUPABASE_ANON_KEY } from '@/lib/env';
 
 export type SignInResult = { error?: string; cancelled?: boolean };
 
 /**
- * Web Google sign-in. Redirects the page to Google; on return, the Supabase
- * client (detectSessionInUrl + PKCE) completes the exchange automatically.
+ * Web Google sign-in. We build the OAuth URL (skipBrowserRedirect) and redirect
+ * manually so we can guarantee the `apikey` is present — some gateway configs
+ * reject the /authorize hop without it ("No API key found in request"). On the
+ * way back, the Supabase client (detectSessionInUrl + PKCE) completes the exchange.
  */
 export async function signInWithGoogle(): Promise<SignInResult> {
   const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
-  const { error } = await supabase.auth.signInWithOAuth({
+  const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo },
+    options: { redirectTo, skipBrowserRedirect: true },
   });
   if (error) return { error: error.message };
-  // The browser navigates away to Google; this resolves before that completes.
+  if (!data?.url) return { error: 'Could not start Google sign-in.' };
+
+  const url = new URL(data.url);
+  if (!url.searchParams.get('apikey')) {
+    url.searchParams.set('apikey', SUPABASE_ANON_KEY);
+  }
+  window.location.href = url.toString();
   return {};
 }
