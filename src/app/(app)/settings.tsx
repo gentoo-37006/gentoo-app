@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/auth';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/lib/supabase';
 
 type Mode = 'light' | 'dark' | 'system';
 const MODES: { value: Mode; label: string; icon: LucideIcon }[] = [
@@ -94,12 +95,76 @@ function AccountCard() {
   );
 }
 
+function DiscordCard() {
+  const { profile, refreshProfile } = useAuth();
+  const [code, setCode] = React.useState<string | null>(null);
+  const [generating, setGenerating] = React.useState(false);
+  const [unlinking, setUnlinking] = React.useState(false);
+  const isLinked = !!profile?.discord_id;
+
+  async function generateCode() {
+    if (!profile) return;
+    setGenerating(true);
+    // Remove any existing unused tokens for this user first
+    await supabase.from('discord_link_tokens').delete().eq('user_id', profile.id).is('used_at', null);
+    const { data, error } = await supabase
+      .from('discord_link_tokens')
+      .insert({ user_id: profile.id })
+      .select('token')
+      .single();
+    if (!error && data) setCode((data as { token: string }).token);
+    setGenerating(false);
+  }
+
+  async function unlink() {
+    if (!profile) return;
+    setUnlinking(true);
+    await supabase.from('profiles').update({ discord_id: null }).eq('id', profile.id);
+    await refreshProfile();
+    setUnlinking(false);
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Discord</CardTitle>
+        <CardDescription>
+          {isLinked
+            ? 'Your account is linked. Use /me, /done, and /task in Discord.'
+            : 'Link your Discord account to use bot commands in your server.'}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="gap-3">
+        {isLinked ? (
+          <Button variant="outline" label="Unlink Discord" loading={unlinking} onPress={unlink} />
+        ) : code ? (
+          <>
+            <View className="items-center rounded-lg bg-muted px-4 py-5">
+              <Text className="font-mono text-3xl font-bold tracking-[0.25em]">{code}</Text>
+            </View>
+            <Text variant="muted" className="text-center text-sm">
+              {'Run '}
+              <Text className="font-mono font-semibold">/link {code}</Text>
+              {' in Discord · expires in 15 min'}
+            </Text>
+            <Button variant="outline" label="Refresh status" onPress={async () => { await refreshProfile(); }} />
+          </>
+        ) : (
+          <Button label="Get Link Code" loading={generating} onPress={generateCode} />
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SettingsScreen() {
   return (
     <Screen maxWidth="max-w-2xl">
       <ScreenHeader title="Settings" description="Personalize the app and manage your account." />
 
       <AccountCard />
+
+      <DiscordCard />
 
       <Card>
         <CardHeader>

@@ -23,6 +23,7 @@ export type Profile = {
   role: UserRole;
   functional_roles: FunctionalRole[];
   status: UserStatus;
+  discord_id: string | null;
   created_at: string;
   updated_at: string;
 };
