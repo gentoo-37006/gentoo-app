@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { ClipboardList, Plus, SlidersHorizontal, Search } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -16,11 +16,11 @@ import { scoreTint } from '@/lib/scoring';
 import type { TeamScore } from '@/lib/types';
 
 function TeamCard({ team }: { team: TeamScore }) {
+  const router = useRouter();
   const tint = scoreTint(team.score);
   return (
-    <Link href={`/scouting/pit/${team.team_id}` as any} asChild>
-      <Pressable>
-        <Card className="active:opacity-90">
+    <Pressable className="active:opacity-75" onPress={() => router.push(`/scouting/pit/${team.team_id}` as any)}>
+        <Card>
           <CardContent className="gap-3 p-4">
             <View className="flex-row items-center justify-between gap-3">
               <View className="flex-1">
@@ -44,8 +44,7 @@ function TeamCard({ team }: { team: TeamScore }) {
             />
           </CardContent>
         </Card>
-      </Pressable>
-    </Link>
+    </Pressable>
   );
 }
 

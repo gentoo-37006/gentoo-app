@@ -1,5 +1,5 @@
 import { Pressable, View } from 'react-native';
-import { Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import {
   ClipboardList,
   Radio,
@@ -43,23 +43,25 @@ const QUICK_ACTIONS: QuickAction[] = [
 ];
 
 function QuickActionCard({ action }: { action: QuickAction }) {
+  const router = useRouter();
   return (
-    <Link href={action.href as any} asChild>
-      <Pressable className="flex-1 basis-full md:basis-[48%]">
-        <Card className="active:opacity-90">
-          <CardContent className="flex-row items-center gap-4 p-4">
-            <View className="h-11 w-11 items-center justify-center rounded-xl bg-accent">
-              <Icon as={action.icon} size={22} className="text-primary" />
-            </View>
-            <View className="flex-1">
-              <Text className="font-semibold">{action.label}</Text>
-              <Text variant="muted">{action.description}</Text>
-            </View>
-            <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
-          </CardContent>
-        </Card>
-      </Pressable>
-    </Link>
+    <Pressable
+      className="flex-1 basis-full active:opacity-75 md:basis-[48%]"
+      onPress={() => router.push(action.href as any)}
+    >
+      <Card>
+        <CardContent className="flex-row items-center gap-4 p-4">
+          <View className="h-11 w-11 items-center justify-center rounded-xl bg-accent">
+            <Icon as={action.icon} size={22} className="text-primary" />
+          </View>
+          <View className="flex-1">
+            <Text className="font-semibold">{action.label}</Text>
+            <Text variant="muted">{action.description}</Text>
+          </View>
+          <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
+        </CardContent>
+      </Card>
+    </Pressable>
   );
 }
 

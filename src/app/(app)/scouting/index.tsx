@@ -1,5 +1,5 @@
 import { Pressable, View } from 'react-native';
-import { Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import {
   ClipboardList,
   CalendarRange,
@@ -50,8 +50,9 @@ const SECTIONS: Section[] = [
 ];
 
 function SectionCard({ section }: { section: Section }) {
-  const body = (
-    <Card className={section.href ? 'active:opacity-90' : 'opacity-70'}>
+  const router = useRouter();
+  const card = (
+    <Card className={!section.href ? 'opacity-70' : undefined}>
       <CardContent className="flex-row items-center gap-4 p-4">
         <View className="h-11 w-11 items-center justify-center rounded-xl bg-accent">
           <Icon as={section.icon} size={22} className="text-primary" />
@@ -68,11 +69,11 @@ function SectionCard({ section }: { section: Section }) {
     </Card>
   );
 
-  if (!section.href) return body;
+  if (!section.href) return card;
   return (
-    <Link href={section.href as any} asChild>
-      <Pressable>{body}</Pressable>
-    </Link>
+    <Pressable className="active:opacity-75" onPress={() => router.push(section.href as any)}>
+      {card}
+    </Pressable>
   );
 }
 

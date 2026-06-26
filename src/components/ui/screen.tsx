@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { cn } from '@/lib/utils';
 import { Text } from '@/components/ui/text';
@@ -53,15 +53,14 @@ export function ScreenHeader({
   backHref?: string;
   children?: React.ReactNode;
 }) {
+  const router = useRouter();
   return (
     <View className="gap-2">
       {backHref ? (
-        <Link href={backHref as any} asChild>
-          <Pressable className="-ml-1 flex-row items-center gap-1 self-start py-1 active:opacity-70">
-            <Icon as={ChevronLeft} size={18} className="text-muted-foreground" />
-            <Text variant="muted">Back</Text>
-          </Pressable>
-        </Link>
+        <Pressable className="-ml-1 flex-row items-center gap-1 self-start py-1 active:opacity-70" onPress={() => router.back()}>
+          <Icon as={ChevronLeft} size={18} className="text-muted-foreground" />
+          <Text variant="muted">Back</Text>
+        </Pressable>
       ) : null}
       <View className="flex-row items-start justify-between gap-4">
         <View className="flex-1 gap-1">

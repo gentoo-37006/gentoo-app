@@ -1,4 +1,16 @@
 import '@/global.css';
+import * as ExpoCrypto from 'expo-crypto';
+
+if (!global.crypto) (global as any).crypto = {};
+if (!global.crypto.getRandomValues) {
+  (global as any).crypto.getRandomValues = ExpoCrypto.getRandomValues;
+}
+if (!global.crypto.subtle) {
+  (global as any).crypto.subtle = {
+    digest: async (_alg: string, data: ArrayBuffer) =>
+      ExpoCrypto.digest(ExpoCrypto.CryptoDigestAlgorithm.SHA256, new Uint8Array(data)),
+  };
+}
 
 import * as React from 'react';
 import { ActivityIndicator, View } from 'react-native';

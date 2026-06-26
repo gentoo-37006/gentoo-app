@@ -8,7 +8,8 @@
     "scheme": "gentoo",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.gentoo.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -39,6 +40,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d6ef0c8d-1dbb-48d0-b4de-fb839dc38e6e"
+      }
+    },
+    "owner": "xxooethanooxx"
   }
 }

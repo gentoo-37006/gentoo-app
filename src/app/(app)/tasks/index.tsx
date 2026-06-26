@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
-import { Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { ListChecks, Plus, ChevronRight } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -66,13 +66,13 @@ function CreateProject({ onClose }: { onClose: () => void }) {
 }
 
 function ProjectCard({ project }: { project: ProjectWithTasks }) {
+  const router = useRouter();
   const total = project.tasks.length;
   const done = project.tasks.filter((t) => t.status === 'done').length;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   return (
-    <Link href={`/tasks/${project.id}` as any} asChild>
-      <Pressable>
-        <Card className="active:opacity-90">
+    <Pressable className="active:opacity-75" onPress={() => router.push(`/tasks/${project.id}` as any)}>
+        <Card>
           <CardContent className="gap-3 p-4">
             <View className="flex-row items-center gap-3">
               <View className="flex-1">
@@ -101,8 +101,7 @@ function ProjectCard({ project }: { project: ProjectWithTasks }) {
             )}
           </CardContent>
         </Card>
-      </Pressable>
-    </Link>
+    </Pressable>
   );
 }
 

@@ -1,5 +1,5 @@
 import { ActivityIndicator, Pressable, View } from 'react-native';
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { CalendarRange, Upload, Wand2, ChevronRight } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -31,12 +31,12 @@ function AllianceLine({ match }: { match: MatchWithAssignments }) {
 }
 
 function MatchCard({ match }: { match: MatchWithAssignments }) {
+  const router = useRouter();
   const submitted = match.assignments.filter((a) => a.status === 'submitted').length;
   const total = match.assignments.length;
   return (
-    <Link href={`/scouting/matches/${match.id}` as any} asChild>
-      <Pressable>
-        <Card className="active:opacity-90">
+    <Pressable className="active:opacity-75" onPress={() => router.push(`/scouting/matches/${match.id}` as any)}>
+        <Card>
           <CardContent className="flex-row items-center gap-3 p-4">
             <View className="flex-1 gap-1">
               <Text className="font-bold">{matchTitle(match)}</Text>
@@ -51,18 +51,17 @@ function MatchCard({ match }: { match: MatchWithAssignments }) {
             <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
           </CardContent>
         </Card>
-      </Pressable>
-    </Link>
+    </Pressable>
   );
 }
 
 function MyAssignmentCard({ assignment }: { assignment: MyAssignment }) {
+  const router = useRouter();
   const m = assignment.match;
   if (!m) return null;
   return (
-    <Link href={`/scouting/matches/${m.id}` as any} asChild>
-      <Pressable>
-        <Card className="border-primary/40 bg-primary/5 active:opacity-90">
+    <Pressable className="active:opacity-75" onPress={() => router.push(`/scouting/matches/${m.id}` as any)}>
+        <Card className="border-primary/40 bg-primary/5">
           <CardContent className="flex-row items-center gap-3 p-4">
             <View className="flex-1">
               <Text className="font-semibold">{matchTitle(m)}</Text>
@@ -76,8 +75,7 @@ function MyAssignmentCard({ assignment }: { assignment: MyAssignment }) {
             />
           </CardContent>
         </Card>
-      </Pressable>
-    </Link>
+    </Pressable>
   );
 }
 
