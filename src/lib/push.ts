@@ -51,7 +51,6 @@ export async function registerForPushNotifications(userId: string): Promise<void
 
   try {
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
-    console.log('[push] token:', token);
     await supabase.from('push_tokens').upsert(
       {
         user_id: userId,
