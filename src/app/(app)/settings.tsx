@@ -181,7 +181,8 @@ export default function SettingsScreen() {
           <CardTitle>About</CardTitle>
         </CardHeader>
         <CardContent className="gap-1">
-          <Text variant="muted">Gentoo · FTC Team Hub</Text>
+          <Text variant="muted">© 2026 Gentoo Robotics. All rights reserved.</Text>
+          <Text variant="muted">Created by Radean and Yan</Text>
           <Text variant="muted">Version {Constants.expoConfig?.version ?? '1.0.0'}</Text>
         </CardContent>
       </Card>
