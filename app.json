@@ -35,6 +35,21 @@
             "imageWidth": 76
           }
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/splash-icon.png",
+          "color": "#208AEF",
+          "defaultChannel": "default"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Gentoo to access your photos to analyze cables.",
+          "cameraPermission": "Allow Gentoo to use the camera to photograph cables."
+        }
       ]
     ],
     "experiments": {

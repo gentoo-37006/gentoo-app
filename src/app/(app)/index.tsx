@@ -7,6 +7,7 @@ import {
   CalendarClock,
   Users,
   FolderKanban,
+  Cable,
   ChevronRight,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -36,10 +37,11 @@ function StatCard({ stat }: { stat: Stat }) {
 type QuickAction = { label: string; description: string; href: string; icon: LucideIcon };
 
 const QUICK_ACTIONS: QuickAction[] = [
-  { label: 'Pit scouting', description: 'Log a team’s capabilities', href: '/scouting/pit', icon: ClipboardList },
+  { label: 'Pit scouting', description: "Log a team's capabilities", href: '/scouting/pit', icon: ClipboardList },
   { label: 'Raise a talkie', description: 'Ask the pit crew for intel', href: '/talkie', icon: Radio },
   { label: 'View tasks', description: 'Projects and to-dos', href: '/tasks', icon: ListChecks },
-  { label: 'Pit schedule', description: 'Who’s staffing the pit', href: '/schedule', icon: CalendarClock },
+  { label: 'Pit schedule', description: "Who's staffing the pit", href: '/schedule', icon: CalendarClock },
+  { label: 'Count cables', description: 'AI-identify cables from a photo', href: '/cables', icon: Cable },
 ];
 
 function QuickActionCard({ action }: { action: QuickAction }) {

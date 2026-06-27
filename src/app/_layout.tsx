@@ -50,6 +50,10 @@ function RootNavigator() {
   const { initializing, isConfigured, session, profile } = useAuth();
   const segments = useSegments() as string[];
   const router = useRouter();
+  // Stays false until the first routing decision has been executed, preventing
+  // a one-frame flash of the wrong screen between when initializing becomes
+  // false and when the effect below actually fires.
+  const [settled, setSettled] = React.useState(false);
 
   React.useEffect(() => {
     if (initializing) return;
@@ -57,21 +61,28 @@ function RootNavigator() {
 
     if (!isConfigured || !session) {
       if (!inAuthGroup) router.replace('/sign-in');
+      setSettled(true);
       return;
     }
 
-    if (profile?.status !== 'approved') {
+    // profileResolved can be stale (true from a prior null-userId run) while the
+    // real profile fetch for the current session is still in flight. Wait for it.
+    if (!profile) return;
+
+    if (profile.status !== 'approved') {
       if (segments[1] !== 'pending') router.replace('/pending');
+      setSettled(true);
       return;
     }
 
     if (inAuthGroup) router.replace('/');
+    setSettled(true);
   }, [initializing, isConfigured, session, profile, segments, router]);
 
   return (
     <>
       <Stack screenOptions={{ headerShown: false }} />
-      {initializing && (
+      {!settled && (
         <View className="absolute inset-0 items-center justify-center bg-background">
           <ActivityIndicator size="large" />
         </View>
