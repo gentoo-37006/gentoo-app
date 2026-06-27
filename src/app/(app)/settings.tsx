@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View } from 'react-native';
+import { Alert, View } from 'react-native';
 import Constants from 'expo-constants';
 import { useColorScheme } from 'nativewind';
 import { Sun, Moon, SunMoon, LogOut, type LucideIcon } from 'lucide-react-native';
@@ -105,14 +105,18 @@ function DiscordCard() {
   async function generateCode() {
     if (!profile) return;
     setGenerating(true);
-    // Remove any existing unused tokens for this user first
     await supabase.from('discord_link_tokens').delete().eq('user_id', profile.id).is('used_at', null);
     const { data, error } = await supabase
       .from('discord_link_tokens')
       .insert({ user_id: profile.id })
       .select('token')
       .single();
-    if (!error && data) setCode((data as { token: string }).token);
+    if (error) {
+      console.error('[discord] generateCode error:', error);
+      Alert.alert('Error', error.message ?? 'Could not generate a link code. Please try again.');
+    } else if (data) {
+      setCode((data as { token: string }).token);
+    }
     setGenerating(false);
   }
 
