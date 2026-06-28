@@ -1,0 +1,27 @@
+{
+  "appId": "com.gentoo.app.desktop",
+  "productName": "Gentoo",
+  "artifactName": "${productName}-${version}-mac-${arch}.${ext}",
+  "directories": {
+    "output": "mac-build"
+  },
+  "files": [
+    {
+      "from": "dist",
+      "to": "dist"
+    },
+    {
+      "from": "electron",
+      "to": "electron"
+    },
+    "package.json"
+  ],
+  "extraMetadata": {
+    "main": "electron/main.cjs"
+  },
+  "mac": {
+    "category": "public.app-category.productivity",
+    "identity": null,
+    "target": ["dmg", "zip"]
+  }
+}

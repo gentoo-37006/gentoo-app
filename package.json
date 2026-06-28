@@ -45,6 +45,8 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "electron": "^42.5.0",
+    "electron-builder": "^26.15.3",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -52,6 +54,9 @@
     "android": "expo run:android",
     "ios": "expo run:ios --device",
     "web": "expo start --web",
+    "export:web": "expo export --platform web",
+    "mac:preview": "npm run export:web && electron electron/main.cjs",
+    "mac:installer": "npm run export:web && electron-builder --mac dmg zip --x64 --arm64 --config electron-builder.json",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit"
   },
