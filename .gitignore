@@ -8,6 +8,7 @@ node_modules/
 dist/
 web-build/
 mac-build/
+desktop-build/
 expo-env.d.ts
 
 # Native

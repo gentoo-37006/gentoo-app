@@ -1,9 +1,9 @@
 {
   "appId": "com.gentoo.app.desktop",
   "productName": "Gentoo",
-  "artifactName": "${productName}-${version}-mac-${arch}.${ext}",
+  "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
   "directories": {
-    "output": "mac-build"
+    "output": "desktop-build"
   },
   "files": [
     {
@@ -23,5 +23,22 @@
     "category": "public.app-category.productivity",
     "identity": null,
     "target": ["dmg", "zip"]
+  },
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      },
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ]
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "perMachine": false
   }
 }
