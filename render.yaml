@@ -1,0 +1,24 @@
+# Render blueprint — deploys the Expo web export as a static site.
+# Render → New → Blueprint → connect this repo. Enter the EXPO_PUBLIC_* values
+# (sync: false) when prompted; they are baked into the web bundle at build time.
+services:
+  - type: web
+    name: gentoo-web
+    runtime: static
+    buildCommand: npm ci && npx expo export --platform web
+    staticPublishPath: dist
+    # SPA fallback so client-side routes (incl. /tasks/[projectId],
+    # /scouting/pit/[teamId], /scouting/matches/[matchId]) resolve to the app.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: EXPO_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: EXPO_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: EXPO_PUBLIC_GROQ_API_KEY
+        sync: false
