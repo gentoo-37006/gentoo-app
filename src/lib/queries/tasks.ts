@@ -1,5 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import {
+  demoCreateProject,
+  demoCreateTask,
+  demoCurrentUserId,
+  demoDeleteProject,
+  demoDeleteTask,
+  demoMyOpenTaskCount,
+  demoProject,
+  demoProjects,
+  demoUpdateProject,
+  demoUpdateTask,
+  isDemoMode,
+} from '@/lib/demo';
 import { notifyUsers } from '@/lib/notify';
 import type { Priority, Project, ProjectStatus, Task, TaskStatus } from '@/lib/types';
 
@@ -9,6 +22,7 @@ export const taskKeys = {
 };
 
 async function currentUserId(): Promise<string | undefined> {
+  if (isDemoMode()) return demoCurrentUserId();
   const { data } = await supabase.auth.getSession();
   return data.session?.user?.id;
 }
@@ -19,6 +33,7 @@ export function useProjects() {
   return useQuery({
     queryKey: taskKeys.projects,
     queryFn: async (): Promise<ProjectWithTasks[]> => {
+      if (isDemoMode()) return demoProjects();
       const { data, error } = await supabase
         .from('projects')
         .select('*, tasks:tasks(id, status)')
@@ -39,6 +54,7 @@ export function useMyOpenTaskCount(uid?: string) {
     queryKey: ['my_open_tasks', uid],
     enabled: !!uid,
     queryFn: async (): Promise<number> => {
+      if (isDemoMode()) return demoMyOpenTaskCount(uid);
       const { count, error } = await supabase
         .from('tasks')
         .select('id', { count: 'exact', head: true })
@@ -55,6 +71,7 @@ export function useProject(projectId: string) {
     queryKey: taskKeys.project(projectId),
     enabled: !!projectId,
     queryFn: async () => {
+      if (isDemoMode()) return demoProject(projectId);
       const [{ data: project, error: pErr }, { data: tasks, error: tErr }] = await Promise.all([
         supabase.from('projects').select('*').eq('id', projectId).maybeSingle(),
         supabase
@@ -89,6 +106,7 @@ function useProjectsMutation<TVars, TData = unknown>(fn: (vars: TVars) => Promis
 export function useCreateProject() {
   return useProjectsMutation<{ name: string; description?: string; status: ProjectStatus; priority: Priority }>(
     async (vars) => {
+      if (isDemoMode()) return demoCreateProject(vars);
       const uid = await currentUserId();
       const { error } = await supabase.from('projects').insert({ ...vars, created_by: uid });
       if (error) throw error;
@@ -99,6 +117,7 @@ export function useCreateProject() {
 export function useUpdateProject() {
   return useProjectsMutation<{ id: string } & Partial<Pick<Project, 'name' | 'description' | 'status' | 'priority'>>>(
     async ({ id, ...patch }) => {
+      if (isDemoMode()) return demoUpdateProject(id, patch);
       const { error } = await supabase
         .from('projects')
         .update({ ...patch, updated_at: new Date().toISOString() })
@@ -110,6 +129,7 @@ export function useUpdateProject() {
 
 export function useDeleteProject() {
   return useProjectsMutation<string>(async (id) => {
+    if (isDemoMode()) return demoDeleteProject(id);
     const { error } = await supabase.from('projects').delete().eq('id', id);
     if (error) throw error;
   });
@@ -129,6 +149,7 @@ export type TaskInput = {
 
 export function useCreateTask() {
   return useProjectsMutation<TaskInput & { projectName: string }>(async ({ projectName, ...vars }) => {
+    if (isDemoMode()) return demoCreateTask(vars);
     const uid = await currentUserId();
     const { error } = await supabase.from('tasks').insert({ ...vars, created_by: uid });
     if (error) throw error;
@@ -146,6 +167,7 @@ export function useCreateTask() {
 export function useUpdateTask() {
   return useProjectsMutation<{ id: string } & Partial<Omit<TaskInput, 'project_id'>>>(
     async ({ id, ...patch }) => {
+      if (isDemoMode()) return demoUpdateTask(id, patch);
       const { error } = await supabase
         .from('tasks')
         .update({ ...patch, updated_at: new Date().toISOString() })
@@ -157,6 +179,7 @@ export function useUpdateTask() {
 
 export function useDeleteTask() {
   return useProjectsMutation<string>(async (id) => {
+    if (isDemoMode()) return demoDeleteTask(id);
     const { error } = await supabase.from('tasks').delete().eq('id', id);
     if (error) throw error;
   });

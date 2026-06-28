@@ -1,7 +1,17 @@
 import * as React from 'react';
 import type { Session } from '@supabase/supabase-js';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { isSupabaseConfigured } from '@/lib/env';
+import {
+  DEMO_USER_ID,
+  demoProfile,
+  demoSession,
+  initDemoAuth,
+  isDemoMode,
+  startDemoAuth,
+  stopDemoAuth,
+} from '@/lib/demo';
 import type { Profile } from '@/lib/types';
 
 type AuthContextValue = {
@@ -12,6 +22,8 @@ type AuthContextValue = {
   profile: Profile | null;
   isAdmin: boolean;
   isApproved: boolean;
+  isDemo: boolean;
+  signInDemo: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 };
@@ -32,6 +44,7 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
   const [session, setSession] = React.useState<Session | null>(null);
   const [profile, setProfile] = React.useState<Profile | null>(null);
   const [authResolved, setAuthResolved] = React.useState(false);
@@ -40,27 +53,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Subscribe to auth state. Profile loading is handled separately (below) to
   // avoid running queries inside the auth callback.
   React.useEffect(() => {
-    if (!isSupabaseConfigured) {
-      setAuthResolved(true);
-      setProfileResolved(true);
-      return;
-    }
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setAuthResolved(true);
+    let sub: { subscription: { unsubscribe: () => void } } | null = null;
+    let cancelled = false;
+
+    initDemoAuth().then(async (demoActive) => {
+      if (cancelled) return;
+      if (demoActive) {
+        setSession(demoSession());
+        setProfile(await demoProfile());
+        setAuthResolved(true);
+        setProfileResolved(true);
+        return;
+      }
+
+      if (!isSupabaseConfigured) {
+        setAuthResolved(true);
+        setProfileResolved(true);
+        return;
+      }
+      supabase.auth.getSession().then(({ data }) => {
+        if (cancelled) return;
+        setSession(data.session);
+        setAuthResolved(true);
+      });
+      const { data } = supabase.auth.onAuthStateChange((_event, next) => {
+        setSession(next);
+        setAuthResolved(true);
+      });
+      sub = data;
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next);
-      setAuthResolved(true);
-    });
-    return () => sub.subscription.unsubscribe();
-  }, []);
+
+    return () => {
+      cancelled = true;
+      sub?.subscription.unsubscribe();
+    };
+  }, [queryClient]);
 
   // Load the profile whenever the signed-in user changes.
   const userId = session?.user?.id;
   React.useEffect(() => {
     let active = true;
     if (!isSupabaseConfigured) return;
+    if (isDemoMode() || userId === DEMO_USER_ID) return;
     if (!userId) {
       setProfile(null);
       setProfileResolved(true);
@@ -78,6 +112,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [userId]);
 
   const refreshProfile = React.useCallback(async () => {
+    if (isDemoMode()) {
+      setProfile(await demoProfile());
+      return;
+    }
     if (!userId) {
       setProfile(null);
       return;
@@ -86,10 +124,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [userId]);
 
   const signOut = React.useCallback(async () => {
-    await supabase.auth.signOut();
+    if (isDemoMode()) await stopDemoAuth();
+    else await supabase.auth.signOut();
+    queryClient.clear();
     setSession(null);
     setProfile(null);
-  }, []);
+    setAuthResolved(true);
+    setProfileResolved(true);
+  }, [queryClient]);
+
+  const signInDemo = React.useCallback(async () => {
+    queryClient.clear();
+    await startDemoAuth();
+    setSession(demoSession());
+    setProfile(await demoProfile());
+    setAuthResolved(true);
+    setProfileResolved(true);
+  }, [queryClient]);
 
   const value = React.useMemo<AuthContextValue>(
     () => ({
@@ -99,10 +150,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profile,
       isAdmin: profile?.role === 'admin',
       isApproved: profile?.status === 'approved',
+      isDemo: isDemoMode(),
+      signInDemo,
       refreshProfile,
       signOut,
     }),
-    [authResolved, profileResolved, session, profile, refreshProfile, signOut]
+    [authResolved, profileResolved, session, profile, signInDemo, refreshProfile, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

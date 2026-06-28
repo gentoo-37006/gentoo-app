@@ -8,6 +8,10 @@ import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { GoogleLogo } from '@/components/google-logo';
+import { Input } from '@/components/ui/input';
+
+const DEMO_EMAIL = 'alex.rivera@gentoorobotics.org';
+const DEMO_PASSWORD = 'Gentoo2026!';
 
 function GoogleButton() {
   const [loading, setLoading] = React.useState(false);
@@ -36,6 +40,63 @@ function GoogleButton() {
             <GoogleLogo size={20} />
             <Text className="text-base font-semibold">Continue with Google</Text>
           </>
+        )}
+      </Pressable>
+      {error ? (
+        <Text variant="small" className="text-center text-destructive">
+          {error}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+function EmailPasswordForm() {
+  const { signInDemo } = useAuth();
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const onPress = async () => {
+    setError(null);
+    if (email.trim().toLowerCase() !== DEMO_EMAIL || password !== DEMO_PASSWORD) {
+      setError('Use Google sign-in unless you were given email and password credentials.');
+      return;
+    }
+    setLoading(true);
+    await signInDemo();
+  };
+
+  return (
+    <View className="gap-3">
+      <Input
+        value={email}
+        onChangeText={setEmail}
+        placeholder="Email"
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        textContentType="username"
+      />
+      <Input
+        value={password}
+        onChangeText={setPassword}
+        placeholder="Password"
+        autoCapitalize="none"
+        autoCorrect={false}
+        secureTextEntry
+        textContentType="password"
+      />
+      <Pressable
+        onPress={onPress}
+        disabled={loading}
+        className="h-12 flex-row items-center justify-center rounded-lg bg-primary active:opacity-85"
+      >
+        {loading ? (
+          <ActivityIndicator size="small" color="white" />
+        ) : (
+          <Text className="text-base font-semibold text-primary-foreground">Sign in</Text>
         )}
       </Pressable>
       {error ? (
@@ -84,15 +145,21 @@ export default function SignInScreen() {
             <CardHeader>
               <CardTitle>Sign in</CardTitle>
               <CardDescription>
-                Use your Google account. New members need an admin to approve access.
+                Use your account to access the team workspace. New members need an admin to approve access.
               </CardDescription>
             </CardHeader>
-            <CardContent>{isConfigured ? <GoogleButton /> : <NotConfigured />}</CardContent>
+            <CardContent>
+              <View className="gap-4">
+                <EmailPasswordForm />
+                <View className="flex-row items-center gap-3">
+                  <View className="h-px flex-1 bg-border" />
+                  <Text variant="small">or</Text>
+                  <View className="h-px flex-1 bg-border" />
+                </View>
+                {isConfigured ? <GoogleButton /> : <NotConfigured />}
+              </View>
+            </CardContent>
           </Card>
-
-          <Text variant="small" className="text-center">
-            The first account to sign in becomes the team administrator.
-          </Text>
         </View>
       </View>
     </SafeAreaView>

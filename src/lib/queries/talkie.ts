@@ -1,12 +1,21 @@
 import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import {
+  demoCreateTalkie,
+  demoCurrentUserId,
+  demoDeleteTalkie,
+  demoPatchTalkie,
+  demoTalkieRequests,
+  isDemoMode,
+} from '@/lib/demo';
 import { notifyUsers } from '@/lib/notify';
 import type { TalkieRequest } from '@/lib/types';
 
 export const talkieKey = ['talkie_requests'] as const;
 
 async function currentUserId(): Promise<string | undefined> {
+  if (isDemoMode()) return demoCurrentUserId();
   const { data } = await supabase.auth.getSession();
   return data.session?.user?.id;
 }
@@ -20,6 +29,7 @@ export function useTalkieRequests() {
   return useQuery({
     queryKey: talkieKey,
     queryFn: async (): Promise<TalkieWithPeople[]> => {
+      if (isDemoMode()) return demoTalkieRequests();
       const { data, error } = await supabase
         .from('talkie_requests')
         .select(
@@ -36,6 +46,7 @@ export function useTalkieRequests() {
 export function useTalkieRealtime() {
   const qc = useQueryClient();
   useEffect(() => {
+    if (isDemoMode()) return;
     const channel = supabase
       .channel('talkie_requests')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'talkie_requests' }, () =>
@@ -58,6 +69,7 @@ function useTalkieMutation<TVars>(fn: (vars: TVars) => Promise<void>) {
 
 export function useCreateTalkie() {
   return useTalkieMutation<{ teamNumber: number; reason: string }>(async ({ teamNumber, reason }) => {
+    if (isDemoMode()) return demoCreateTalkie(teamNumber, reason);
     const uid = await currentUserId();
     const { error } = await supabase
       .from('talkie_requests')
@@ -90,6 +102,10 @@ export function useCreateTalkie() {
 export function useClaimTalkie() {
   return useTalkieMutation<{ id: string; requesterId: string | null; teamNumber: number }>(
     async ({ id, requesterId, teamNumber }) => {
+      if (isDemoMode()) {
+        const uid = await demoCurrentUserId();
+        return demoPatchTalkie(id, { status: 'claimed', claimed_by: uid, claimed_at: new Date().toISOString() });
+      }
       const uid = await currentUserId();
       const { error } = await supabase
         .from('talkie_requests')
@@ -115,6 +131,7 @@ export function useResolveTalkie() {
     requesterId: string | null;
     teamNumber: number;
   }>(async ({ id, response, requesterId, teamNumber }) => {
+    if (isDemoMode()) return demoPatchTalkie(id, { status: 'resolved', response, resolved_at: new Date().toISOString() });
     const uid = await currentUserId();
     const { error } = await supabase
       .from('talkie_requests')
@@ -134,6 +151,7 @@ export function useResolveTalkie() {
 
 export function useDeleteTalkie() {
   return useTalkieMutation<string>(async (id) => {
+    if (isDemoMode()) return demoDeleteTalkie(id);
     const { error } = await supabase.from('talkie_requests').delete().eq('id', id);
     if (error) throw error;
   });

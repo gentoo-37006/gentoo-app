@@ -1,5 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import {
+  demoDeleteShift,
+  demoPatchShift,
+  demoPitShifts,
+  demoReplaceSchedule,
+  isDemoMode,
+} from '@/lib/demo';
 import type { PitShift } from '@/lib/types';
 import type { GeneratedShift } from '@/lib/scheduler';
 
@@ -14,6 +21,7 @@ export function usePitShifts() {
   return useQuery({
     queryKey: scheduleKey,
     queryFn: async (): Promise<ShiftWithAssignee[]> => {
+      if (isDemoMode()) return demoPitShifts();
       const { data, error } = await supabase
         .from('pit_shifts')
         .select('*, assignee:assignee_id(full_name, avatar_url)')
@@ -35,6 +43,7 @@ function useScheduleMutation<TVars>(fn: (vars: TVars) => Promise<void>) {
 /** Replace the whole schedule with a freshly generated rotation. */
 export function useReplaceSchedule() {
   return useScheduleMutation<GeneratedShift[]>(async (shifts) => {
+    if (isDemoMode()) return demoReplaceSchedule(shifts);
     const { error: delErr } = await supabase.from('pit_shifts').delete().neq('id', IMPOSSIBLE_ID);
     if (delErr) throw delErr;
     if (shifts.length === 0) return;
@@ -51,6 +60,7 @@ export function useReplaceSchedule() {
 
 export function useClearSchedule() {
   return useScheduleMutation<void>(async () => {
+    if (isDemoMode()) return demoReplaceSchedule([]);
     const { error } = await supabase.from('pit_shifts').delete().neq('id', IMPOSSIBLE_ID);
     if (error) throw error;
   });
@@ -58,6 +68,7 @@ export function useClearSchedule() {
 
 export function useReassignShift() {
   return useScheduleMutation<{ id: string; assigneeId: string | null }>(async ({ id, assigneeId }) => {
+    if (isDemoMode()) return demoPatchShift(id, assigneeId);
     const { error } = await supabase.from('pit_shifts').update({ assignee_id: assigneeId }).eq('id', id);
     if (error) throw error;
   });
@@ -65,6 +76,7 @@ export function useReassignShift() {
 
 export function useDeleteShift() {
   return useScheduleMutation<string>(async (id) => {
+    if (isDemoMode()) return demoDeleteShift(id);
     const { error } = await supabase.from('pit_shifts').delete().eq('id', id);
     if (error) throw error;
   });

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { demoPicklist, demoSetPicklist, isDemoMode } from '@/lib/demo';
 import type { PicklistTier, TeamScore } from '@/lib/types';
 import { scoutingKeys } from '@/lib/queries/scouting';
 
@@ -21,6 +22,7 @@ export function usePicklist() {
   return useQuery({
     queryKey: picklistKey,
     queryFn: async (): Promise<PicklistTeam[]> => {
+      if (isDemoMode()) return demoPicklist();
       const [scores, teams, caps] = await Promise.all([
         supabase.from('team_scores').select('*'),
         supabase.from('scouted_teams').select('id, picklist_tier, picklist_notes'),
@@ -72,6 +74,7 @@ function usePicklistMutation<TVars>(fn: (vars: TVars) => Promise<void>) {
 
 export function useSetTier() {
   return usePicklistMutation<{ teamId: string; tier: PicklistTier | null }>(async ({ teamId, tier }) => {
+    if (isDemoMode()) return demoSetPicklist(teamId, { picklist_tier: tier });
     const { error } = await supabase.from('scouted_teams').update({ picklist_tier: tier }).eq('id', teamId);
     if (error) throw error;
   });
@@ -79,6 +82,7 @@ export function useSetTier() {
 
 export function useSetPicklistNotes() {
   return usePicklistMutation<{ teamId: string; notes: string }>(async ({ teamId, notes }) => {
+    if (isDemoMode()) return demoSetPicklist(teamId, { picklist_notes: notes || null });
     const { error } = await supabase
       .from('scouted_teams')
       .update({ picklist_notes: notes || null })

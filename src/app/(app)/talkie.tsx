@@ -85,9 +85,6 @@ function TalkieCard({ request }: { request: TalkieWithPeople }) {
     <Card className={request.status === 'open' ? 'border-warning/40' : ''}>
       <CardContent className="gap-3 p-4">
         <View className="flex-row items-start gap-3">
-          <View className="h-10 w-10 items-center justify-center rounded-xl bg-accent">
-            <Text className="font-bold text-primary">{request.team_number}</Text>
-          </View>
           <View className="flex-1">
             <View className="flex-row items-center gap-2">
               <Text className="flex-1 font-semibold">Team {request.team_number}</Text>

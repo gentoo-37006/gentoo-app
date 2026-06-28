@@ -2,6 +2,12 @@ import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
+import {
+  demoMarkAllNotificationsRead,
+  demoMarkNotificationRead,
+  demoNotifications,
+  isDemoMode,
+} from '@/lib/demo';
 import type { AppNotification } from '@/lib/types';
 
 export function notificationsKey(uid?: string) {
@@ -15,6 +21,7 @@ export function useNotifications() {
     queryKey: notificationsKey(uid),
     enabled: !!uid,
     queryFn: async (): Promise<AppNotification[]> => {
+      if (isDemoMode()) return demoNotifications(uid);
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
@@ -37,6 +44,7 @@ export function useMarkNotificationRead() {
   const uid = session?.user?.id;
   return useMutation({
     mutationFn: async (id: string) => {
+      if (isDemoMode()) return demoMarkNotificationRead(id);
       const { error } = await supabase.from('notifications').update({ read: true }).eq('id', id);
       if (error) throw error;
     },
@@ -51,6 +59,7 @@ export function useMarkAllNotificationsRead() {
   return useMutation({
     mutationFn: async () => {
       if (!uid) return;
+      if (isDemoMode()) return demoMarkAllNotificationsRead(uid);
       const { error } = await supabase
         .from('notifications')
         .update({ read: true })
@@ -69,6 +78,7 @@ export function useNotificationsRealtime() {
   const uid = session?.user?.id;
   useEffect(() => {
     if (!uid) return;
+    if (isDemoMode()) return;
     const channel = supabase
       .channel(`notifications:${uid}`)
       .on(

@@ -1,5 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import {
+  demoCapabilityQuestions,
+  demoCreateQuestion,
+  demoCurrentUserId,
+  demoDeleteQuestion,
+  demoSubmitPitEntry,
+  demoTeamDetail,
+  demoTeamScores,
+  demoUpdateQuestion,
+  isDemoMode,
+} from '@/lib/demo';
 import type {
   AnswerValue,
   CapabilityQuestion,
@@ -16,6 +27,7 @@ export const scoutingKeys = {
 };
 
 async function currentUserId(): Promise<string | undefined> {
+  if (isDemoMode()) return demoCurrentUserId();
   const { data } = await supabase.auth.getSession();
   return data.session?.user?.id;
 }
@@ -26,6 +38,7 @@ export function useCapabilityQuestions(activeOnly = true) {
   return useQuery({
     queryKey: scoutingKeys.questions(activeOnly),
     queryFn: async (): Promise<CapabilityQuestion[]> => {
+      if (isDemoMode()) return demoCapabilityQuestions(activeOnly);
       let query = supabase
         .from('capability_questions')
         .select('*')
@@ -42,6 +55,7 @@ export function useTeamScores() {
   return useQuery({
     queryKey: scoutingKeys.teamScores,
     queryFn: async (): Promise<TeamScore[]> => {
+      if (isDemoMode()) return demoTeamScores();
       const { data, error } = await supabase
         .from('team_scores')
         .select('*')
@@ -66,6 +80,7 @@ export function useTeamDetail(teamId: string) {
     queryKey: scoutingKeys.team(teamId),
     enabled: !!teamId,
     queryFn: async () => {
+      if (isDemoMode()) return demoTeamDetail(teamId);
       const [{ data: team, error: teamErr }, { data: entries, error: entryErr }] =
         await Promise.all([
           supabase.from('scouted_teams').select('*').eq('id', teamId).maybeSingle(),
@@ -100,6 +115,7 @@ export function useSubmitPitEntry() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: SubmitPitInput): Promise<{ teamId: string }> => {
+      if (isDemoMode()) return demoSubmitPitEntry(input);
       const uid = await currentUserId();
 
       // Find or create the team (without clobbering an existing name).
@@ -168,6 +184,7 @@ function useQuestionMutation<TVars>(fn: (vars: TVars) => Promise<void>) {
 export function useCreateQuestion() {
   return useQuestionMutation<{ prompt: string; category: string; weight: number; sort_order: number }>(
     async (vars) => {
+      if (isDemoMode()) return demoCreateQuestion(vars);
       const { error } = await supabase.from('capability_questions').insert(vars);
       if (error) throw error;
     }
@@ -176,6 +193,7 @@ export function useCreateQuestion() {
 
 export function useUpdateQuestion() {
   return useQuestionMutation<{ id: string } & Partial<CapabilityQuestion>>(async ({ id, ...patch }) => {
+    if (isDemoMode()) return demoUpdateQuestion(id, patch);
     const { error } = await supabase.from('capability_questions').update(patch).eq('id', id);
     if (error) throw error;
   });
@@ -183,6 +201,7 @@ export function useUpdateQuestion() {
 
 export function useDeleteQuestion() {
   return useQuestionMutation<string>(async (id) => {
+    if (isDemoMode()) return demoDeleteQuestion(id);
     const { error } = await supabase.from('capability_questions').delete().eq('id', id);
     if (error) throw error;
   });

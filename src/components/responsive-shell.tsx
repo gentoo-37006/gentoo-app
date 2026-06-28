@@ -216,7 +216,7 @@ function MobileHeader({
 export function ResponsiveShell({ children }: { children: React.ReactNode }) {
   const { isWide } = useBreakpoint();
   const pathname = usePathname();
-  const { profile, isAdmin, session } = useAuth();
+  const { profile, isAdmin, session, isDemo } = useAuth();
   const unread = useUnreadCount();
   useNotificationsRealtime();
 
@@ -224,8 +224,8 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
   const userId = session?.user?.id;
   const isApproved = profile?.status === 'approved';
   React.useEffect(() => {
-    if (userId && isApproved) registerForPushNotifications(userId);
-  }, [userId, isApproved]);
+    if (userId && isApproved && !isDemo) registerForPushNotifications(userId);
+  }, [userId, isApproved, isDemo]);
 
   if (isWide) {
     return (

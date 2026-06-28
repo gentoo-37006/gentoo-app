@@ -96,7 +96,7 @@ function AccountCard() {
 }
 
 function DiscordCard() {
-  const { profile, refreshProfile } = useAuth();
+  const { profile, refreshProfile, isDemo } = useAuth();
   const [code, setCode] = React.useState<string | null>(null);
   const [generating, setGenerating] = React.useState(false);
   const [unlinking, setUnlinking] = React.useState(false);
@@ -104,6 +104,10 @@ function DiscordCard() {
 
   async function generateCode() {
     if (!profile) return;
+    if (isDemo) {
+      setCode('123456');
+      return;
+    }
     setGenerating(true);
     await supabase.from('discord_link_tokens').delete().eq('user_id', profile.id).is('used_at', null);
     const { data, error } = await supabase
@@ -122,6 +126,7 @@ function DiscordCard() {
 
   async function unlink() {
     if (!profile) return;
+    if (isDemo) return;
     setUnlinking(true);
     await supabase.from('profiles').update({ discord_id: null }).eq('id', profile.id);
     await refreshProfile();
