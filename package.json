@@ -2,6 +2,10 @@
   "name": "gentoo-app",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gentoo-34755/gentoo-app.git"
+  },
   "dependencies": {
     "@expo/ui": "~56.0.18",
     "@react-native-async-storage/async-storage": "^2.2.0",
@@ -9,6 +13,7 @@
     "@tanstack/react-query": "^5.101.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "electron-updater": "^6.8.9",
     "expo": "~56.0.12",
     "expo-auth-session": "~56.0.14",
     "expo-constants": "~56.0.18",
@@ -25,6 +30,7 @@
     "expo-status-bar": "~56.0.4",
     "expo-symbols": "~56.0.6",
     "expo-system-ui": "~56.0.5",
+    "expo-updates": "~56.0.19",
     "expo-web-browser": "~56.0.5",
     "lucide-react-native": "^1.21.0",
     "nativewind": "^4.2.6",
@@ -47,6 +53,8 @@
     "@types/react": "~19.2.2",
     "electron": "^42.5.0",
     "electron-builder": "^26.15.3",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~56.0.4",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -56,10 +64,13 @@
     "web": "expo start --web",
     "export:web": "expo export --platform web",
     "mac:preview": "npm run export:web && electron electron/main.cjs",
-    "mac:installer": "npm run export:web && electron-builder --mac dmg zip --x64 --arm64 --config electron-builder.json",
-    "win:portable": "npm run export:web && electron-builder --win portable --x64 --config electron-builder.json",
+    "mac:installer": "npm run export:web && electron-builder --mac dmg --arm64 --config electron-builder.json",
+    "mac:release": "bash scripts/build-signed-mac.sh",
     "win:installer": "npm run export:web && electron-builder --win nsis --x64 --config electron-builder.json",
-    "desktop:installer": "npm run export:web && electron-builder --mac dmg zip --x64 --arm64 --win nsis portable --x64 --config electron-builder.json",
+    "desktop:installer": "npm run mac:release && npm run win:installer",
+    "desktop:publish": "npm run export:web && electron-builder --mac dmg --arm64 --win nsis --x64 --config electron-builder.json --publish always",
+    "update:production": "eas update --branch production",
+    "update:preview": "eas update --branch preview",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit"
   },

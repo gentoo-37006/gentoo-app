@@ -1,19 +1,20 @@
 import '@/global.css';
 import * as ExpoCrypto from 'expo-crypto';
 
-if (!global.crypto) (global as any).crypto = {};
-if (!global.crypto.getRandomValues) {
-  (global as any).crypto.getRandomValues = ExpoCrypto.getRandomValues;
+if (!globalThis.crypto) (globalThis as any).crypto = {};
+if (!globalThis.crypto.getRandomValues) {
+  (globalThis as any).crypto.getRandomValues = ExpoCrypto.getRandomValues;
 }
-if (!global.crypto.subtle) {
-  (global as any).crypto.subtle = {
+if (!globalThis.crypto.subtle) {
+  (globalThis as any).crypto.subtle = {
     digest: async (_alg: string, data: ArrayBuffer) =>
       ExpoCrypto.digest(ExpoCrypto.CryptoDigestAlgorithm.SHA256, new Uint8Array(data)),
   };
 }
 
 import * as React from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
+import * as Updates from 'expo-updates';
 import { Stack, ThemeProvider, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -26,6 +27,7 @@ import { useAuth } from '@/lib/auth';
 export default function RootLayout() {
   const { colorScheme } = useColorScheme();
   const theme = colorScheme === 'dark' ? NAV_THEME.dark : NAV_THEME.light;
+  useNativeUpdates();
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -39,6 +41,32 @@ export default function RootLayout() {
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
+}
+
+function useNativeUpdates() {
+  React.useEffect(() => {
+    if (__DEV__ || Platform.OS === 'web' || !Updates.isEnabled) return;
+
+    let cancelled = false;
+
+    async function checkForUpdate() {
+      try {
+        const update = await Updates.checkForUpdateAsync();
+        if (cancelled || !update.isAvailable) return;
+
+        await Updates.fetchUpdateAsync();
+        if (!cancelled) await Updates.reloadAsync();
+      } catch (error) {
+        console.warn('[updates] check failed', error);
+      }
+    }
+
+    checkForUpdate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 }
 
 /**

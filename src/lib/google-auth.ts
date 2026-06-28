@@ -11,7 +11,13 @@ export type SignInResult = { error?: string; cancelled?: boolean };
  * a Supabase session. Works in dev builds and Expo Go.
  */
 export async function signInWithGoogle(): Promise<SignInResult> {
-  const redirectTo = makeRedirectUri();
+  // Force the app's custom scheme so the OAuth callback deep-links back into the
+  // native app. Without an explicit scheme, makeRedirectUri() resolves to the Metro
+  // dev-server URL (http://localhost:8081) in dev builds, which opens the web app in
+  // a browser and leaves the native app stuck. (Dev-client/standalone, not Expo Go.)
+  // Single-segment path (no inner "/") so it matches Supabase's existing
+  // `gentoo://*` redirect allow-list entry.
+  const redirectTo = makeRedirectUri({ scheme: 'gentoo', path: 'callback' });
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',

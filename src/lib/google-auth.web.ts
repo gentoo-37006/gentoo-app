@@ -3,6 +3,16 @@ import { SUPABASE_ANON_KEY } from '@/lib/env';
 
 export type SignInResult = { error?: string; cancelled?: boolean };
 
+function getRedirectTo() {
+  if (typeof window === 'undefined') return undefined;
+  // No trailing slash: Supabase's `gentoo://*` allow-list entry does not match a
+  // trailing "/", so `gentoo://app/` is rejected and falls back to the Site URL
+  // (localhost:8081). `gentoo://app` matches; Electron's open-url handler accepts
+  // `gentoo://app?code=...` (startsWith 'gentoo://app') and completes the exchange.
+  if (window.location.protocol === 'gentoo:') return 'gentoo://app';
+  return window.location.origin;
+}
+
 /**
  * Web Google sign-in. We build the OAuth URL (skipBrowserRedirect) and redirect
  * manually so we can guarantee the `apikey` is present — some gateway configs
@@ -10,7 +20,7 @@ export type SignInResult = { error?: string; cancelled?: boolean };
  * way back, the Supabase client (detectSessionInUrl + PKCE) completes the exchange.
  */
 export async function signInWithGoogle(): Promise<SignInResult> {
-  const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+  const redirectTo = getRedirectTo();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo, skipBrowserRedirect: true },

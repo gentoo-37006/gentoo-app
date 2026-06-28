@@ -8,7 +8,10 @@
     "scheme": "gentoo",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "bundleIdentifier": "com.gentoo.app"
+      "bundleIdentifier": "com.gentoo.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -24,6 +27,13 @@
     "web": {
       "output": "single",
       "favicon": "./assets/images/favicon.png"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/d6ef0c8d-1dbb-48d0-b4de-fb839dc38e6e",
+      "checkAutomatically": "ON_LOAD"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     },
     "plugins": [
       "expo-router",

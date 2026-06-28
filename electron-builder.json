@@ -2,8 +2,25 @@
   "appId": "com.gentoo.app.desktop",
   "productName": "Gentoo",
   "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+  "icon": "assets/images/icon.png",
   "directories": {
     "output": "desktop-build"
+  },
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "gentoo-34755",
+      "repo": "gentoo-app"
+    }
+  ],
+  "protocols": [
+    {
+      "name": "Gentoo",
+      "schemes": ["gentoo"]
+    }
+  ],
+  "toolsets": {
+    "nsis": "1.2.1"
   },
   "files": [
     {
@@ -14,24 +31,28 @@
       "from": "electron",
       "to": "electron"
     },
-    "package.json"
+    "package.json",
+    "!node_modules/**/android/**",
+    "!node_modules/**/ios/**",
+    "!node_modules/**/apple/**",
+    "!node_modules/**/prebuilds/**",
+    "!node_modules/**/*.framework/**",
+    "!node_modules/**/*.xcframework/**"
   ],
   "extraMetadata": {
     "main": "electron/main.cjs"
   },
   "mac": {
     "category": "public.app-category.productivity",
-    "identity": null,
-    "target": ["dmg", "zip"]
+    "hardenedRuntime": true,
+    "gatekeeperAssess": false,
+    "notarize": false,
+    "target": ["dmg"]
   },
   "win": {
     "target": [
       {
         "target": "nsis",
-        "arch": ["x64"]
-      },
-      {
-        "target": "portable",
         "arch": ["x64"]
       }
     ]

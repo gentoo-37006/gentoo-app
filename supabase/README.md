@@ -31,6 +31,7 @@ In **Supabase → Authentication → URL Configuration**:
 - **Additional Redirect URLs:** add each environment you sign in from, e.g.
   - `http://localhost:8081` (web dev)
   - `gentoo://` and `gentoo://*` (native standalone / dev build, scheme from `app.json`)
+  - `gentoo://app/` and `gentoo://app/*` (desktop app)
   - your Expo dev URL if testing OAuth in Expo Go
 
 ## 5. First sign-in
