@@ -1,20 +1,19 @@
-import * as React from 'react';
-import { Alert, View } from 'react-native';
-import Constants from 'expo-constants';
-import { Sun, Moon, SunMoon, LogOut, type LucideIcon } from 'lucide-react-native';
-import { Screen, ScreenHeader } from '@/components/ui/screen';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Text } from '@/components/ui/text';
-import { Icon } from '@/components/ui/icon';
-import { Pressable } from 'react-native';
-import { cn } from '@/lib/utils';
-import { useAuth } from '@/lib/auth';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Icon } from '@/components/ui/icon';
+import { Screen, ScreenHeader } from '@/components/ui/screen';
+import { Text } from '@/components/ui/text';
+import { useAuth } from '@/lib/auth';
+import { COMMIT_SHA } from '@/lib/env';
 import { supabase } from '@/lib/supabase';
 import { useThemeMode } from '@/lib/theme-mode';
-import { COMMIT_SHA } from '@/lib/env';
+import { cn } from '@/lib/utils';
+import Constants from 'expo-constants';
+import { LogOut, Moon, Sun, SunMoon, type LucideIcon } from 'lucide-react-native';
+import * as React from 'react';
+import { Alert, Pressable, View } from 'react-native';
 
 type Mode = 'light' | 'dark' | 'system';
 const MODES: { value: Mode; label: string; icon: LucideIcon }[] = [
@@ -188,7 +187,7 @@ export default function SettingsScreen() {
         </CardHeader>
         <CardContent className="gap-1">
           <Text variant="muted">© 2026 Gentoo Robotics. All rights reserved.</Text>
-          <Text variant="muted">Created by Radean and Yan</Text>
+          <Text variant="muted">Created by Yan and Radean</Text>
           {COMMIT_SHA ? (
             <Text variant="muted">Commit {COMMIT_SHA.slice(0, 7)}</Text>
           ) : (
