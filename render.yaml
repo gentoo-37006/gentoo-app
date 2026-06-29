@@ -5,6 +5,8 @@ services:
   - type: web
     name: gentoo-web
     runtime: static
+    # Don't redeploy on every push; trigger deploys manually from the Render dashboard.
+    autoDeploy: false
     buildCommand: npm ci && npx expo export --platform web
     staticPublishPath: dist
     # SPA fallback so client-side routes (incl. /tasks/[projectId],
