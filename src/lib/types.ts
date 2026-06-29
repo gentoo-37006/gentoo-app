@@ -219,6 +219,8 @@ export type Project = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  /** Set when the project is moved to trash; null while active. */
+  deleted_at: string | null;
 };
 
 export type Task = {

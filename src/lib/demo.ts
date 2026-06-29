@@ -148,8 +148,8 @@ function seedWorkspace(): DemoWorkspace {
   ];
 
   const projects: Project[] = [
-    { id: 'project-pit', name: 'Pit readiness', description: 'Prep the pit before inspection.', status: 'active', priority: 'high', created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
-    { id: 'project-scouting', name: 'Scouting setup', description: 'Validate match schedule and roles.', status: 'planning', priority: 'medium', created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'project-pit', name: 'Pit readiness', description: 'Prep the pit before inspection.', status: 'active', priority: 'high', created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
+    { id: 'project-scouting', name: 'Scouting setup', description: 'Validate match schedule and roles.', status: 'planning', priority: 'medium', created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
   ];
 
   const tasks: Task[] = [
@@ -530,10 +530,22 @@ export async function demoDeleteTalkie(idValue: string) {
 
 export async function demoProjects() {
   const db = await getDemoWorkspace();
-  return db.projects.map((p) => ({
-    ...p,
-    tasks: db.tasks.filter((t) => t.project_id === p.id).map(({ id, status }) => ({ id, status })),
-  }));
+  return db.projects
+    .filter((p) => !p.deleted_at)
+    .map((p) => ({
+      ...p,
+      tasks: db.tasks.filter((t) => t.project_id === p.id).map(({ id, status }) => ({ id, status })),
+    }));
+}
+
+export async function demoTrashedProjects() {
+  const db = await getDemoWorkspace();
+  return db.projects
+    .filter((p) => !!p.deleted_at)
+    .map((p) => ({
+      ...p,
+      tasks: db.tasks.filter((t) => t.project_id === p.id).map(({ id, status }) => ({ id, status })),
+    }));
 }
 
 export async function demoProject(projectId: string) {
@@ -551,18 +563,33 @@ export async function demoProject(projectId: string) {
 
 export async function demoMyOpenTaskCount(uid = DEMO_USER_ID) {
   const db = await getDemoWorkspace();
-  return db.tasks.filter((t) => t.assignee_id === uid && t.status !== 'done').length;
+  const activeProjects = new Set(db.projects.filter((p) => !p.deleted_at).map((p) => p.id));
+  return db.tasks.filter(
+    (t) => t.assignee_id === uid && t.status !== 'done' && activeProjects.has(t.project_id)
+  ).length;
 }
 
 export async function demoCreateProject(vars: { name: string; description?: string; status: ProjectStatus; priority: Priority }) {
   const db = await getDemoWorkspace();
-  db.projects.unshift({ id: id('project'), name: vars.name, description: vars.description ?? null, status: vars.status, priority: vars.priority, created_by: DEMO_USER_ID, created_at: now(), updated_at: now() });
+  db.projects.unshift({ id: id('project'), name: vars.name, description: vars.description ?? null, status: vars.status, priority: vars.priority, created_by: DEMO_USER_ID, created_at: now(), updated_at: now(), deleted_at: null });
   await persist();
 }
 
 export async function demoUpdateProject(idValue: string, patch: Partial<Pick<Project, 'name' | 'description' | 'status' | 'priority'>>) {
   const db = await getDemoWorkspace();
   db.projects = db.projects.map((p) => (p.id === idValue ? { ...p, ...patch, updated_at: now() } : p));
+  await persist();
+}
+
+export async function demoTrashProject(idValue: string) {
+  const db = await getDemoWorkspace();
+  db.projects = db.projects.map((p) => (p.id === idValue ? { ...p, deleted_at: now(), updated_at: now() } : p));
+  await persist();
+}
+
+export async function demoRestoreProject(idValue: string) {
+  const db = await getDemoWorkspace();
+  db.projects = db.projects.map((p) => (p.id === idValue ? { ...p, deleted_at: null, updated_at: now() } : p));
   await persist();
 }
 
