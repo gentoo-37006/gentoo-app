@@ -23,6 +23,7 @@ import { useColorScheme } from 'nativewind';
 import { NAV_THEME } from '@/lib/theme';
 import { useRestoreThemeMode } from '@/lib/theme-mode';
 import { Providers } from '@/components/providers';
+import { UpdateBanner } from '@/components/update-banner';
 import { useAuth } from '@/lib/auth';
 
 export default function RootLayout() {
@@ -37,6 +38,7 @@ export default function RootLayout() {
         <ThemeProvider value={theme}>
           <Providers>
             <RootNavigator />
+            <UpdateBanner />
           </Providers>
           <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         </ThemeProvider>

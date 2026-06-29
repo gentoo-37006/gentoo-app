@@ -8,8 +8,14 @@ services:
     name: gentoo-web
     runtime: static
     autoDeploy: false
-    buildCommand: npm ci && npx expo export --platform web
+    buildCommand: npm ci && npx expo export --platform web --clear && node scripts/write-version.js
     staticPublishPath: dist
+    # version.json drives the in-app update banner; never cache it so the client
+    # notices new deploys promptly.
+    headers:
+      - path: /version.json
+        name: Cache-Control
+        value: no-store
     # SPA fallback so client-side routes (incl. /tasks/[projectId],
     # /scouting/pit/[teamId], /scouting/matches/[matchId]) resolve to the app.
     routes:
@@ -35,9 +41,18 @@ services:
     runtime: static
     autoDeploy: true
     # Bake the deployed commit SHA into the bundle (RENDER_GIT_COMMIT is provided
-    # by Render at build time) so the About screen can show "Commit <sha>".
-    buildCommand: npm ci && EXPO_PUBLIC_COMMIT_SHA="$RENDER_GIT_COMMIT" npx expo export --platform web
+    # by Render at build time) so the About screen can show "Commit <sha>" and the
+    # update banner can detect new commits. Exported (not inlined) so the
+    # write-version script picks up the same SHA the bundle baked in.
+    # --clear forces a cold Metro build so the commit SHA (and thus the build id)
+    # is re-baked every deploy; otherwise the transform cache could reuse a stale
+    # SHA and the update banner would fire forever.
+    buildCommand: npm ci && export EXPO_PUBLIC_COMMIT_SHA="$RENDER_GIT_COMMIT" && npx expo export --platform web --clear && node scripts/write-version.js
     staticPublishPath: dist
+    headers:
+      - path: /version.json
+        name: Cache-Control
+        value: no-store
     domains:
       - beta.gentoo.ethanyanxu.com
     routes:
