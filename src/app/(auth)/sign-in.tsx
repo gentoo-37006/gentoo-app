@@ -126,6 +126,7 @@ function NotConfigured() {
 
 export default function SignInScreen() {
   const { isConfigured } = useAuth();
+  const [showEmail, setShowEmail] = React.useState(false);
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -149,15 +150,32 @@ export default function SignInScreen() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <View className="gap-4">
-                <EmailPasswordForm />
-                <View className="flex-row items-center gap-3">
-                  <View className="h-px flex-1 bg-border" />
-                  <Text variant="small">or</Text>
-                  <View className="h-px flex-1 bg-border" />
+              {showEmail ? (
+                <View className="gap-4">
+                  <View className="flex-row gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3">
+                    <Icon as={TriangleAlert} size={16} className="mt-0.5 text-warning" />
+                    <Text variant="small" className="flex-1 text-muted-foreground">
+                      Only sign in with email and password if you were given credentials. You can&apos;t
+                      create an account this way — most members should continue with Google.
+                    </Text>
+                  </View>
+                  <EmailPasswordForm />
+                  <Pressable onPress={() => setShowEmail(false)} className="self-center py-1">
+                    <Text variant="small" className="text-muted-foreground underline">
+                      Back to Google sign-in
+                    </Text>
+                  </Pressable>
                 </View>
-                {isConfigured ? <GoogleButton /> : <NotConfigured />}
-              </View>
+              ) : (
+                <View className="gap-4">
+                  {isConfigured ? <GoogleButton /> : <NotConfigured />}
+                  <Pressable onPress={() => setShowEmail(true)} className="self-center py-1">
+                    <Text variant="small" className="text-muted-foreground underline">
+                      Sign in with email and password
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
             </CardContent>
           </Card>
         </View>
