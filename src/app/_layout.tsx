@@ -21,12 +21,14 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 import { NAV_THEME } from '@/lib/theme';
+import { useRestoreThemeMode } from '@/lib/theme-mode';
 import { Providers } from '@/components/providers';
 import { useAuth } from '@/lib/auth';
 
 export default function RootLayout() {
   const { colorScheme } = useColorScheme();
   const theme = colorScheme === 'dark' ? NAV_THEME.dark : NAV_THEME.light;
+  useRestoreThemeMode();
   useNativeUpdates();
 
   return (

@@ -6,6 +6,10 @@ export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 export const GROQ_API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY ?? '';
 
+/** Git commit SHA baked in at build time (set on the beta deploy). Empty on
+ *  builds that don't provide it — callers fall back to the app version. */
+export const COMMIT_SHA = process.env.EXPO_PUBLIC_COMMIT_SHA ?? '';
+
 /** Whether Supabase credentials are present. When false, the app runs in an
  *  unconfigured state and shows setup guidance instead of crashing. */
 export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);

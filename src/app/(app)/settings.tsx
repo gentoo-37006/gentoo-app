@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { Alert, View } from 'react-native';
 import Constants from 'expo-constants';
-import { useColorScheme } from 'nativewind';
 import { Sun, Moon, SunMoon, LogOut, type LucideIcon } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -14,6 +13,8 @@ import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
+import { useThemeMode } from '@/lib/theme-mode';
+import { COMMIT_SHA } from '@/lib/env';
 
 type Mode = 'light' | 'dark' | 'system';
 const MODES: { value: Mode; label: string; icon: LucideIcon }[] = [
@@ -23,8 +24,7 @@ const MODES: { value: Mode; label: string; icon: LucideIcon }[] = [
 ];
 
 function AppearancePicker() {
-  const { setColorScheme } = useColorScheme();
-  const [mode, setMode] = React.useState<Mode>('system');
+  const { mode, setMode } = useThemeMode();
 
   return (
     <View className="flex-row gap-2">
@@ -33,10 +33,7 @@ function AppearancePicker() {
         return (
           <Pressable
             key={m.value}
-            onPress={() => {
-              setMode(m.value);
-              setColorScheme(m.value);
-            }}
+            onPress={() => setMode(m.value)}
             className={cn(
               'flex-1 items-center gap-1.5 rounded-lg border px-3 py-3',
               active ? 'border-primary bg-primary' : 'border-border bg-background active:bg-accent'
@@ -192,7 +189,11 @@ export default function SettingsScreen() {
         <CardContent className="gap-1">
           <Text variant="muted">© 2026 Gentoo Robotics. All rights reserved.</Text>
           <Text variant="muted">Created by Radean and Yan</Text>
-          <Text variant="muted">Version {Constants.expoConfig?.version ?? '1.0.0'}</Text>
+          {COMMIT_SHA ? (
+            <Text variant="muted">Commit {COMMIT_SHA.slice(0, 7)}</Text>
+          ) : (
+            <Text variant="muted">Version {Constants.expoConfig?.version ?? '1.0.0'}</Text>
+          )}
         </CardContent>
       </Card>
     </Screen>

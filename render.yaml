@@ -34,7 +34,9 @@ services:
     name: gentoo-web-beta
     runtime: static
     autoDeploy: true
-    buildCommand: npm ci && npx expo export --platform web
+    # Bake the deployed commit SHA into the bundle (RENDER_GIT_COMMIT is provided
+    # by Render at build time) so the About screen can show "Commit <sha>".
+    buildCommand: npm ci && EXPO_PUBLIC_COMMIT_SHA="$RENDER_GIT_COMMIT" npx expo export --platform web
     staticPublishPath: dist
     domains:
       - beta.gentoo.ethanyanxu.com
