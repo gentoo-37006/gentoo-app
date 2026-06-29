@@ -41,17 +41,17 @@ function TrashedProjectCard({ project }: { project: ProjectWithTasks }) {
           <Badge variant={priorityVariant(project.priority)} label={labelOf(PRIORITIES, project.priority)} />
         </View>
 
-        {canManage ? (
-          <View className="flex-row gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              label="Restore"
-              icon={RotateCcw}
-              disabled={busy}
-              onPress={() => restore.mutate(project.id)}
-              className="flex-1"
-            />
+        <View className="flex-row gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            label="Restore"
+            icon={RotateCcw}
+            disabled={busy}
+            onPress={() => restore.mutate(project.id)}
+            className="flex-1"
+          />
+          {canManage ? (
             <Button
               variant={confirming ? 'destructive' : 'outline'}
               size="sm"
@@ -61,12 +61,13 @@ function TrashedProjectCard({ project }: { project: ProjectWithTasks }) {
               onPress={() => (confirming ? del.mutate(project.id) : setConfirming(true))}
               className="flex-1"
             />
-          </View>
-        ) : (
+          ) : null}
+        </View>
+        {!canManage ? (
           <Text variant="small" className="text-muted-foreground">
-            Only the project owner or an admin can restore or permanently delete this project.
+            Only the project owner or an admin can permanently delete a project.
           </Text>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );

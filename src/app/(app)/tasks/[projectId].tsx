@@ -13,7 +13,6 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { OptionChips } from '@/components/ui/option-chips';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/lib/auth';
 import { useProfiles } from '@/lib/queries/profiles';
 import {
   useProject,
@@ -239,7 +238,6 @@ function TaskCard({
 export default function ProjectDetailScreen() {
   const router = useRouter();
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
-  const { isAdmin, session } = useAuth();
   const { data, isLoading } = useProject(projectId);
   const { data: profiles } = useProfiles();
   const updateProject = useUpdateProject();
@@ -275,7 +273,6 @@ export default function ProjectDetailScreen() {
   const members = (profiles ?? []).filter((p) => p.status === 'approved');
   const tasks = data?.tasks ?? [];
   const allTags = Array.from(new Set(tasks.flatMap((t) => t.tags)));
-  const canManageProject = isAdmin || project.created_by === session?.user?.id;
 
   const filtered = tasks.filter((t) => {
     if (fAssignee === 'unassigned' && t.assignee_id) return false;
@@ -296,18 +293,16 @@ export default function ProjectDetailScreen() {
   return (
     <Screen>
       <ScreenHeader title={project.name} description={project.description ?? undefined} backHref="/tasks">
-        {canManageProject ? (
-          <Button
-            variant="outline"
-            size="icon"
-            icon={Trash2}
-            accessibilityLabel="Move project to trash"
-            onPress={() => {
-              trashProject.mutate(project.id);
-              router.replace('/tasks' as any);
-            }}
-          />
-        ) : null}
+        <Button
+          variant="outline"
+          size="icon"
+          icon={Trash2}
+          accessibilityLabel="Move project to trash"
+          onPress={() => {
+            trashProject.mutate(project.id);
+            router.replace('/tasks' as any);
+          }}
+        />
       </ScreenHeader>
 
       <Card>
