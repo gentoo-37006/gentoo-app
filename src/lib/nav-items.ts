@@ -6,6 +6,7 @@ import {
   ListChecks,
   CalendarClock,
   Bell,
+  Download,
   ShieldCheck,
   Settings,
 } from 'lucide-react-native';
@@ -31,6 +32,7 @@ export const PRIMARY_NAV: NavItem[] = [
 /** Secondary destinations — sidebar footer on wide screens, header/menu on phones. */
 export const SECONDARY_NAV: NavItem[] = [
   { name: 'notifications', label: 'Notifications', href: '/notifications', icon: Bell },
+  { name: 'downloads', label: 'Downloads', href: '/downloads', icon: Download },
   { name: 'admin', label: 'Admin', href: '/admin', icon: ShieldCheck, adminOnly: true },
   { name: 'settings', label: 'Settings', href: '/settings', icon: Settings },
 ];
