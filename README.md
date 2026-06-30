@@ -37,6 +37,29 @@ npm start              # then press w (web), i (iOS), a (Android)
 | `npm run typecheck` | Run `tsc --noEmit` |
 | `npm run lint` | Run Expo lint |
 
+## Render deploys
+
+The web app is exported as static files, so `EXPO_PUBLIC_*` values are baked into
+the bundle during the Render build. Configure these environment variables on
+both Render services before deploying:
+
+- `gentoo-web`
+- `gentoo-web-nightly`
+
+Required variables:
+
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+
+Optional variable:
+
+- `EXPO_PUBLIC_GROQ_API_KEY`
+
+In Render, open the service, go to **Environment**, add the values from your
+Supabase project settings, save, and redeploy. GitHub Actions secrets are used
+for desktop builds only; the nightly web deploy runs inside Render and cannot
+see those GitHub secrets.
+
 ## Project structure
 
 ```

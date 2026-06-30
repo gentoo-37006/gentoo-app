@@ -8,7 +8,7 @@ services:
     name: gentoo-web
     runtime: static
     autoDeploy: false
-    buildCommand: npm ci && npx expo export --platform web --clear && node scripts/write-version.js
+    buildCommand: node scripts/check-public-env.js && npm ci && npx expo export --platform web --clear && node scripts/write-version.js
     staticPublishPath: dist
     # version.json drives the in-app update banner; never cache it so the client
     # notices new deploys promptly.
@@ -48,7 +48,7 @@ services:
     # --clear forces a cold Metro build so the commit SHA (and thus the build id)
     # is re-baked every deploy; otherwise the transform cache could reuse a stale
     # SHA and the update banner would fire forever.
-    buildCommand: npm ci && export EXPO_PUBLIC_COMMIT_SHA="$RENDER_GIT_COMMIT" && npx expo export --platform web --clear && node scripts/write-version.js
+    buildCommand: node scripts/check-public-env.js && npm ci && export EXPO_PUBLIC_COMMIT_SHA="$RENDER_GIT_COMMIT" && npx expo export --platform web --clear && node scripts/write-version.js
     staticPublishPath: dist
     headers:
       - path: /version.json
