@@ -46,6 +46,13 @@ function checkForUpdates() {
 
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+  // Nightly builds ship a `-nightly.<date>` prerelease version: track the
+  // nightly feed and accept prereleases so they self-update every night.
+  // Stable builds keep the default 'latest' channel and ignore nightlies.
+  if (app.getVersion().includes('-nightly')) {
+    autoUpdater.channel = 'nightly';
+    autoUpdater.allowPrerelease = true;
+  }
   autoUpdater.checkForUpdatesAndNotify().catch((error) => {
     console.warn('[updates] check failed', error);
   });

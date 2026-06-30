@@ -18,7 +18,7 @@ export function UpdateBanner() {
 
   if (!available) return null;
 
-  const message = channel === 'beta' ? 'A new beta build is available' : 'A new version is available';
+  const message = channel === 'nightly' ? 'A new nightly build is available' : 'A new version is available';
 
   return (
     <View

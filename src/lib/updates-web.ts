@@ -8,7 +8,7 @@ import { COMMIT_SHA } from '@/lib/env';
  *
  * Each deploy publishes /version.json (see scripts/write-version.js). The running
  * tab knows its own build id from what was baked into the bundle at build time —
- * the commit SHA on beta, or the app version on release — and polls the manifest
+ * the commit SHA on nightly, or the app version on release — and polls the manifest
  * to see if a newer build is live. Native uses expo-updates instead (see _layout).
  */
 
@@ -16,11 +16,11 @@ const POLL_MS = 60_000;
 
 type Manifest = { id?: string; commit?: string; version?: string };
 
-export type UpdateChannel = 'beta' | 'release';
+export type UpdateChannel = 'nightly' | 'release';
 
 export function useWebUpdateAvailable() {
   const version = Constants.expoConfig?.version ?? '';
-  const channel: UpdateChannel = COMMIT_SHA ? 'beta' : 'release';
+  const channel: UpdateChannel = COMMIT_SHA ? 'nightly' : 'release';
   const currentId = COMMIT_SHA || version;
 
   const [available, setAvailable] = React.useState(false);
