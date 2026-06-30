@@ -72,5 +72,13 @@ for dmg in "${dmgs[@]}"; do
   xcrun notarytool submit "$dmg" --wait --timeout 30m "${notary_args[@]}"
   xcrun stapler staple "$dmg"
   xcrun stapler validate "$dmg"
-  spctl -a -vvv -t install "$dmg"
+done
+
+# Notarizing the DMG registers the app's signature with Apple, so Gatekeeper now
+# accepts the app itself — the check that reflects what users hit on launch.
+# We deliberately do NOT spctl-assess the .dmg: electron-builder ships it
+# unsigned (notarized + stapled is what counts), and `spctl -t install`/`-t open`
+# on an unsigned DMG always reports "no usable signature" and aborts under set -e.
+for app in "${apps[@]}"; do
+  spctl -a -t exec -vvv "$app"
 done
