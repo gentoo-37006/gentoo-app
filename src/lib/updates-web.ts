@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import { COMMIT_SHA } from '@/lib/env';
+import { COMMIT_SHA, RELEASE_CHANNEL, type ReleaseChannel } from '@/lib/env';
 
 /**
  * Web-only "a newer build is deployed" detector.
@@ -16,11 +16,11 @@ const POLL_MS = 60_000;
 
 type Manifest = { id?: string; commit?: string; version?: string };
 
-export type UpdateChannel = 'beta' | 'release';
+export type UpdateChannel = ReleaseChannel;
 
 export function useWebUpdateAvailable() {
   const version = Constants.expoConfig?.version ?? '';
-  const channel: UpdateChannel = COMMIT_SHA ? 'beta' : 'release';
+  const channel: UpdateChannel = RELEASE_CHANNEL;
   const currentId = COMMIT_SHA || version;
 
   const [available, setAvailable] = React.useState(false);

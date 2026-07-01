@@ -1,8 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/env';
+import {
+  RELEASE_CHANNEL,
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
+  type ReleaseChannel,
+} from '@/lib/env';
 
 export type DownloadItem = {
-  os: 'macOS' | 'Windows';
+  os: 'Android' | 'macOS' | 'Windows';
   label: string;
   arch: string;
   filename: string;
@@ -11,12 +16,14 @@ export type DownloadItem = {
 };
 
 export type DownloadsResponse = {
+  channel: ReleaseChannel;
   version: string | null;
   publishedAt: string | null;
   downloads: DownloadItem[];
 };
 
 const ENDPOINT = `${SUPABASE_URL}/functions/v1/downloads`;
+const DEFAULT_CHANNEL = RELEASE_CHANNEL;
 
 /**
  * Direct download link for an asset. The function is public, but we pass the
@@ -24,15 +31,15 @@ const ENDPOINT = `${SUPABASE_URL}/functions/v1/downloads`;
  * plain <a>/navigation (which can't set an Authorization header). The anon key
  * is already public in the client bundle.
  */
-export function downloadUrl(assetId: number): string {
-  return `${ENDPOINT}?asset=${assetId}&apikey=${SUPABASE_ANON_KEY}`;
+export function downloadUrl(assetId: number, channel: ReleaseChannel = DEFAULT_CHANNEL): string {
+  return `${ENDPOINT}?asset=${assetId}&channel=${channel}&apikey=${SUPABASE_ANON_KEY}`;
 }
 
-export function useDownloads() {
+export function useDownloads(channel: ReleaseChannel = DEFAULT_CHANNEL) {
   return useQuery({
-    queryKey: ['downloads'],
+    queryKey: ['downloads', channel],
     queryFn: async (): Promise<DownloadsResponse> => {
-      const res = await fetch(ENDPOINT, {
+      const res = await fetch(`${ENDPOINT}?channel=${channel}`, {
         headers: { Accept: 'application/json', apikey: SUPABASE_ANON_KEY },
       });
       if (!res.ok) throw new Error('Failed to load downloads');

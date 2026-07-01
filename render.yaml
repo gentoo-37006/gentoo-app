@@ -41,13 +41,13 @@ services:
     runtime: static
     autoDeploy: false
     # Bake the deployed commit SHA into the bundle (RENDER_GIT_COMMIT is provided
-    # by Render at build time) so the About screen can show "Commit <sha>" and the
-    # update banner can detect new commits. Exported (not inlined) so the
-    # write-version script picks up the same SHA the bundle baked in.
+    # by Render at build time) so the update banner can detect new commits.
+    # Exported (not inlined) so the write-version script picks up the same SHA
+    # the bundle baked in.
     # --clear forces a cold Metro build so the commit SHA (and thus the build id)
     # is re-baked every deploy; otherwise the transform cache could reuse a stale
     # SHA and the update banner would fire forever.
-    buildCommand: node scripts/check-public-env.js && npm ci && export EXPO_PUBLIC_COMMIT_SHA="$RENDER_GIT_COMMIT" && npx expo export --platform web --clear && node scripts/write-version.js
+    buildCommand: node scripts/check-public-env.js && npm ci && export EXPO_PUBLIC_RELEASE_CHANNEL=beta && export EXPO_PUBLIC_COMMIT_SHA="$RENDER_GIT_COMMIT" && npx expo export --platform web --clear && node scripts/write-version.js
     staticPublishPath: dist
     headers:
       - path: /version.json
@@ -68,3 +68,5 @@ services:
         sync: false
       - key: EXPO_PUBLIC_GROQ_API_KEY
         sync: false
+      - key: EXPO_PUBLIC_RELEASE_CHANNEL
+        value: beta

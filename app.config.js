@@ -1,4 +1,3 @@
-const appJson = require('./app.json');
 const packageJson = require('./package.json');
 
 function getStoreVersion(version) {
@@ -11,11 +10,11 @@ function getStoreVersion(version) {
 
 const appVersion = packageJson.version;
 
-module.exports = () => ({
-  ...appJson.expo,
+module.exports = ({ config }) => ({
+  ...config,
   version: getStoreVersion(appVersion),
   extra: {
-    ...appJson.expo.extra,
+    ...config.extra,
     appVersion,
   },
 });

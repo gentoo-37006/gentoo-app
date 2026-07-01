@@ -15,7 +15,7 @@ if (!globalThis.crypto.subtle) {
 import * as React from 'react';
 import { ActivityIndicator, Platform, View } from 'react-native';
 import * as Updates from 'expo-updates';
-import { Stack, ThemeProvider, useRouter, useSegments } from 'expo-router';
+import { Stack, ThemeProvider, usePathname, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -81,6 +81,7 @@ function useNativeUpdates() {
 function RootNavigator() {
   const { initializing, isConfigured, session, profile } = useAuth();
   const segments = useSegments() as string[];
+  const pathname = usePathname();
   const router = useRouter();
   // Stays false until the first routing decision has been executed, preventing
   // a one-frame flash of the wrong screen between when initializing becomes
@@ -90,9 +91,10 @@ function RootNavigator() {
   React.useEffect(() => {
     if (initializing) return;
     const inAuthGroup = segments[0] === '(auth)';
+    const onPublicDownloads = pathname === '/downloads';
 
     if (!isConfigured || !session) {
-      if (!inAuthGroup) router.replace('/sign-in');
+      if (!inAuthGroup && !onPublicDownloads) router.replace('/sign-in');
       setSettled(true);
       return;
     }
@@ -109,7 +111,7 @@ function RootNavigator() {
 
     if (inAuthGroup) router.replace('/');
     setSettled(true);
-  }, [initializing, isConfigured, session, profile, segments, router]);
+  }, [initializing, isConfigured, session, profile, segments, pathname, router]);
 
   return (
     <>

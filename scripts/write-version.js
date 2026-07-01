@@ -11,9 +11,10 @@ const path = require('path');
 const packageJson = require('../package.json');
 
 const commit = process.env.EXPO_PUBLIC_COMMIT_SHA || '';
+const configuredChannel = process.env.EXPO_PUBLIC_RELEASE_CHANNEL || '';
 const appVersion = packageJson.version || '0.0.0';
 const version = appVersion.split('-')[0];
-const channel = commit ? 'beta' : 'release';
+const channel = configuredChannel === 'beta' || commit ? 'beta' : 'release';
 const id = commit || version;
 
 const manifest = { channel, id, commit, version, appVersion, builtAt: new Date().toISOString() };
