@@ -48,6 +48,9 @@ EOF
 fi
 
 npm run export:web
+# Clear stale artifacts (e.g. a previous version's DMG) so the notarize/staple
+# loop below only ever operates on the DMG we just built.
+rm -rf desktop-build
 npx electron-builder --mac dmg --arm64 --config electron-builder.json
 
 shopt -s nullglob
