@@ -5,12 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Icon } from '@/components/ui/icon';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
+import { APP_VERSION } from '@/lib/app-version';
 import { useAuth } from '@/lib/auth';
 import { COMMIT_SHA } from '@/lib/env';
 import { supabase } from '@/lib/supabase';
 import { useThemeMode } from '@/lib/theme-mode';
 import { cn } from '@/lib/utils';
-import Constants from 'expo-constants';
 import { LogOut, Moon, Sun, SunMoon, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Alert, Pressable, View } from 'react-native';
@@ -188,11 +188,10 @@ export default function SettingsScreen() {
         <CardContent className="gap-1">
           <Text variant="muted">© 2026 Gentoo Robotics. All rights reserved.</Text>
           <Text variant="muted">Created by Yan and Radean</Text>
+          <Text variant="muted">Version {APP_VERSION}</Text>
           {COMMIT_SHA ? (
             <Text variant="muted">Commit {COMMIT_SHA.slice(0, 7)}</Text>
-          ) : (
-            <Text variant="muted">Version {Constants.expoConfig?.version ?? '1.0.0'}</Text>
-          )}
+          ) : null}
         </CardContent>
       </Card>
     </Screen>

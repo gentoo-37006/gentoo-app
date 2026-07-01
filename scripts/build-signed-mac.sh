@@ -47,14 +47,29 @@ EOF
   exit 1
 fi
 
+product_name="${MAC_PRODUCT_NAME:-Gentoo}"
+builder_args=(--mac dmg --arm64 --config electron-builder.json --publish never)
+
+if [[ -n "${MAC_APP_ID:-}" ]]; then
+  builder_args+=("-c.appId=${MAC_APP_ID}")
+fi
+
+if [[ -n "${MAC_PRODUCT_NAME:-}" ]]; then
+  builder_args+=("-c.productName=${MAC_PRODUCT_NAME}")
+fi
+
+if [[ -n "${MAC_VERSION:-}" ]]; then
+  builder_args+=("-c.extraMetadata.version=${MAC_VERSION}")
+fi
+
 npm run export:web
 # Clear stale artifacts (e.g. a previous version's DMG) so the notarize/staple
 # loop below only ever operates on the DMG we just built.
 rm -rf desktop-build
-npx electron-builder --mac dmg --arm64 --config electron-builder.json
+npx electron-builder "${builder_args[@]}"
 
 shopt -s nullglob
-apps=(desktop-build/mac-arm64/Gentoo.app)
+apps=(desktop-build/mac-arm64/"$product_name".app)
 dmgs=(desktop-build/*mac-arm64.dmg)
 
 if (( ${#apps[@]} == 0 )); then
@@ -73,12 +88,21 @@ done
 
 for dmg in "${dmgs[@]}"; do
   xcrun notarytool submit "$dmg" --wait --timeout 30m "${notary_args[@]}"
+done
+
+for app in "${apps[@]}"; do
+  xcrun stapler staple "$app"
+  xcrun stapler validate "$app"
+done
+
+for dmg in "${dmgs[@]}"; do
   xcrun stapler staple "$dmg"
   xcrun stapler validate "$dmg"
 done
 
-# Notarizing the DMG registers the app's signature with Apple, so Gatekeeper now
-# accepts the app itself — the check that reflects what users hit on launch.
+# Notarizing and stapling the DMG registers the app's signature with Apple, and
+# stapling the app bundle keeps the launch path valid even before Gatekeeper can
+# make a network check.
 # We deliberately do NOT spctl-assess the .dmg: electron-builder ships it
 # unsigned (notarized + stapled is what counts), and `spctl -t install`/`-t open`
 # on an unsigned DMG always reports "no usable signature" and aborts under set -e.

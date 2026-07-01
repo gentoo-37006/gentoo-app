@@ -2,7 +2,6 @@
   "expo": {
     "name": "Gentoo",
     "slug": "gentoo-app",
-    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "gentoo",

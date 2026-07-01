@@ -8,14 +8,15 @@
 const fs = require('fs');
 const path = require('path');
 
-const appJson = require('../app.json');
+const packageJson = require('../package.json');
 
 const commit = process.env.EXPO_PUBLIC_COMMIT_SHA || '';
-const version = (appJson.expo && appJson.expo.version) || '0.0.0';
+const appVersion = packageJson.version || '0.0.0';
+const version = appVersion.split('-')[0];
 const channel = commit ? 'beta' : 'release';
 const id = commit || version;
 
-const manifest = { channel, id, commit, version, builtAt: new Date().toISOString() };
+const manifest = { channel, id, commit, version, appVersion, builtAt: new Date().toISOString() };
 
 const distDir = path.join(__dirname, '..', 'dist');
 if (!fs.existsSync(distDir)) {
