@@ -7,6 +7,10 @@ const { autoUpdater } = require('electron-updater');
 const DIST_DIR = path.join(__dirname, '..', 'dist');
 const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 const APP_ORIGIN = 'gentoo://app';
+// Beta builds carry a `-beta.<date>` prerelease version; brand the shell as
+// "Gentoo Beta" so it's distinguishable from the stable app.
+const IS_BETA = app.getVersion().includes('-beta');
+const APP_NAME = IS_BETA ? 'Gentoo Beta' : 'Gentoo';
 let mainWindow = null;
 
 protocol.registerSchemesAsPrivileged([
@@ -49,7 +53,7 @@ function checkForUpdates() {
   // Beta builds ship a `-beta.<date>` prerelease version: track the beta feed
   // and accept prereleases so they self-update from published beta builds.
   // Stable builds keep the default 'latest' channel and ignore betas.
-  if (app.getVersion().includes('-beta')) {
+  if (IS_BETA) {
     autoUpdater.channel = 'beta';
     autoUpdater.allowPrerelease = true;
   }
@@ -64,7 +68,7 @@ function createWindow() {
     height: 820,
     minWidth: 390,
     minHeight: 700,
-    title: 'Gentoo',
+    title: APP_NAME,
     backgroundColor: '#ffffff',
     webPreferences: {
       contextIsolation: true,
@@ -73,6 +77,9 @@ function createWindow() {
     },
   });
   mainWindow = win;
+
+  // Keep the OS window title as the app name; don't let the web page reset it to "Gentoo".
+  win.webContents.on('page-title-updated', (event) => event.preventDefault());
 
   win.removeMenu();
   win.loadURL(`${APP_ORIGIN}/`);
