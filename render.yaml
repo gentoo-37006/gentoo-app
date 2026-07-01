@@ -32,13 +32,12 @@ services:
       - key: EXPO_PUBLIC_GROQ_API_KEY
         sync: false
 
-  # Nightly site. Same build as production and uses the SAME production env values
+  # Beta site. Same build as production and uses the SAME production env values
   # (incl. the production Supabase database) — enter the production EXPO_PUBLIC_*
-  # values here when prompted. Does NOT auto-deploy on push; the nightly GitHub
-  # Actions workflow (.github/workflows/nightly.yml) POSTs this service's Render
-  # Deploy Hook at midnight America/Toronto to rebuild from the latest commit.
+  # values here when prompted. Does NOT auto-deploy on push; deploy it manually
+  # from the Render dashboard whenever you want to push a beta build.
   - type: web
-    name: gentoo-web-nightly
+    name: gentoo-web-beta
     runtime: static
     autoDeploy: false
     # Bake the deployed commit SHA into the bundle (RENDER_GIT_COMMIT is provided
@@ -55,7 +54,7 @@ services:
         name: Cache-Control
         value: no-store
     domains:
-      - nightly.gentoo.ethanyanxu.com
+      - beta.gentoo.ethanyanxu.com
     routes:
       - type: rewrite
         source: /*

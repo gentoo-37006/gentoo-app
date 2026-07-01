@@ -46,11 +46,11 @@ function checkForUpdates() {
 
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
-  // Nightly builds ship a `-nightly.<date>` prerelease version: track the
-  // nightly feed and accept prereleases so they self-update every night.
-  // Stable builds keep the default 'latest' channel and ignore nightlies.
-  if (app.getVersion().includes('-nightly')) {
-    autoUpdater.channel = 'nightly';
+  // Beta builds ship a `-beta.<date>` prerelease version: track the beta feed
+  // and accept prereleases so they self-update from published beta builds.
+  // Stable builds keep the default 'latest' channel and ignore betas.
+  if (app.getVersion().includes('-beta')) {
+    autoUpdater.channel = 'beta';
     autoUpdater.allowPrerelease = true;
   }
   autoUpdater.checkForUpdatesAndNotify().catch((error) => {

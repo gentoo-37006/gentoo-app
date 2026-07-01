@@ -2,7 +2,7 @@
 // it and detect when a newer build has been deployed.
 //
 // The identifier matches what the client bakes in (see src/lib/env.ts):
-//   - nightly builds set EXPO_PUBLIC_COMMIT_SHA -> id is the commit SHA
+//   - beta builds set EXPO_PUBLIC_COMMIT_SHA -> id is the commit SHA
 //   - release builds leave it unset          -> id is the app version
 // so the client compares like-for-like and never false-positives across channels.
 const fs = require('fs');
@@ -12,7 +12,7 @@ const appJson = require('../app.json');
 
 const commit = process.env.EXPO_PUBLIC_COMMIT_SHA || '';
 const version = (appJson.expo && appJson.expo.version) || '0.0.0';
-const channel = commit ? 'nightly' : 'release';
+const channel = commit ? 'beta' : 'release';
 const id = commit || version;
 
 const manifest = { channel, id, commit, version, builtAt: new Date().toISOString() };
