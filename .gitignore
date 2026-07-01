@@ -50,3 +50,6 @@ example
 # generated native folders
 /ios
 /android
+
+# Local iOS build output
+ios-build/
