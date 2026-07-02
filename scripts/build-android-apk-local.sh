@@ -66,4 +66,48 @@ EOF
 fi
 
 echo "Using JAVA_HOME=$JAVA_HOME"
+
+# Android SDK: auto-detect the standard location when ANDROID_HOME isn't set.
+if [[ -z "${ANDROID_HOME:-}" ]]; then
+  if [[ -d "$HOME/Library/Android/sdk" ]]; then
+    export ANDROID_HOME="$HOME/Library/Android/sdk"
+  else
+    cat >&2 <<'EOF'
+No Android SDK found (ANDROID_HOME unset, ~/Library/Android/sdk missing).
+
+One-time setup:
+  brew install --cask android-commandlinetools
+  yes | sdkmanager --licenses --sdk_root="$HOME/Library/Android/sdk"
+  yes | sdkmanager --sdk_root="$HOME/Library/Android/sdk" platform-tools
+EOF
+    exit 1
+  fi
+fi
+echo "Using ANDROID_HOME=$ANDROID_HOME"
+
+# The RN gradle plugin compiles with a Java 17 toolchain. Expose every local
+# JDK to Gradle and disable toolchain auto-download: without a matching local
+# JDK, Gradle 9 would invoke the bundled foojay resolver, which crashes with
+# "JvmVendorSpec ... IBM_SEMERU" (removed in Gradle 9). These must live in
+# ~/.gradle/gradle.properties — GRADLE_OPTS system properties don't reach the
+# daemon, and EAS runs gradlew itself so CLI flags aren't an option.
+jdk_paths="$JAVA_HOME"
+for extra in \
+  "/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home" \
+  "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"; do
+  if [[ -x "$extra/bin/java" && "$extra" != "$JAVA_HOME" ]]; then
+    jdk_paths="$jdk_paths,$extra"
+  fi
+done
+gradle_props="$HOME/.gradle/gradle.properties"
+mkdir -p "$HOME/.gradle"
+touch "$gradle_props"
+grep -v '^org\.gradle\.java\.installations\.' "$gradle_props" > "$gradle_props.tmp" || true
+mv "$gradle_props.tmp" "$gradle_props"
+{
+  echo "org.gradle.java.installations.auto-download=false"
+  echo "org.gradle.java.installations.paths=$jdk_paths"
+} >> "$gradle_props"
+echo "Configured Gradle toolchains in $gradle_props (paths: $jdk_paths)"
+
 exec eas build -p android --profile release-apk --local "$@"
