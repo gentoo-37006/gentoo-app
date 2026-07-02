@@ -4,10 +4,20 @@
 # EAS, same as the cloud build. Requires Xcode and fastlane on this machine.
 set -euo pipefail
 
+# fastlane (and CocoaPods) require a UTF-8 locale; don't depend on the shell's.
+export LANG="${LANG:-en_US.UTF-8}"
+export LC_ALL="${LC_ALL:-en_US.UTF-8}"
+
 OUT="${OUT:-ios-build/Gentoo.ipa}"
 
 if ! command -v fastlane >/dev/null 2>&1; then
-  echo "warning: 'fastlane' not found on PATH — 'eas build --local' needs it for iOS (brew install fastlane)." >&2
+  cat >&2 <<'EOF'
+'fastlane' not found on PATH — 'eas build --local' requires it for iOS.
+
+Install it, then rerun:
+  brew install fastlane
+EOF
+  exit 1
 fi
 
 mkdir -p "$(dirname "$OUT")"
