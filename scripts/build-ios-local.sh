@@ -20,6 +20,37 @@ EOF
   exit 1
 fi
 
+# Build with a STABLE Xcode. Expo SDK 56 / RN 0.85 don't compile under beta
+# Xcode toolchains (Swift errors deep in the pods), so prefer /Applications/
+# Xcode.app and fail fast if only a beta is available. DEVELOPER_DIR is honored
+# by xcodebuild/fastlane, so this never touches the global xcode-select.
+if [[ -n "${DEVELOPER_DIR:-}" ]]; then
+  if [[ ! -x "${DEVELOPER_DIR}/usr/bin/xcodebuild" ]]; then
+    echo "DEVELOPER_DIR is set but invalid: ${DEVELOPER_DIR}" >&2
+    exit 1
+  fi
+elif [[ -x "/Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild" ]]; then
+  export DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
+else
+  selected="$(xcode-select -p 2>/dev/null || true)"
+  if [[ "$selected" == *"-beta.app"* || "$selected" == *"Xcode-beta"* ]]; then
+    cat >&2 <<'EOF'
+Only a BETA Xcode is selected, and Expo SDK 56 / React Native 0.85 do not build
+under beta Xcode toolchains (the archive fails with Swift errors in the pods).
+
+Install the current stable Xcode to /Applications/Xcode.app (App Store or
+https://developer.apple.com/download/), then rerun. To use a stable Xcode at a
+different path, set DEVELOPER_DIR, e.g.:
+  DEVELOPER_DIR="/Applications/Xcode-26.app/Contents/Developer" npm run ios:publish
+EOF
+    exit 1
+  fi
+  # A non-beta selected Xcode: let the default selection stand.
+fi
+
+echo "Using Xcode: ${DEVELOPER_DIR:-$(xcode-select -p)}"
+xcodebuild -version | head -2
+
 mkdir -p "$(dirname "$OUT")"
 
 # Build on this machine, then submit the resulting .ipa.
