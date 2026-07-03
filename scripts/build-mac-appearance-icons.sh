@@ -32,7 +32,12 @@ xcrun actool "$DOC" --compile "$OUT" \
 [[ -f "$OUT/Assets.car" ]] || { echo "error: actool did not produce Assets.car" >&2; exit 1; }
 
 # Sanity: the catalog must carry appearance-aware icon groups (incl. dark).
-if ! xcrun assetutil --info "$OUT/Assets.car" 2>/dev/null | grep -q '"NSAppearanceNameDarkAqua"'; then
+# Capture to a file first, then grep it — piping assetutil straight into
+# `grep -q` under `set -o pipefail` is racy: grep exits on the first match and
+# closes the pipe, assetutil catches SIGPIPE and exits non-zero, and pipefail
+# then reports the whole pipeline as failed even though the grep matched.
+xcrun assetutil --info "$OUT/Assets.car" > "$OUT/assetutil.txt" 2>/dev/null || true
+if ! grep -q '"NSAppearanceNameDarkAqua"' "$OUT/assetutil.txt"; then
   echo "error: compiled catalog has no dark appearance variants" >&2
   exit 1
 fi
