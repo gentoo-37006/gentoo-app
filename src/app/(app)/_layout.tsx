@@ -1,5 +1,6 @@
 import { Slot, usePathname } from 'expo-router';
 import { ResponsiveShell } from '@/components/responsive-shell';
+import { WhatsNewGate } from '@/components/whats-new';
 import { useAuth } from '@/lib/auth';
 
 export default function AppLayout() {
@@ -12,6 +13,7 @@ export default function AppLayout() {
   return (
     <ResponsiveShell>
       <Slot />
+      <WhatsNewGate />
     </ResponsiveShell>
   );
 }

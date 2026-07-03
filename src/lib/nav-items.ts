@@ -18,6 +18,8 @@ export type NavItem = {
   icon: LucideIcon;
   /** Only render for admins. */
   adminOnly?: boolean;
+  /** Hide inside the Electron desktop app (e.g. desktop-install downloads). */
+  hideOnDesktop?: boolean;
 };
 
 /** Primary destinations — shown in the bottom tab bar on phones. */
@@ -32,7 +34,7 @@ export const PRIMARY_NAV: NavItem[] = [
 /** Secondary destinations — sidebar footer on wide screens, header/menu on phones. */
 export const SECONDARY_NAV: NavItem[] = [
   { name: 'notifications', label: 'Notifications', href: '/notifications', icon: Bell },
-  { name: 'downloads', label: 'Downloads', href: '/downloads', icon: Download },
+  { name: 'downloads', label: 'Downloads', href: '/downloads', icon: Download, hideOnDesktop: true },
   { name: 'admin', label: 'Admin', href: '/admin', icon: ShieldCheck, adminOnly: true },
   { name: 'settings', label: 'Settings', href: '/settings', icon: Settings },
 ];

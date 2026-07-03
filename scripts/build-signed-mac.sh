@@ -56,6 +56,13 @@ fi
 
 if [[ -n "${MAC_PRODUCT_NAME:-}" ]]; then
   builder_args+=("-c.productName=${MAC_PRODUCT_NAME}")
+  # Inject into the packaged package.json too: Electron derives app.getName()
+  # (and therefore the userData dir) from there, so release and beta keep
+  # separate data and can run side by side.
+  builder_args+=("-c.extraMetadata.productName=${MAC_PRODUCT_NAME}")
+  # Artifact names must not contain spaces ("Gentoo Beta-…"): GitHub rewrites
+  # spaces in release assets, which breaks the electron-updater feed URLs.
+  builder_args+=("-c.artifactName=${MAC_PRODUCT_NAME// /-}-"'${version}-${os}-${arch}.${ext}')
 fi
 
 if [[ -n "${MAC_VERSION:-}" ]]; then
@@ -63,6 +70,8 @@ if [[ -n "${MAC_VERSION:-}" ]]; then
 fi
 
 npm run export:web
+# Appearance-aware (light/dark) macOS app icon catalog, shipped as a resource.
+bash scripts/build-mac-appearance-icons.sh
 # Clear stale artifacts (e.g. a previous version's DMG) so the notarize/staple
 # loop below only ever operates on the DMG we just built.
 rm -rf desktop-build

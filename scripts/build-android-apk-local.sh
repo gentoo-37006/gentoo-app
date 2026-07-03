@@ -110,4 +110,5 @@ mv "$gradle_props.tmp" "$gradle_props"
 } >> "$gradle_props"
 echo "Configured Gradle toolchains in $gradle_props (paths: $jdk_paths)"
 
-exec eas build -p android --profile release-apk --local "$@"
+mkdir -p android-build
+exec eas build -p android --profile release-apk --local --output android-build/Gentoo.apk "$@"

@@ -1,7 +1,6 @@
 const path = require('node:path');
-const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
-const { app, BrowserWindow, net, protocol, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, net, protocol, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 
 const DIST_DIR = path.join(__dirname, '..', 'dist');
@@ -44,23 +43,63 @@ function registerAppProtocol() {
   });
 }
 
-function checkForUpdates() {
-  if (!app.isPackaged) return;
-  if (!fs.existsSync(path.join(process.resourcesPath, 'app-update.yml'))) return;
+// ---- Auto-update ------------------------------------------------------------
+// The source repo is private, so GitHub's public feed URLs 404. Instead the
+// Supabase `downloads` Edge Function (which holds the GitHub token) serves the
+// electron-updater feed. Stable and beta builds read separate channel paths, so
+// each only ever sees its own releases. The updater's own channel stays
+// "latest" — the Edge Function maps that onto whichever feed file the release
+// actually carries.
+const UPDATE_FEED_URL =
+  'https://exmnnotfwebdxjpkvuxu.supabase.co/functions/v1/downloads/updates/' +
+  (IS_BETA ? 'beta' : 'stable');
 
+let updateStatus = { state: app.isPackaged ? 'idle' : 'unsupported', version: app.getVersion() };
+let nextVersion = null;
+
+function setUpdateStatus(next) {
+  updateStatus = { version: app.getVersion(), ...next };
+  mainWindow?.webContents.send('updates:status', updateStatus);
+}
+
+function configureUpdater() {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
-  // Beta builds ship a `-beta.<date>` prerelease version: track the beta feed
-  // and accept prereleases so they self-update from published beta builds.
-  // Stable builds keep the default 'latest' channel and ignore betas.
-  if (IS_BETA) {
-    autoUpdater.channel = 'beta';
-    autoUpdater.allowPrerelease = true;
-  }
-  autoUpdater.checkForUpdatesAndNotify().catch((error) => {
+  autoUpdater.setFeedURL({ provider: 'generic', url: UPDATE_FEED_URL, channel: 'latest' });
+
+  autoUpdater.on('checking-for-update', () => setUpdateStatus({ state: 'checking' }));
+  autoUpdater.on('update-available', (info) => {
+    nextVersion = info?.version ?? null;
+    setUpdateStatus({ state: 'downloading', next: nextVersion, percent: 0 });
+  });
+  autoUpdater.on('download-progress', (progress) => {
+    setUpdateStatus({ state: 'downloading', next: nextVersion, percent: Math.round(progress?.percent ?? 0) });
+  });
+  autoUpdater.on('update-not-available', () => setUpdateStatus({ state: 'up-to-date' }));
+  autoUpdater.on('update-downloaded', (info) => {
+    setUpdateStatus({ state: 'downloaded', next: info?.version ?? nextVersion });
+  });
+  autoUpdater.on('error', (error) => {
+    setUpdateStatus({ state: 'error', message: error?.message ?? String(error) });
+  });
+}
+
+function checkForUpdates() {
+  // Dev runs (unpackaged) have nothing to update into.
+  if (!app.isPackaged) return;
+  autoUpdater.checkForUpdates().catch((error) => {
     console.warn('[updates] check failed', error);
   });
 }
+
+ipcMain.handle('updates:get-state', () => updateStatus);
+ipcMain.handle('updates:check', () => {
+  checkForUpdates();
+  return updateStatus;
+});
+ipcMain.handle('updates:install', () => {
+  autoUpdater.quitAndInstall();
+});
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -74,6 +113,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      preload: path.join(__dirname, 'preload.cjs'),
     },
   });
   mainWindow = win;
@@ -134,6 +174,7 @@ app.on('open-url', (event, url) => {
 app.whenReady().then(() => {
   app.setAsDefaultProtocolClient('gentoo');
   registerAppProtocol();
+  configureUpdater();
   createWindow();
   checkForUpdates();
   setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL_MS);

@@ -7,10 +7,12 @@ import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { APP_VERSION } from '@/lib/app-version';
 import { useAuth } from '@/lib/auth';
+import { useDesktopUpdates } from '@/lib/desktop-updates';
 import { supabase } from '@/lib/supabase';
 import { useThemeMode } from '@/lib/theme-mode';
 import { cn } from '@/lib/utils';
-import { LogOut, Moon, Sun, SunMoon, type LucideIcon } from 'lucide-react-native';
+import { WhatsNewModal } from '@/components/whats-new';
+import { LogOut, Moon, RefreshCw, Sparkles, Sun, SunMoon, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Alert, Pressable, View } from 'react-native';
 
@@ -161,7 +163,53 @@ function DiscordCard() {
   );
 }
 
+/** Desktop-only: manual update check + restart-to-install, driven by the
+ *  Electron shell's auto-updater (see src/lib/desktop-updates.ts). */
+function DesktopUpdates() {
+  const { isDesktop, status, check, install } = useDesktopUpdates();
+  if (!isDesktop || status?.state === 'unsupported') return null;
+
+  const state = status?.state ?? 'idle';
+  const detail =
+    state === 'checking'
+      ? 'Checking for updates…'
+      : state === 'downloading'
+        ? `Downloading update${status?.next ? ` v${status.next}` : ''}… ${status?.percent ?? 0}%`
+        : state === 'downloaded'
+          ? `Update ready${status?.next ? ` (v${status.next})` : ''} — restart to install.`
+          : state === 'up-to-date'
+            ? 'You’re up to date.'
+            : state === 'error'
+              ? `Update check failed: ${status?.message ?? 'unknown error'}`
+              : null;
+
+  return (
+    <View className="gap-2 pt-2">
+      {detail ? (
+        <Text variant="small" className="text-muted-foreground">
+          {detail}
+        </Text>
+      ) : null}
+      {state === 'downloaded' ? (
+        <Button size="sm" label="Restart to update" icon={RefreshCw} onPress={install} />
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          label="Check for updates"
+          icon={RefreshCw}
+          loading={state === 'checking'}
+          disabled={state === 'checking' || state === 'downloading'}
+          onPress={check}
+        />
+      )}
+    </View>
+  );
+}
+
 export default function SettingsScreen() {
+  const [whatsNewOpen, setWhatsNewOpen] = React.useState(false);
+
   return (
     <Screen maxWidth="max-w-2xl">
       <ScreenHeader title="Settings" description="Personalize the app and manage your account." />
@@ -188,6 +236,17 @@ export default function SettingsScreen() {
           <Text variant="muted">© 2026 Gentoo Robotics. All rights reserved.</Text>
           <Text variant="muted">Created by Yan and Radean</Text>
           <Text variant="muted">Version {APP_VERSION}</Text>
+          <View className="pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              label="What’s new"
+              icon={Sparkles}
+              onPress={() => setWhatsNewOpen(true)}
+            />
+          </View>
+          <DesktopUpdates />
+          <WhatsNewModal visible={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
         </CardContent>
       </Card>
     </Screen>

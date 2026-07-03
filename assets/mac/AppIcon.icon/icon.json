@@ -1,0 +1,22 @@
+{
+  "fill" : {
+    "solid" : "srgb:0.96078,0.96471,0.96863,1.00000"
+  },
+  "fill-specializations" : [
+    {
+      "appearance" : "dark",
+      "value" : { "solid" : "srgb:0.11765,0.14902,0.21569,1.00000" }
+    }
+  ],
+  "groups" : [
+    {
+      "layers" : [
+        { "image-name" : "Penguin.png", "name" : "Penguin" }
+      ]
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [ "watchOS" ],
+    "squares" : "shared"
+  }
+}

@@ -101,10 +101,7 @@ export default function DashboardScreen() {
 
   return (
     <Screen>
-      <ScreenHeader
-        title={firstName ? `Welcome, ${firstName}` : 'Dashboard'}
-        description="Your team’s competition command center."
-      />
+      <ScreenHeader title={firstName ? `Welcome, ${firstName}` : 'Dashboard'} />
 
       <View className="flex-row flex-wrap gap-3">
         {stats.map((s) => (

@@ -4,7 +4,8 @@
   "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
   "icon": "assets/images/icon.png",
   "directories": {
-    "output": "desktop-build"
+    "output": "desktop-build",
+    "buildResources": "build-resources"
   },
   "publish": [
     {
@@ -47,7 +48,16 @@
     "hardenedRuntime": true,
     "gatekeeperAssess": false,
     "notarize": false,
-    "target": ["dmg"]
+    "target": ["dmg", "zip"],
+    "extendInfo": {
+      "CFBundleIconName": "AppIcon"
+    },
+    "extraResources": [
+      {
+        "from": "build/mac-icons/Assets.car",
+        "to": "Assets.car"
+      }
+    ]
   },
   "win": {
     "target": [

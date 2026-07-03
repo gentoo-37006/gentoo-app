@@ -6,6 +6,7 @@ import { Bot } from 'lucide-react-native';
 import { cn } from '@/lib/utils';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useAuth } from '@/lib/auth';
+import { isDesktopApp } from '@/lib/desktop-updates';
 import { useUnreadCount, useNotificationsRealtime } from '@/lib/queries/notifications';
 import { registerForPushNotifications } from '@/lib/push';
 import { PRIMARY_NAV, SECONDARY_NAV, ALL_NAV, type NavItem } from '@/lib/nav-items';
@@ -122,7 +123,9 @@ function Sidebar({
   role?: string;
   avatarUrl?: string | null;
 }) {
-  const secondary = SECONDARY_NAV.filter((i) => !i.adminOnly || isAdmin);
+  const secondary = SECONDARY_NAV.filter(
+    (i) => (!i.adminOnly || isAdmin) && !(i.hideOnDesktop && isDesktopApp)
+  );
   return (
     <View className="h-full w-64 border-r border-border bg-card">
       <View className="px-4 py-5">

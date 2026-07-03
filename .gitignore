@@ -53,3 +53,7 @@ example
 
 # Local iOS build output
 ios-build/
+
+# Local Android build output + collected release artifacts
+android-build/
+releases/
