@@ -48,7 +48,13 @@ EOF
 fi
 
 product_name="${MAC_PRODUCT_NAME:-Gentoo}"
-builder_args=(--mac dmg --arm64 --config electron-builder.json --publish never)
+# Build the DMG (what people download) AND the zip (what electron-updater
+# installs on macOS). Passing targets on the CLI overrides the config's
+# `mac.target`, so both must be listed here or the zip + a correct
+# latest-mac.yml never get produced. The zip is created from the signed app
+# during packaging and left untouched by the notarize/staple loop below, so its
+# hash in latest-mac.yml stays valid.
+builder_args=(--mac dmg --mac zip --arm64 --config electron-builder.json --publish never)
 
 if [[ -n "${MAC_APP_ID:-}" ]]; then
   builder_args+=("-c.appId=${MAC_APP_ID}")
