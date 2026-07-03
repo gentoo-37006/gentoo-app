@@ -27,10 +27,20 @@ exes=(desktop-build/Gentoo-*-win-x64.exe)
 # differential downloads. Feed globs are latest*/beta* on purpose — they skip
 # electron-builder's builder-debug.yml.
 zips=(desktop-build/Gentoo-*-mac-arm64.zip)
-mac_feeds=(desktop-build/latest-mac.yml desktop-build/beta-mac.yml)
-win_feeds=(desktop-build/latest.yml desktop-build/beta.yml)
 blockmaps=(desktop-build/*.blockmap)
 shopt -u nullglob
+
+# Feed files have fixed names, so filter by existence — nullglob only affects
+# actual glob patterns, not literal paths. Stable builds emit latest*.yml,
+# date-stamped beta builds emit beta*.yml; either satisfies the checks below.
+mac_feeds=()
+for f in desktop-build/latest-mac.yml desktop-build/beta-mac.yml; do
+  if [[ -f "$f" ]]; then mac_feeds+=("$f"); fi
+done
+win_feeds=()
+for f in desktop-build/latest.yml desktop-build/beta.yml; do
+  if [[ -f "$f" ]]; then win_feeds+=("$f"); fi
+done
 
 (( ${#dmgs[@]} > 0 )) || fail "no macOS DMG found in desktop-build/ (expected Gentoo-*-mac-arm64.dmg)"
 (( ${#zips[@]} > 0 )) || fail "no macOS update zip found in desktop-build/ (expected Gentoo-*-mac-arm64.zip)"
