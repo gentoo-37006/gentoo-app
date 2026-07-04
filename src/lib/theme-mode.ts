@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme } from 'nativewind';
 
@@ -6,8 +7,27 @@ export type ThemeMode = 'light' | 'dark' | 'system';
 
 const STORAGE_KEY = 'gentoo.theme-mode';
 
+// The mode currently in effect, shared so the OS-theme listener in
+// useRestoreThemeMode knows whether "system" is active when the OS flips.
+let currentMode: ThemeMode = 'system';
+
 function isThemeMode(value: string | null): value is ThemeMode {
   return value === 'light' || value === 'dark' || value === 'system';
+}
+
+function prefersDark(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+/**
+ * Tailwind runs `darkMode: 'class'` (required for the manual Light/Dark picker
+ * on web), which has no media-query fallback: passing 'system' to NativeWind on
+ * web never applies the `dark` class. So on web, resolve 'system' to the actual
+ * OS scheme ourselves; native keeps 'system' (RN Appearance handles it).
+ */
+function resolveScheme(mode: ThemeMode): 'light' | 'dark' | 'system' {
+  if (mode !== 'system' || Platform.OS !== 'web') return mode;
+  return prefersDark() ? 'dark' : 'light';
 }
 
 /** Reads the persisted appearance choice; defaults to 'system'. */
@@ -33,16 +53,34 @@ async function saveThemeMode(mode: ThemeMode): Promise<void> {
 /**
  * Restores the persisted appearance choice and applies it via NativeWind.
  * Call once near the app root so the saved theme takes effect on every load.
+ * On web it also tracks OS theme changes live while "system" is selected.
  */
 export function useRestoreThemeMode(): void {
   const { setColorScheme } = useColorScheme();
+
   React.useEffect(() => {
     let cancelled = false;
     loadThemeMode().then((mode) => {
-      if (!cancelled) setColorScheme(mode);
+      if (cancelled) return;
+      currentMode = mode;
+      setColorScheme(resolveScheme(mode));
     });
+
+    // Follow the OS while in system mode (web/desktop; native handles this
+    // itself via Appearance).
+    let unsubscribe: (() => void) | undefined;
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const query = window.matchMedia('(prefers-color-scheme: dark)');
+      const onChange = () => {
+        if (currentMode === 'system') setColorScheme(resolveScheme('system'));
+      };
+      query.addEventListener('change', onChange);
+      unsubscribe = () => query.removeEventListener('change', onChange);
+    }
+
     return () => {
       cancelled = true;
+      unsubscribe?.();
     };
   }, [setColorScheme]);
 }
@@ -69,7 +107,8 @@ export function useThemeMode() {
   const setMode = React.useCallback(
     (next: ThemeMode) => {
       setModeState(next);
-      setColorScheme(next);
+      currentMode = next;
+      setColorScheme(resolveScheme(next));
       void saveThemeMode(next);
     },
     [setColorScheme]

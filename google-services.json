@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "990582452622",
+    "project_id": "ward-4",
+    "storage_bucket": "ward-4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:990582452622:android:9a4467b6f412ee9d01b4df",
+        "android_client_info": {
+          "package_name": "com.gentoo.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4bffsIUWKorkHVEaN2hNYQYbrRfRe_R8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:990582452622:android:6b4cd3ec6f97de0c01b4df",
+        "android_client_info": {
+          "package_name": "com.gentoo.app.beta"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4bffsIUWKorkHVEaN2hNYQYbrRfRe_R8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:990582452622:android:7ec123849455161401b4df",
+        "android_client_info": {
+          "package_name": "com.gentoo.teamscoutingappgoogle"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4bffsIUWKorkHVEaN2hNYQYbrRfRe_R8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

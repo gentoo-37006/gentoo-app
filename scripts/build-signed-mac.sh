@@ -47,33 +47,18 @@ EOF
   exit 1
 fi
 
-product_name="${MAC_PRODUCT_NAME:-Gentoo}"
+# App identity (name, appId, artifact name) comes from electron-builder.js,
+# which brands betas as "Gentoo Beta" based on the package.json version. Recompute
+# the product name here from the same rule so the notarize/staple loop below can
+# locate the built .app bundle.
+product_name=$(node -p "require('./package.json').version.includes('-beta') ? 'Gentoo Beta' : 'Gentoo'")
 # Build the DMG (what people download) AND the zip (what electron-updater
 # installs on macOS). Passing targets on the CLI overrides the config's
 # `mac.target`, so both must be listed here or the zip + a correct
 # latest-mac.yml never get produced. The zip is created from the signed app
 # during packaging and left untouched by the notarize/staple loop below, so its
 # hash in latest-mac.yml stays valid.
-builder_args=(--mac dmg --mac zip --arm64 --config electron-builder.json --publish never)
-
-if [[ -n "${MAC_APP_ID:-}" ]]; then
-  builder_args+=("-c.appId=${MAC_APP_ID}")
-fi
-
-if [[ -n "${MAC_PRODUCT_NAME:-}" ]]; then
-  builder_args+=("-c.productName=${MAC_PRODUCT_NAME}")
-  # Inject into the packaged package.json too: Electron derives app.getName()
-  # (and therefore the userData dir) from there, so release and beta keep
-  # separate data and can run side by side.
-  builder_args+=("-c.extraMetadata.productName=${MAC_PRODUCT_NAME}")
-  # Artifact names must not contain spaces ("Gentoo Beta-…"): GitHub rewrites
-  # spaces in release assets, which breaks the electron-updater feed URLs.
-  builder_args+=("-c.artifactName=${MAC_PRODUCT_NAME// /-}-"'${version}-${os}-${arch}.${ext}')
-fi
-
-if [[ -n "${MAC_VERSION:-}" ]]; then
-  builder_args+=("-c.extraMetadata.version=${MAC_VERSION}")
-fi
+builder_args=(--mac dmg --mac zip --arm64 --config electron-builder.js --publish never)
 
 npm run export:web
 # Appearance-aware (light/dark) macOS app icon catalog, shipped as a resource.

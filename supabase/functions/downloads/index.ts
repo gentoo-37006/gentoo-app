@@ -41,9 +41,10 @@ const CORS: Record<string, string> = {
 
 // The platforms we currently ship. First matching asset wins. Auxiliary
 // electron-builder files (.blockmap, .yml, the updater .zip) never match.
-const PLATFORMS: { os: 'Android' | 'macOS' | 'Windows'; label: string; arch: string; test: RegExp }[] = [
+const PLATFORMS: { os: 'Android' | 'Linux' | 'macOS' | 'Windows'; label: string; arch: string; test: RegExp }[] = [
   { os: 'macOS', label: 'Apple Silicon', arch: 'arm64', test: /mac.*arm64\.dmg$/i },
   { os: 'Windows', label: '64-bit', arch: 'x64', test: /win.*x64.*\.exe$/i },
+  { os: 'Linux', label: 'Ubuntu / Debian', arch: 'x64', test: /linux.*\.deb$/i },
   { os: 'Android', label: 'APK installer', arch: 'apk', test: /(?:android|apk).*\.apk$/i },
 ];
 
@@ -174,13 +175,17 @@ async function handleUpdates(channelSegment: string, file: string): Promise<Resp
   const assets = release.assets ?? [];
 
   if (file.endsWith('.yml')) {
-    // electron-updater always requests latest[-mac].yml (its channel is fixed to
-    // "latest"); the published feed asset may be named latest-*.yml or beta-*.yml
-    // depending on how electron-builder classified the version, so match by shape.
-    const wantMac = /-mac\.yml$/i.test(file);
-    const asset = assets.find((a) =>
-      wantMac ? /^(latest|beta)-mac\.yml$/i.test(a.name) : /^(latest|beta)\.yml$/i.test(a.name)
-    );
+    // electron-updater requests latest.yml (win), latest-mac.yml, or
+    // latest-linux.yml (its channel is fixed to "latest"); the published feed
+    // asset may be named latest-*.yml or beta-*.yml depending on how
+    // electron-builder classified the version, so match by platform suffix.
+    const requested = file.match(/^(?:latest|beta)(-(?:mac|linux))?\.yml$/i);
+    if (!requested) {
+      return new Response('Unknown update feed file', { status: 404, headers: CORS });
+    }
+    const suffix = requested[1] ?? '';
+    const feedPattern = new RegExp(`^(latest|beta)${suffix}\\.yml$`, 'i');
+    const asset = assets.find((a) => feedPattern.test(a.name));
     if (!asset) {
       return new Response('Update feed file not found on the latest release', { status: 404, headers: CORS });
     }

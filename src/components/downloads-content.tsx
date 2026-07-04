@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { ActivityIndicator, Linking, Platform, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Bot, Download, Laptop, Monitor, Smartphone, type LucideIcon } from 'lucide-react-native';
+import { Bot, Download, Laptop, Monitor, Smartphone, Terminal, type LucideIcon } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,6 +14,7 @@ import { useDownloads, downloadUrl, formatSize, type DownloadItem } from '@/lib/
 
 const OS_ICON: Record<DownloadItem['os'], LucideIcon> = {
   Android: Smartphone,
+  Linux: Terminal,
   macOS: Laptop,
   Windows: Monitor,
 };
@@ -25,6 +26,8 @@ function detectOS(): DownloadItem['os'] | null {
   if (/Android/i.test(ua)) return 'Android';
   if (/Mac/i.test(ua)) return 'macOS';
   if (/Win/i.test(ua)) return 'Windows';
+  // After Android — Android user agents also contain "Linux".
+  if (/Linux/i.test(ua)) return 'Linux';
   return null;
 }
 
@@ -48,6 +51,19 @@ function DownloadCard({ item, recommended }: { item: DownloadItem; recommended: 
         <Text variant="small" className="font-mono text-muted-foreground" numberOfLines={1}>
           {item.filename} · {formatSize(item.size)}
         </Text>
+
+        {item.os === 'Windows' ? (
+          <Text variant="small" className="text-muted-foreground">
+            Windows will show a SmartScreen warning on first run — click “More info” → “Run
+            anyway”. This appears once; updates install automatically after that.
+          </Text>
+        ) : null}
+
+        {item.os === 'Linux' ? (
+          <Text variant="small" className="text-muted-foreground">
+            Install with sudo apt install ./{item.filename} — updates are automatic after that.
+          </Text>
+        ) : null}
 
         <Button
           label={`Download for ${item.os}`}
@@ -126,7 +142,8 @@ export function DownloadsContent({ publicPage = false }: { publicPage?: boolean 
           ))}
           <Text variant="small" className="text-muted-foreground">
             The web app you’re using now always has the latest features. macOS builds are for Apple
-            Silicon; Windows builds are 64-bit; Android builds install from an APK.
+            Silicon; Windows and Linux (Ubuntu/Debian) builds are 64-bit; Android builds install
+            from an APK.
           </Text>
         </View>
       )}

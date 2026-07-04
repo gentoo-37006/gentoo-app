@@ -1,13 +1,15 @@
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { app, BrowserWindow, ipcMain, net, protocol, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeTheme, net, protocol, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 
 const DIST_DIR = path.join(__dirname, '..', 'dist');
 const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 const APP_ORIGIN = 'gentoo://app';
-// Beta builds carry a `-beta.<date>` prerelease version; brand the shell as
-// "Gentoo Beta" so it's distinguishable from the stable app.
+// Beta builds carry a `-beta.N` prerelease version; brand the shell as
+// "Gentoo Beta" so it's distinguishable from the stable app. This mirrors the
+// build-time identity in electron-builder.js (same version check), so the
+// running app and its bundle/appId always agree.
 const IS_BETA = app.getVersion().includes('-beta');
 const APP_NAME = IS_BETA ? 'Gentoo Beta' : 'Gentoo';
 let mainWindow = null;
@@ -108,7 +110,10 @@ function createWindow() {
     minWidth: 390,
     minHeight: 700,
     title: APP_NAME,
-    backgroundColor: '#ffffff',
+    // Match the app theme's background so launching in OS dark mode doesn't
+    // flash a white window before the web content paints (#0F1626 = dark theme
+    // background in src/lib/theme.ts).
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0F1626' : '#ffffff',
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
