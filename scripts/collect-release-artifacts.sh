@@ -21,8 +21,6 @@ fail() {
 shopt -s nullglob
 dmgs=(desktop-build/Gentoo-*-mac-arm64.dmg)
 exes=(desktop-build/Gentoo-*-win-x64.exe)
-# Deb arch suffix is Debian-style ("amd64"), unlike the win/mac artifacts.
-debs=(desktop-build/Gentoo-*-linux-*.deb)
 # Auto-update needs these on the GitHub release too: the mac zip is what
 # electron-updater actually installs, and the yml files are the update feed
 # (served to apps by the downloads Edge Function). Blockmaps enable
@@ -43,24 +41,18 @@ win_feeds=()
 for f in desktop-build/latest.yml desktop-build/beta.yml; do
   if [[ -f "$f" ]]; then win_feeds+=("$f"); fi
 done
-linux_feeds=()
-for f in desktop-build/latest-linux.yml desktop-build/beta-linux.yml; do
-  if [[ -f "$f" ]]; then linux_feeds+=("$f"); fi
-done
 
 (( ${#dmgs[@]} > 0 )) || fail "no macOS DMG found in desktop-build/ (expected Gentoo-*-mac-arm64.dmg)"
 (( ${#zips[@]} > 0 )) || fail "no macOS update zip found in desktop-build/ (expected Gentoo-*-mac-arm64.zip)"
 (( ${#exes[@]} > 0 )) || fail "no Windows installer found in desktop-build/ (expected Gentoo-*-win-x64.exe)"
-(( ${#debs[@]} > 0 )) || fail "no Linux package found in desktop-build/ (expected Gentoo-*-linux-*.deb)"
 (( ${#mac_feeds[@]} > 0 )) || fail "no macOS update feed found in desktop-build/ (expected latest-mac.yml or beta-mac.yml)"
 (( ${#win_feeds[@]} > 0 )) || fail "no Windows update feed found in desktop-build/ (expected latest.yml or beta.yml)"
-(( ${#linux_feeds[@]} > 0 )) || fail "no Linux update feed found in desktop-build/ (expected latest-linux.yml or beta-linux.yml)"
 [[ -f android-build/Gentoo.apk ]] || fail "no Android APK found at android-build/Gentoo.apk"
 
 rm -rf releases
 mkdir releases
 
-cp "${dmgs[@]}" "${zips[@]}" "${exes[@]}" "${debs[@]}" "${mac_feeds[@]}" "${win_feeds[@]}" "${linux_feeds[@]}" releases/
+cp "${dmgs[@]}" "${zips[@]}" "${exes[@]}" "${mac_feeds[@]}" "${win_feeds[@]}" releases/
 (( ${#blockmaps[@]} > 0 )) && cp "${blockmaps[@]}" releases/
 cp android-build/Gentoo.apk "releases/Gentoo-${VERSION}-android.apk"
 
