@@ -396,13 +396,17 @@ export async function demoPicklist() {
       score: s.score,
       entry_count: s.entry_count,
       tier: team?.picklist_tier ?? null,
+      rank: team?.picklist_rank ?? null,
       notes: team?.picklist_notes ?? null,
       capabilities,
     };
   });
 }
 
-export async function demoSetPicklist(teamId: string, patch: { picklist_tier?: PicklistTier | null; picklist_notes?: string | null }) {
+export async function demoSetPicklist(
+  teamId: string,
+  patch: { picklist_tier?: PicklistTier | null; picklist_rank?: number | null; picklist_notes?: string | null }
+) {
   const db = await getDemoWorkspace();
   db.scoutedTeams = db.scoutedTeams.map((t) => (t.id === teamId ? { ...t, ...patch, updated_at: now() } : t));
   await persist();

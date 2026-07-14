@@ -8,35 +8,28 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
-import { ScoreBar } from '@/components/ui/score-bar';
 import { useCapabilityQuestions, useTeamDetail } from '@/lib/queries/scouting';
-import { summarizeAnswers, weightedScore, scoreTint, type QuestionBreakdown } from '@/lib/scoring';
+import { summarizeAnswers, type QuestionBreakdown } from '@/lib/scoring';
 import { timeAgo } from '@/lib/format';
 
+/** Verdict chip: what most scouters answered for this capability. */
+function verdictOf(b: QuestionBreakdown): { label: string; variant: 'success' | 'destructive' | 'warning' | 'muted' } {
+  if (b.yesFraction === null) return { label: 'Not seen', variant: 'muted' };
+  if (b.yes === b.no) return { label: 'Split', variant: 'warning' };
+  return b.yes > b.no ? { label: 'Yes', variant: 'success' } : { label: 'No', variant: 'destructive' };
+}
+
 function BreakdownRow({ b }: { b: QuestionBreakdown }) {
+  const verdict = verdictOf(b);
   return (
-    <View className="gap-1.5">
-      <View className="flex-row items-center justify-between gap-3">
-        <Text className="flex-1 text-sm">{b.question.prompt}</Text>
-        <Text className={`text-sm font-bold ${b.percent === null ? 'text-muted-foreground' : scoreTint(b.percent)}`}>
-          {b.percent === null ? 'N/A' : `${b.percent}%`}
+    <View className="flex-row items-center justify-between gap-3">
+      <View className="flex-1 gap-0.5">
+        <Text className="text-sm">{b.question.prompt}</Text>
+        <Text variant="small">
+          {b.yes} yes · {b.no} no{b.didNotSee ? ` · ${b.didNotSee} didn’t see` : ''}
         </Text>
       </View>
-      <ScoreBar
-        value={b.percent ?? 0}
-        fillClassName={
-          b.percent === null
-            ? 'bg-muted'
-            : b.percent >= 70
-            ? 'bg-success'
-            : b.percent >= 40
-            ? 'bg-warning'
-            : 'bg-destructive'
-        }
-      />
-      <Text variant="small">
-        {b.yes} yes · {b.no} no{b.didNotSee ? ` · ${b.didNotSee} didn’t see` : ''}
-      </Text>
+      <Badge variant={verdict.variant} label={verdict.label} />
     </View>
   );
 }
@@ -73,7 +66,6 @@ export default function TeamDetailScreen() {
   const breakdowns = summarizeAnswers(questions ?? [], allAnswers).filter(
     (b) => b.yes + b.no + b.didNotSee > 0
   );
-  const score = weightedScore(breakdowns);
 
   // Group breakdowns by category preserving order.
   const groups: { category: string; rows: QuestionBreakdown[] }[] = [];
@@ -98,13 +90,10 @@ export default function TeamDetailScreen() {
       <Card>
         <CardContent className="flex-row items-center justify-between p-5">
           <View>
-            <Text variant="muted">Pick-list score</Text>
-            <Text className={`text-4xl font-extrabold ${scoreTint(score)}`}>{score}%</Text>
+            <Text variant="muted">Scouting reports</Text>
+            <Text className="text-4xl font-extrabold">{entries.length}</Text>
           </View>
-          <View className="items-end gap-1">
-            <Badge variant="muted" label={`${entries.length} ${entries.length === 1 ? 'report' : 'reports'}`} />
-            <Text variant="small">{breakdowns.length} capabilities measured</Text>
-          </View>
+          <Text variant="small">{breakdowns.length} capabilities measured</Text>
         </CardContent>
       </Card>
 

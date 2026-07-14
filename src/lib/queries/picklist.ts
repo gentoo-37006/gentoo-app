@@ -10,9 +10,10 @@ export type PicklistTeam = {
   id: string;
   team_number: number;
   team_name: string | null;
-  score: number;
   entry_count: number;
   tier: PicklistTier | null;
+  /** Manual position within the tier (lower = higher pick). */
+  rank: number | null;
   notes: string | null;
   /** question_id -> yes-percent */
   capabilities: Record<string, number>;
@@ -25,17 +26,21 @@ export function usePicklist() {
       if (isDemoMode()) return demoPicklist();
       const [scores, teams, caps] = await Promise.all([
         supabase.from('team_scores').select('*'),
-        supabase.from('scouted_teams').select('id, picklist_tier, picklist_notes'),
+        supabase.from('scouted_teams').select('id, picklist_tier, picklist_rank, picklist_notes'),
         supabase.from('team_capability_scores').select('team_id, question_id, percent'),
       ]);
       if (scores.error) throw scores.error;
       if (teams.error) throw teams.error;
       if (caps.error) throw caps.error;
 
-      const tierById = new Map<string, { tier: PicklistTier | null; notes: string | null }>();
+      const metaById = new Map<
+        string,
+        { tier: PicklistTier | null; rank: number | null; notes: string | null }
+      >();
       for (const t of teams.data ?? []) {
-        tierById.set(t.id as string, {
+        metaById.set(t.id as string, {
           tier: (t.picklist_tier as PicklistTier | null) ?? null,
+          rank: (t.picklist_rank as number | null) ?? null,
           notes: (t.picklist_notes as string | null) ?? null,
         });
       }
@@ -51,10 +56,10 @@ export function usePicklist() {
         id: s.team_id,
         team_number: s.team_number,
         team_name: s.team_name,
-        score: s.score,
         entry_count: s.entry_count,
-        tier: tierById.get(s.team_id)?.tier ?? null,
-        notes: tierById.get(s.team_id)?.notes ?? null,
+        tier: metaById.get(s.team_id)?.tier ?? null,
+        rank: metaById.get(s.team_id)?.rank ?? null,
+        notes: metaById.get(s.team_id)?.notes ?? null,
         capabilities: capsByTeam.get(s.team_id) ?? {},
       }));
     },
@@ -74,9 +79,29 @@ function usePicklistMutation<TVars>(fn: (vars: TVars) => Promise<void>) {
 
 export function useSetTier() {
   return usePicklistMutation<{ teamId: string; tier: PicklistTier | null }>(async ({ teamId, tier }) => {
-    if (isDemoMode()) return demoSetPicklist(teamId, { picklist_tier: tier });
-    const { error } = await supabase.from('scouted_teams').update({ picklist_tier: tier }).eq('id', teamId);
+    if (isDemoMode()) return demoSetPicklist(teamId, { picklist_tier: tier, picklist_rank: null });
+    // Rank is per-tier, so a tier change resets the manual position.
+    const { error } = await supabase
+      .from('scouted_teams')
+      .update({ picklist_tier: tier, picklist_rank: null })
+      .eq('id', teamId);
     if (error) throw error;
+  });
+}
+
+/** Persist a manual ordering: rank = index within the tier for each team. */
+export function useReorderTier() {
+  return usePicklistMutation<{ teamId: string; rank: number }[]>(async (updates) => {
+    if (isDemoMode()) {
+      for (const u of updates) await demoSetPicklist(u.teamId, { picklist_rank: u.rank });
+      return;
+    }
+    const results = await Promise.all(
+      updates.map((u) =>
+        supabase.from('scouted_teams').update({ picklist_rank: u.rank }).eq('id', u.teamId)
+      )
+    );
+    for (const r of results) if (r.error) throw r.error;
   });
 }
 
