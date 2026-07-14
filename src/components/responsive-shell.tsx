@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, usePathname } from 'expo-router';
-import { Bot, Menu, ChevronDown, ClipboardList } from 'lucide-react-native';
+import { Menu, ChevronDown, ClipboardList } from 'lucide-react-native';
 import { cn } from '@/lib/utils';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useAuth } from '@/lib/auth';
@@ -46,17 +46,12 @@ function CountBadge({ count, className }: { count: number; className?: string })
 
 function Brand({ compact }: { compact?: boolean }) {
   return (
-    <View className="flex-row items-center gap-2.5">
-      <View className="h-9 w-9 items-center justify-center rounded-xl bg-primary">
-        <Icon as={Bot} size={20} className="text-primary-foreground" />
-      </View>
+    <View>
+      <Text className="text-lg font-extrabold tracking-tight">Gentoo</Text>
       {!compact && (
-        <View>
-          <Text className="text-base font-extrabold tracking-tight">Gentoo</Text>
-          <Text variant="small" className="-mt-0.5">
-            FTC Team Hub
-          </Text>
-        </View>
+        <Text variant="small" className="-mt-0.5">
+          FTC Team Hub
+        </Text>
       )}
     </View>
   );

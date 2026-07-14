@@ -7,14 +7,14 @@ import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 
 /**
- * Standard scrollable page container. Caps content width and centers it on wide
- * screens so the desktop/tablet web layout stays readable, while filling phones.
+ * Standard scrollable page container. Fills the viewport width under the top
+ * navbar; pass maxWidth (e.g. 'max-w-2xl') for pages that read better narrow.
  */
 export function Screen({
   children,
   className,
   contentClassName,
-  maxWidth = 'max-w-5xl',
+  maxWidth = 'max-w-none',
 }: {
   children: React.ReactNode;
   className?: string;
