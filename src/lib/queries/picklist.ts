@@ -77,32 +77,33 @@ function usePicklistMutation<TVars>(fn: (vars: TVars) => Promise<void>) {
   });
 }
 
-export function useSetTier() {
-  return usePicklistMutation<{ teamId: string; tier: PicklistTier | null }>(async ({ teamId, tier }) => {
-    if (isDemoMode()) return demoSetPicklist(teamId, { picklist_tier: tier, picklist_rank: null });
-    // Rank is per-tier, so a tier change resets the manual position.
-    const { error } = await supabase
-      .from('scouted_teams')
-      .update({ picklist_tier: tier, picklist_rank: null })
-      .eq('id', teamId);
-    if (error) throw error;
-  });
-}
-
-/** Persist a manual ordering: rank = index within the tier for each team. */
-export function useReorderTier() {
-  return usePicklistMutation<{ teamId: string; rank: number }[]>(async (updates) => {
-    if (isDemoMode()) {
-      for (const u of updates) await demoSetPicklist(u.teamId, { picklist_rank: u.rank });
-      return;
+/**
+ * Drop a team into a tier at a position: sets the team's tier, then renumbers
+ * the whole target tier (orderedIds includes the moved team at its new index).
+ */
+export function useMoveTeam() {
+  return usePicklistMutation<{ teamId: string; tier: PicklistTier | null; orderedIds: string[] }>(
+    async ({ teamId, tier, orderedIds }) => {
+      if (isDemoMode()) {
+        await demoSetPicklist(teamId, { picklist_tier: tier });
+        for (let i = 0; i < orderedIds.length; i++) {
+          await demoSetPicklist(orderedIds[i], { picklist_rank: i + 1 });
+        }
+        return;
+      }
+      const { error } = await supabase
+        .from('scouted_teams')
+        .update({ picklist_tier: tier })
+        .eq('id', teamId);
+      if (error) throw error;
+      const results = await Promise.all(
+        orderedIds.map((id, i) =>
+          supabase.from('scouted_teams').update({ picklist_rank: i + 1 }).eq('id', id)
+        )
+      );
+      for (const r of results) if (r.error) throw r.error;
     }
-    const results = await Promise.all(
-      updates.map((u) =>
-        supabase.from('scouted_teams').update({ picklist_rank: u.rank }).eq('id', u.teamId)
-      )
-    );
-    for (const r of results) if (r.error) throw r.error;
-  });
+  );
 }
 
 export function useSetPicklistNotes() {

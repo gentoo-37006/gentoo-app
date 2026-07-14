@@ -1,11 +1,10 @@
 import * as React from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
-import { Lock, Plus, Trash2, Minus, Eye, EyeOff } from 'lucide-react-native';
+import { ActivityIndicator, View } from 'react-native';
+import { Lock, Plus, Trash2, Eye, EyeOff } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
-import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,23 +28,6 @@ function QuestionRow({ q }: { q: CapabilityQuestion }) {
         <Text className="font-medium">{q.prompt}</Text>
         <View className="flex-row flex-wrap items-center gap-2">
           <Badge variant="secondary" label={q.category} />
-          <View className="flex-row items-center gap-1 rounded-sm border border-border px-1">
-            <Pressable
-              disabled={busy || q.weight <= 1}
-              onPress={() => update.mutate({ id: q.id, weight: Math.max(1, q.weight - 1) })}
-              className="h-6 w-6 items-center justify-center rounded-sm active:bg-accent"
-            >
-              <Icon as={Minus} size={14} className="text-foreground" />
-            </Pressable>
-            <Text className="w-14 text-center text-xs font-semibold">Weight {q.weight}</Text>
-            <Pressable
-              disabled={busy}
-              onPress={() => update.mutate({ id: q.id, weight: q.weight + 1 })}
-              className="h-6 w-6 items-center justify-center rounded-sm active:bg-accent"
-            >
-              <Icon as={Plus} size={14} className="text-foreground" />
-            </Pressable>
-          </View>
         </View>
         <View className="flex-row gap-2">
           <Button
@@ -76,19 +58,16 @@ function AddQuestion({ nextSortOrder }: { nextSortOrder: number }) {
   const create = useCreateQuestion();
   const [prompt, setPrompt] = React.useState('');
   const [category, setCategory] = React.useState('General');
-  const [weight, setWeight] = React.useState('1');
 
   const onAdd = async () => {
-    const w = parseInt(weight, 10);
     if (!prompt.trim()) return;
     await create.mutateAsync({
       prompt: prompt.trim(),
       category: category.trim() || 'General',
-      weight: Number.isFinite(w) && w > 0 ? w : 1,
+      weight: 1,
       sort_order: nextSortOrder,
     });
     setPrompt('');
-    setWeight('1');
   };
 
   return (
@@ -99,15 +78,9 @@ function AddQuestion({ nextSortOrder }: { nextSortOrder: number }) {
           <Text variant="label">Prompt</Text>
           <Input value={prompt} onChangeText={setPrompt} placeholder="Does the team…" />
         </View>
-        <View className="flex-row gap-2">
-          <View className="flex-1 gap-1.5">
-            <Text variant="label">Category</Text>
-            <Input value={category} onChangeText={setCategory} placeholder="Autonomous" />
-          </View>
-          <View className="w-24 gap-1.5">
-            <Text variant="label">Weight</Text>
-            <Input value={weight} onChangeText={setWeight} keyboardType="number-pad" />
-          </View>
+        <View className="gap-1.5">
+          <Text variant="label">Category</Text>
+          <Input value={category} onChangeText={setCategory} placeholder="Autonomous" />
         </View>
         <Button
           label="Add question"
@@ -140,7 +113,7 @@ export default function QuestionsScreen() {
     <Screen>
       <ScreenHeader
         title="Scouting questions"
-        description="These drive the pit form and the weighted pick-list score."
+        description="These drive the pit scouting form and the picklist filters."
         backHref="/scouting/pit"
       />
       <AddQuestion nextSortOrder={nextSortOrder} />

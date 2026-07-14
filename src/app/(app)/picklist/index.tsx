@@ -1,14 +1,15 @@
 import * as React from 'react';
 import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle, useSharedValue, runOnJS } from 'react-native-reanimated';
 import {
   ListOrdered,
   Search,
   ListFilter,
   NotebookPen,
-  ChevronUp,
-  ChevronDown,
   ChevronRight,
+  GripVertical,
   X,
 } from 'lucide-react-native';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -19,14 +20,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useCapabilityQuestions } from '@/lib/queries/scouting';
-import {
-  usePicklist,
-  useSetTier,
-  useReorderTier,
-  useSetPicklistNotes,
-  type PicklistTeam,
-} from '@/lib/queries/picklist';
+import { usePicklist, useMoveTeam, useSetPicklistNotes, type PicklistTeam } from '@/lib/queries/picklist';
 import { PICKLIST_TIERS, type CapabilityQuestion, type PicklistTier } from '@/lib/types';
 
 type TierKey = PicklistTier | 'untiered';
@@ -39,6 +35,12 @@ const TIER_DOT: Record<TierKey, string> = {
   dnp: 'bg-destructive',
   untiered: 'bg-muted-foreground',
 };
+
+/** Layout constants for drop targeting on narrow (horizontally scrolled) boards. */
+const NARROW_COL_WIDTH = 288; // w-72
+const COL_GAP = 12; // gap-3
+const BOARD_PAD = 16; // px-4
+const COL_HEADER_HEIGHT = 42;
 
 function tierLabel(key: TierKey): string {
   return key === 'untiered' ? 'Uncategorized' : PICKLIST_TIERS.find((t) => t.value === key)!.label;
@@ -142,9 +144,6 @@ function FilterPopup({
       return next;
     });
 
-  const countIn = (g: { questions: CapabilityQuestion[] }) =>
-    g.questions.filter((q) => filters[q.id]).length;
-
   return (
     <View className="absolute left-0 right-0 top-full z-50 mt-1 flex-row rounded-md border border-border bg-popover md:right-auto md:w-[520px]">
       {groups.length === 0 ? (
@@ -156,7 +155,7 @@ function FilterPopup({
           <View className="w-44 border-r border-border p-1">
             {groups.map((g) => {
               const selected = g.category === activeCategory;
-              const n = countIn(g);
+              const n = g.questions.filter((q) => filters[q.id]).length;
               return (
                 <Pressable
                   key={g.category}
@@ -198,51 +197,27 @@ function FilterPopup({
   );
 }
 
-function TierSelector({ team }: { team: PicklistTeam }) {
-  const setTier = useSetTier();
-  return (
-    <View className="flex-row gap-1">
-      {PICKLIST_TIERS.map((t) => {
-        const active = team.tier === t.value;
-        return (
-          <Pressable
-            key={t.value}
-            disabled={setTier.isPending}
-            onPress={() => setTier.mutate({ teamId: team.id, tier: active ? null : t.value })}
-            className={cn(
-              'flex-1 items-center rounded-sm border py-1',
-              active ? 'border-primary bg-primary' : 'border-border bg-background active:bg-accent'
-            )}
-          >
-            <Text
-              className={cn(
-                'text-[10px] font-bold uppercase tracking-wide',
-                active ? 'text-primary-foreground' : 'text-muted-foreground'
-              )}
-            >
-              {t.short}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
+type CardLayout = { y: number; h: number };
 
 function TeamCard({
   team,
   index,
-  tierMates,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
+  onLayoutCard,
+  dragging,
 }: {
   team: PicklistTeam;
-  /** Position within the full (unfiltered) tier list. */
   index: number;
-  /** Full ordered tier list, for reordering. */
-  tierMates: PicklistTeam[];
+  onDragStart: (team: PicklistTeam, absX: number, absY: number) => void;
+  onDragMove: (absX: number, absY: number) => void;
+  onDragEnd: (team: PicklistTeam, absX: number, absY: number) => void;
+  onLayoutCard: (teamId: string, layout: CardLayout) => void;
+  dragging: boolean;
 }) {
   const router = useRouter();
   const setNotes = useSetPicklistNotes();
-  const reorder = useReorderTier();
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(team.notes ?? '');
 
@@ -251,89 +226,85 @@ function TeamCard({
     setEditing(false);
   };
 
-  const move = (dir: -1 | 1) => {
-    const next = [...tierMates];
-    const from = next.findIndex((t) => t.id === team.id);
-    const to = from + dir;
-    if (from < 0 || to < 0 || to >= next.length) return;
-    [next[from], next[to]] = [next[to], next[from]];
-    reorder.mutate(next.map((t, i) => ({ teamId: t.id, rank: i + 1 })));
-  };
+  const pan = React.useMemo(
+    () =>
+      Gesture.Pan()
+        .activateAfterLongPress(200)
+        .onStart((e) => {
+          runOnJS(onDragStart)(team, e.absoluteX, e.absoluteY);
+        })
+        .onUpdate((e) => {
+          runOnJS(onDragMove)(e.absoluteX, e.absoluteY);
+        })
+        .onEnd((e) => {
+          runOnJS(onDragEnd)(team, e.absoluteX, e.absoluteY);
+        })
+        .onTouchesCancelled(() => {
+          runOnJS(onDragEnd)(team, -1, -1);
+        }),
+    [team, onDragStart, onDragMove, onDragEnd]
+  );
 
   return (
-    <View className="gap-2 rounded-md border border-border bg-background p-2.5">
-      <View className="flex-row items-center gap-2.5">
-        <Pressable
-          className="flex-1 active:opacity-75"
-          onPress={() => router.push(`/scouting/pit/${team.id}` as any)}
+    <View onLayout={(e) => onLayoutCard(team.id, { y: e.nativeEvent.layout.y, h: e.nativeEvent.layout.height })}>
+      <GestureDetector gesture={pan}>
+        <View
+          className={cn(
+            'gap-2 rounded-md border border-border bg-background p-2.5',
+            dragging && 'opacity-30'
+          )}
         >
-          <Text className="text-base font-extrabold">#{team.team_number}</Text>
-          <Text variant="small" numberOfLines={1}>
-            {team.team_name ?? 'Unknown name'}
-          </Text>
-          <Text className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            idx: {index + 1} | reports: {team.entry_count}
-          </Text>
-        </Pressable>
-        <View className="gap-1">
-          <Pressable
-            disabled={reorder.isPending || index === 0}
-            onPress={() => move(-1)}
-            className={cn(
-              'h-6 w-6 items-center justify-center rounded-sm border border-border active:bg-accent',
-              index === 0 && 'opacity-30'
-            )}
-          >
-            <Icon as={ChevronUp} size={14} className="text-muted-foreground" />
-          </Pressable>
-          <Pressable
-            disabled={reorder.isPending || index === tierMates.length - 1}
-            onPress={() => move(1)}
-            className={cn(
-              'h-6 w-6 items-center justify-center rounded-sm border border-border active:bg-accent',
-              index === tierMates.length - 1 && 'opacity-30'
-            )}
-          >
-            <Icon as={ChevronDown} size={14} className="text-muted-foreground" />
-          </Pressable>
-        </View>
-      </View>
-
-      <TierSelector team={team} />
-
-      {editing ? (
-        <View className="gap-2">
-          <Textarea
-            value={draft}
-            onChangeText={setDraft}
-            placeholder="Picklist notes…"
-            className="min-h-[56px] p-2 text-sm"
-          />
-          <View className="flex-row gap-2">
-            <Button variant="ghost" size="sm" label="Cancel" onPress={() => setEditing(false)} className="flex-1" />
-            <Button size="sm" label="Save" loading={setNotes.isPending} onPress={onSave} className="flex-1" />
+          <View className="flex-row items-center gap-2">
+            <Icon as={GripVertical} size={14} className="text-muted-foreground" />
+            <Pressable
+              className="flex-1 active:opacity-75"
+              onPress={() => router.push(`/scouting/pit/${team.id}` as any)}
+            >
+              <Text className="text-base font-extrabold">#{team.team_number}</Text>
+              <Text variant="small" numberOfLines={1}>
+                {team.team_name ?? 'Unknown name'}
+              </Text>
+              <Text className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                idx: {index + 1} | reports: {team.entry_count}
+              </Text>
+            </Pressable>
           </View>
+
+          {editing ? (
+            <View className="gap-2">
+              <Textarea
+                value={draft}
+                onChangeText={setDraft}
+                placeholder="Picklist notes…"
+                className="min-h-[56px] p-2 text-sm"
+              />
+              <View className="flex-row gap-2">
+                <Button variant="ghost" size="sm" label="Cancel" onPress={() => setEditing(false)} className="flex-1" />
+                <Button size="sm" label="Save" loading={setNotes.isPending} onPress={onSave} className="flex-1" />
+              </View>
+            </View>
+          ) : team.notes ? (
+            <Pressable onPress={() => setEditing(true)} className="rounded-sm bg-muted px-2 py-1.5 active:opacity-80">
+              <Text className="text-xs" numberOfLines={2}>
+                {team.notes}
+              </Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() => {
+                setDraft('');
+                setEditing(true);
+              }}
+              className="flex-row items-center gap-1.5 self-start rounded-sm px-1 py-0.5 active:bg-accent"
+            >
+              <Icon as={NotebookPen} size={12} className="text-muted-foreground" />
+              <Text className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Add note
+              </Text>
+            </Pressable>
+          )}
         </View>
-      ) : team.notes ? (
-        <Pressable onPress={() => setEditing(true)} className="rounded-sm bg-muted px-2 py-1.5 active:opacity-80">
-          <Text className="text-xs" numberOfLines={2}>
-            {team.notes}
-          </Text>
-        </Pressable>
-      ) : (
-        <Pressable
-          onPress={() => {
-            setDraft('');
-            setEditing(true);
-          }}
-          className="flex-row items-center gap-1.5 self-start rounded-sm px-1 py-0.5 active:bg-accent"
-        >
-          <Icon as={NotebookPen} size={12} className="text-muted-foreground" />
-          <Text className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Add note
-          </Text>
-        </Pressable>
-      )}
+      </GestureDetector>
     </View>
   );
 }
@@ -341,6 +312,8 @@ function TeamCard({
 export default function PicklistScreen() {
   const { data: teams, isLoading } = usePicklist();
   const { data: questions } = useCapabilityQuestions(true);
+  const moveTeam = useMoveTeam();
+  const { isWide } = useBreakpoint();
 
   const [search, setSearch] = React.useState('');
   const [filters, setFilters] = React.useState<Filters>({});
@@ -349,8 +322,8 @@ export default function PicklistScreen() {
   const filterCount = Object.keys(filters).length;
   const questionById = new Map((questions ?? []).map((q) => [q.id, q]));
 
-  // Full per-tier ordering (independent of search/filters) so manual
-  // reordering always works against the complete tier.
+  // Full per-tier ordering (independent of search/filters) so drops always
+  // land in the complete tier list.
   const tierLists = React.useMemo(() => {
     const map = new Map<TierKey, PicklistTeam[]>();
     for (const key of TIER_ORDER) map.set(key, []);
@@ -359,11 +332,14 @@ export default function PicklistScreen() {
     return map;
   }, [teams]);
 
-  const visible = (t: PicklistTeam) => {
-    const q = search.trim().toLowerCase();
-    if (q && !String(t.team_number).includes(q) && !(t.team_name ?? '').toLowerCase().includes(q)) return false;
-    return matchesFilters(t, filters);
-  };
+  const visible = React.useCallback(
+    (t: PicklistTeam) => {
+      const q = search.trim().toLowerCase();
+      if (q && !String(t.team_number).includes(q) && !(t.team_name ?? '').toLowerCase().includes(q)) return false;
+      return matchesFilters(t, filters);
+    },
+    [search, filters]
+  );
 
   const columns = TIER_ORDER.map((key) => {
     const all = tierLists.get(key)!;
@@ -374,26 +350,159 @@ export default function PicklistScreen() {
     };
   });
 
+  // ---- Drag & drop ------------------------------------------------------------
+
+  const [dragTeam, setDragTeam] = React.useState<PicklistTeam | null>(null);
+  const dragX = useSharedValue(0);
+  const dragY = useSharedValue(0);
+  const rootOrigin = useSharedValue({ x: 0, y: 0 });
+
+  const rootRef = React.useRef<View>(null);
+  const boardRef = React.useRef<View>(null);
+  const boardRect = React.useRef({ x: 0, y: 0, w: 0, h: 0 });
+  const hScroll = React.useRef(0);
+  const vScroll = React.useRef<Record<string, number>>({});
+  const cardLayouts = React.useRef(new Map<string, CardLayout>());
+
+  const onLayoutCard = React.useCallback((teamId: string, layout: CardLayout) => {
+    cardLayouts.current.set(teamId, layout);
+  }, []);
+
+  const onDragStart = React.useCallback((team: PicklistTeam, absX: number, absY: number) => {
+    rootRef.current?.measureInWindow((x, y) => {
+      rootOrigin.value = { x, y };
+    });
+    boardRef.current?.measureInWindow((x, y, w, h) => {
+      boardRect.current = { x, y, w, h };
+    });
+    dragX.value = absX;
+    dragY.value = absY;
+    setDragTeam(team);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const onDragMove = React.useCallback((absX: number, absY: number) => {
+    dragX.value = absX;
+    dragY.value = absY;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Map a drop point to a tier column + insertion index, then persist. */
+  const onDragEnd = React.useCallback(
+    (team: PicklistTeam, absX: number, absY: number) => {
+      setDragTeam(null);
+      if (absX < 0) return; // cancelled
+      const board = boardRect.current;
+      if (board.w === 0 || absY < board.y || absY > board.y + board.h) return;
+
+      const relX = absX - board.x;
+      let colIndex: number;
+      if (isWide) {
+        const colWidth = board.w / TIER_ORDER.length;
+        colIndex = Math.floor(relX / colWidth);
+      } else {
+        const scrolled = relX + hScroll.current - BOARD_PAD;
+        colIndex = Math.floor(scrolled / (NARROW_COL_WIDTH + COL_GAP));
+      }
+      if (colIndex < 0 || colIndex >= TIER_ORDER.length) return;
+
+      const targetKey = TIER_ORDER[colIndex];
+      const targetTier: PicklistTier | null = targetKey === 'untiered' ? null : targetKey;
+      const fullList = tierLists.get(targetKey)!.filter((t) => t.id !== team.id);
+      const shownList = fullList.filter(visible);
+
+      // Insertion point from the drop Y against the visible cards' layouts.
+      const contentY = absY - board.y - COL_HEADER_HEIGHT + (vScroll.current[targetKey] ?? 0);
+      let insertBefore: PicklistTeam | undefined;
+      for (const t of shownList) {
+        const layout = cardLayouts.current.get(t.id);
+        if (layout && contentY < layout.y + layout.h / 2) {
+          insertBefore = t;
+          break;
+        }
+      }
+
+      const orderedIds = fullList.map((t) => t.id);
+      const at = insertBefore ? orderedIds.indexOf(insertBefore.id) : orderedIds.length;
+      orderedIds.splice(at, 0, team.id);
+
+      const sameTier = (team.tier ?? 'untiered') === targetKey;
+      const oldIndex = tierLists.get(targetKey)!.findIndex((t) => t.id === team.id);
+      if (sameTier && oldIndex === at) return; // no-op drop
+
+      moveTeam.mutate({ teamId: team.id, tier: targetTier, orderedIds });
+    },
+    [isWide, tierLists, visible, moveTeam]
+  );
+
+  const ghostStyle = useAnimatedStyle(() => ({
+    left: dragX.value - rootOrigin.value.x - 110,
+    top: dragY.value - rootOrigin.value.y - 24,
+  }));
+
+  // ---- Render -------------------------------------------------------------------
+
+  const renderColumn = (col: (typeof columns)[number]) => (
+    <View
+      key={col.key}
+      className={cn('h-full rounded-md border border-border bg-card', isWide ? 'flex-1' : 'w-72')}
+    >
+      <View className="flex-row items-center gap-2 border-b border-border px-3 py-2.5">
+        <View className={cn('h-2 w-2 rounded-none', TIER_DOT[col.key])} />
+        <Text variant="label">{tierLabel(col.key)}</Text>
+        <Badge variant="muted" label={String(col.shown.length)} />
+      </View>
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="gap-2 p-2"
+        scrollEnabled={!dragTeam}
+        onScroll={(e) => {
+          vScroll.current[col.key] = e.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={32}
+      >
+        {col.shown.length === 0 ? (
+          <View className="items-center py-8">
+            <Text variant="small">No teams</Text>
+          </View>
+        ) : (
+          col.shown.map(({ team, index }) => (
+            <TeamCard
+              key={team.id}
+              team={team}
+              index={index}
+              onDragStart={onDragStart}
+              onDragMove={onDragMove}
+              onDragEnd={onDragEnd}
+              onLayoutCard={onLayoutCard}
+              dragging={dragTeam?.id === team.id}
+            />
+          ))
+        )}
+      </ScrollView>
+    </View>
+  );
+
   return (
-    <View className="flex-1 bg-background">
-      <View className="gap-3 px-4 pb-3 pt-5 md:px-6">
+    <View ref={rootRef} className="flex-1 bg-background">
+      {/* Header stays above the columns so the filter popup can overlay them. */}
+      <View className="z-20 gap-3 px-4 pb-3 pt-5 md:px-6">
         <View className="flex-row items-center gap-2.5">
           <Text variant="h2">Picklist</Text>
           <Badge variant="default" label={String((teams ?? []).length)} />
         </View>
 
-        <View className="h-11 max-w-md flex-row items-center gap-2 rounded-md border border-input bg-background px-3">
-          <Icon as={Search} size={18} className="text-muted-foreground" />
-          <Input
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search teams…"
-            className="h-full flex-1 border-0 px-0"
-          />
-        </View>
-
-        {/* Toolbar anchors the filter popup; keep it above the backdrop. */}
-        <View className="relative z-50 flex-row flex-wrap items-center gap-2">
+        {/* Search + filter share a row; the popup anchors to this row. */}
+        <View className="relative z-50 flex-row items-center gap-2">
+          <View className="h-10 max-w-md flex-1 flex-row items-center gap-2 rounded-md border border-input bg-background px-3">
+            <Icon as={Search} size={18} className="text-muted-foreground" />
+            <Input
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search teams…"
+              className="h-full flex-1 border-0 px-0"
+            />
+          </View>
           <Button
             variant={showFilters || filterCount > 0 ? 'default' : 'outline'}
             size="sm"
@@ -405,33 +514,38 @@ export default function PicklistScreen() {
           {filterCount > 0 ? (
             <Button variant="ghost" size="sm" label="Clear all" onPress={() => setFilters({})} />
           ) : null}
-          {Object.entries(filters).map(([qid, choice]) => {
-            const q = questionById.get(qid);
-            if (!q) return null;
-            return (
-              <Pressable
-                key={qid}
-                onPress={() =>
-                  setFilters((prev) => {
-                    const next = { ...prev };
-                    delete next[qid];
-                    return next;
-                  })
-                }
-                className="flex-row items-center gap-1.5 rounded-sm border border-primary bg-primary/10 px-2 py-1 active:opacity-70"
-              >
-                <Text className="text-[11px] font-bold uppercase tracking-wide text-primary">
-                  {q.prompt}: {choice}
-                </Text>
-                <Icon as={X} size={12} className="text-primary" />
-              </Pressable>
-            );
-          })}
 
           {showFilters ? (
             <FilterPopup questions={questions ?? []} filters={filters} setFilters={setFilters} />
           ) : null}
         </View>
+
+        {filterCount > 0 ? (
+          <View className="flex-row flex-wrap items-center gap-2">
+            {Object.entries(filters).map(([qid, choice]) => {
+              const q = questionById.get(qid);
+              if (!q) return null;
+              return (
+                <Pressable
+                  key={qid}
+                  onPress={() =>
+                    setFilters((prev) => {
+                      const next = { ...prev };
+                      delete next[qid];
+                      return next;
+                    })
+                  }
+                  className="flex-row items-center gap-1.5 rounded-sm border border-primary bg-primary/10 px-2 py-1 active:opacity-70"
+                >
+                  <Text className="text-[11px] font-bold uppercase tracking-wide text-primary">
+                    {q.prompt}: {choice}
+                  </Text>
+                  <Icon as={X} size={12} className="text-primary" />
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
       </View>
 
       {isLoading ? (
@@ -442,45 +556,51 @@ export default function PicklistScreen() {
         <EmptyState
           icon={ListOrdered}
           title="No teams scouted yet"
-          description="Scout some teams first, then place them into tiers here."
+          description="Scout some teams first, then drag them into tiers here."
         />
+      ) : isWide ? (
+        <View ref={boardRef} className="z-0 flex-1 flex-row gap-3 px-6 pb-4">
+          {columns.map(renderColumn)}
+        </View>
       ) : (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="flex-1"
-          contentContainerClassName="gap-3 px-4 pb-4 md:px-6"
-        >
-          {columns.map((col) => (
-            <View key={col.key} className="h-full w-72 rounded-md border border-border bg-card">
-              <View className="flex-row items-center gap-2 border-b border-border px-3 py-2.5">
-                <View className={cn('h-2 w-2 rounded-none', TIER_DOT[col.key])} />
-                <Text variant="label">{tierLabel(col.key)}</Text>
-                <Badge variant="muted" label={String(col.shown.length)} />
-              </View>
-              <ScrollView className="flex-1" contentContainerClassName="gap-2 p-2">
-                {col.shown.length === 0 ? (
-                  <View className="items-center py-8">
-                    <Text variant="small">No teams</Text>
-                  </View>
-                ) : (
-                  col.shown.map(({ team, index }) => (
-                    <TeamCard key={team.id} team={team} index={index} tierMates={col.all} />
-                  ))
-                )}
-              </ScrollView>
-            </View>
-          ))}
-        </ScrollView>
+        <View ref={boardRef} className="z-0 flex-1">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="flex-1"
+            contentContainerClassName="gap-3 px-4 pb-4"
+            scrollEnabled={!dragTeam}
+            onScroll={(e) => {
+              hScroll.current = e.nativeEvent.contentOffset.x;
+            }}
+            scrollEventThrottle={32}
+          >
+            {columns.map(renderColumn)}
+          </ScrollView>
+        </View>
       )}
 
       {/* Click-away backdrop for the filter popup. */}
       {showFilters ? (
         <Pressable
           accessibilityLabel="Close filters"
-          className="absolute bottom-0 left-0 right-0 top-0 z-40"
+          className="absolute bottom-0 left-0 right-0 top-0 z-10"
           onPress={() => setShowFilters(false)}
         />
+      ) : null}
+
+      {/* Ghost card that follows the finger while dragging. */}
+      {dragTeam ? (
+        <Animated.View
+          pointerEvents="none"
+          style={ghostStyle}
+          className="absolute z-50 w-[220px] rounded-md border border-primary bg-card p-2.5 opacity-90"
+        >
+          <Text className="text-base font-extrabold">#{dragTeam.team_number}</Text>
+          <Text variant="small" numberOfLines={1}>
+            {dragTeam.team_name ?? 'Unknown name'}
+          </Text>
+        </Animated.View>
       ) : null}
     </View>
   );
