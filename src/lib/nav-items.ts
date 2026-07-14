@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import {
   LayoutDashboard,
   ClipboardList,
+  CalendarRange,
   Radio,
   ListChecks,
   ListOrdered,
@@ -43,10 +44,18 @@ export const COMPETITION_NAV: NavItem[] = [
   { name: 'schedule', label: 'Pit schedule', href: '/schedule', icon: CalendarClock },
 ];
 
-/** Sidebar sections on wide screens. */
+/** Sections for the mobile drawer. */
 export const NAV_SECTIONS: NavSection[] = [
   { label: 'General', items: GENERAL_NAV },
   { label: 'Competition', items: COMPETITION_NAV },
+];
+
+/** Entries of the "Scouting" dropdown in the desktop top navbar. */
+export const SCOUTING_MENU: NavItem[] = [
+  { name: 'pit-scouting', label: 'Pit scouting', href: '/scouting/pit', icon: ClipboardList },
+  { name: 'match-scouting', label: 'Match scouting', href: '/scouting/matches', icon: CalendarRange },
+  { name: 'picklist', label: 'Picklist', href: '/picklist', icon: ListOrdered },
+  { name: 'talkie', label: 'Talkie', href: '/talkie', icon: Radio },
 ];
 
 /** Secondary destinations — sidebar footer, below the sections. */

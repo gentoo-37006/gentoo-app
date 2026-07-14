@@ -2,14 +2,22 @@ import * as React from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, usePathname } from 'expo-router';
-import { Bot, Menu } from 'lucide-react-native';
+import { Bot, Menu, ChevronDown, ClipboardList } from 'lucide-react-native';
 import { cn } from '@/lib/utils';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useAuth } from '@/lib/auth';
 import { isDesktopApp } from '@/lib/desktop-updates';
 import { useUnreadCount, useNotificationsRealtime } from '@/lib/queries/notifications';
 import { registerForPushNotifications } from '@/lib/push';
-import { SECONDARY_NAV, NAV_SECTIONS, ALL_NAV, type NavItem } from '@/lib/nav-items';
+import {
+  GENERAL_NAV,
+  COMPETITION_NAV,
+  SCOUTING_MENU,
+  SECONDARY_NAV,
+  NAV_SECTIONS,
+  ALL_NAV,
+  type NavItem,
+} from '@/lib/nav-items';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Separator } from '@/components/ui/separator';
@@ -163,6 +171,176 @@ function Sidebar({
   );
 }
 
+function NavBarLink({ item, active }: { item: NavItem; active: boolean }) {
+  return (
+    <Link href={item.href as any} asChild>
+      <Pressable
+        className={cn(
+          'flex-row items-center gap-2 rounded-sm px-3 py-2',
+          active ? 'bg-primary' : 'active:bg-accent'
+        )}
+      >
+        <Icon
+          as={item.icon}
+          size={16}
+          className={active ? 'text-primary-foreground' : 'text-muted-foreground'}
+        />
+        <Text
+          className={cn(
+            'text-[13px] font-semibold',
+            active ? 'text-primary-foreground' : 'text-foreground'
+          )}
+        >
+          {item.label}
+        </Text>
+      </Pressable>
+    </Link>
+  );
+}
+
+function NavBarIcon({ item, badgeCount = 0 }: { item: NavItem; badgeCount?: number }) {
+  return (
+    <Link href={item.href as any} asChild>
+      <Pressable
+        accessibilityLabel={item.label}
+        className="h-9 w-9 items-center justify-center rounded-sm active:bg-accent"
+      >
+        <Icon as={item.icon} size={18} className="text-muted-foreground" />
+        {badgeCount > 0 ? (
+          <View className="absolute -right-0.5 -top-0.5">
+            <CountBadge count={badgeCount} />
+          </View>
+        ) : null}
+      </Pressable>
+    </Link>
+  );
+}
+
+function NavDivider() {
+  return <View className="mx-2 h-5 w-px bg-border" />;
+}
+
+function TopNav({
+  pathname,
+  isAdmin,
+  unread,
+  name,
+  avatarUrl,
+  scoutingOpen,
+  setScoutingOpen,
+}: {
+  pathname: string;
+  isAdmin: boolean;
+  unread: number;
+  name?: string | null;
+  avatarUrl?: string | null;
+  scoutingOpen: boolean;
+  setScoutingOpen: (open: boolean) => void;
+}) {
+  const icons = SECONDARY_NAV.filter(
+    (i) => (!i.adminOnly || isAdmin) && !(i.hideOnDesktop && isDesktopApp)
+  );
+  const scoutingActive = SCOUTING_MENU.some((i) => isActiveRoute(i.href, pathname));
+
+  return (
+    <View className="border-b border-border bg-card">
+      <View className="flex-row items-center px-4 py-2.5">
+        <Brand compact />
+        <NavDivider />
+
+        {/* General */}
+        {[GENERAL_NAV[0], GENERAL_NAV[1]].map((item) => (
+          <NavBarLink key={item.name} item={item} active={isActiveRoute(item.href, pathname)} />
+        ))}
+        <NavDivider />
+
+        {/* Competition */}
+        <NavBarLink item={COMPETITION_NAV[0]} active={isActiveRoute(COMPETITION_NAV[0].href, pathname)} />
+        <View className="relative">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Scouting menu"
+            onPress={() => setScoutingOpen(!scoutingOpen)}
+            className={cn(
+              'flex-row items-center gap-2 rounded-sm px-3 py-2',
+              scoutingActive ? 'bg-primary' : scoutingOpen ? 'bg-accent' : 'active:bg-accent'
+            )}
+          >
+            <Icon
+              as={ClipboardList}
+              size={16}
+              className={scoutingActive ? 'text-primary-foreground' : 'text-muted-foreground'}
+            />
+            <Text
+              className={cn(
+                'text-[13px] font-semibold',
+                scoutingActive ? 'text-primary-foreground' : 'text-foreground'
+              )}
+            >
+              Scouting
+            </Text>
+            <Icon
+              as={ChevronDown}
+              size={14}
+              className={scoutingActive ? 'text-primary-foreground' : 'text-muted-foreground'}
+            />
+          </Pressable>
+          {scoutingOpen ? (
+            <View className="absolute left-0 top-full z-50 mt-1 w-52 rounded-md border border-border bg-popover p-1">
+              {SCOUTING_MENU.map((item) => {
+                const active = isActiveRoute(item.href, pathname);
+                return (
+                  <Link key={item.name} href={item.href as any} asChild>
+                    <Pressable
+                      className={cn(
+                        'flex-row items-center gap-2.5 rounded-sm px-3 py-2',
+                        active ? 'bg-primary' : 'active:bg-accent'
+                      )}
+                    >
+                      <Icon
+                        as={item.icon}
+                        size={16}
+                        className={active ? 'text-primary-foreground' : 'text-muted-foreground'}
+                      />
+                      <Text
+                        className={cn(
+                          'text-[13px] font-semibold',
+                          active ? 'text-primary-foreground' : 'text-foreground'
+                        )}
+                      >
+                        {item.label}
+                      </Text>
+                    </Pressable>
+                  </Link>
+                );
+              })}
+            </View>
+          ) : null}
+        </View>
+        <NavBarLink item={COMPETITION_NAV[4]} active={isActiveRoute(COMPETITION_NAV[4].href, pathname)} />
+
+        <View className="flex-1" />
+
+        {/* Secondary as icons */}
+        <View className="flex-row items-center gap-0.5">
+          {icons.map((item) => (
+            <NavBarIcon
+              key={item.name}
+              item={item}
+              badgeCount={item.name === 'notifications' ? unread : 0}
+            />
+          ))}
+          <Link href={'/settings' as any} asChild>
+            <Pressable className="ml-2" accessibilityLabel="Profile settings">
+              <Avatar name={name} uri={avatarUrl} size={30} />
+            </Pressable>
+          </Link>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 function MobileHeader({
   pathname,
   unread,
@@ -219,10 +397,12 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
   const unread = useUnreadCount();
   useNotificationsRealtime();
 
-  // Mobile drawer; navigation closes it via the pathname effect below.
+  // Mobile drawer + desktop scouting dropdown; navigation closes both.
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const [scoutingOpen, setScoutingOpen] = React.useState(false);
   React.useEffect(() => {
     setMenuOpen(false);
+    setScoutingOpen(false);
   }, [pathname]);
 
   // Register this device for push once the member is signed in & approved.
@@ -234,16 +414,27 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
 
   if (isWide) {
     return (
-      <View className="flex-1 flex-row bg-background">
-        <Sidebar
-          pathname={pathname}
-          isAdmin={isAdmin}
-          unread={unread}
-          name={profile?.full_name}
-          role={profile?.role}
-          avatarUrl={profile?.avatar_url}
-        />
-        <View className="flex-1">{children}</View>
+      <View className="flex-1 bg-background">
+        {/* zIndex keeps the dropdown above the click-away backdrop below. */}
+        <View className="z-20">
+          <TopNav
+            pathname={pathname}
+            isAdmin={isAdmin}
+            unread={unread}
+            name={profile?.full_name}
+            avatarUrl={profile?.avatar_url}
+            scoutingOpen={scoutingOpen}
+            setScoutingOpen={setScoutingOpen}
+          />
+        </View>
+        <View className="z-0 flex-1">{children}</View>
+        {scoutingOpen ? (
+          <Pressable
+            accessibilityLabel="Close menu"
+            className="absolute bottom-0 left-0 right-0 top-0 z-10"
+            onPress={() => setScoutingOpen(false)}
+          />
+        ) : null}
       </View>
     );
   }
