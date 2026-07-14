@@ -21,7 +21,7 @@ const textVariants = cva('text-foreground', {
       body: 'text-base',
       muted: 'text-sm text-muted-foreground',
       small: 'text-xs text-muted-foreground',
-      label: 'text-sm font-medium',
+      label: 'text-xs font-semibold uppercase tracking-wider',
       lead: 'text-base text-muted-foreground',
     },
   },

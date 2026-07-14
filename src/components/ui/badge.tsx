@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { Text, TextClassContext } from '@/components/ui/text';
 
 const badgeVariants = cva(
-  'flex-row items-center self-start rounded-full px-2.5 py-0.5',
+  'flex-row items-center self-start rounded-sm px-2 py-0.5',
   {
     variants: {
       variant: {
@@ -22,7 +22,7 @@ const badgeVariants = cva(
   }
 );
 
-const badgeTextVariants = cva('text-xs font-semibold', {
+const badgeTextVariants = cva('text-[11px] font-bold uppercase tracking-wide', {
   variants: {
     variant: {
       default: 'text-primary-foreground',

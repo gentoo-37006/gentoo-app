@@ -396,13 +396,17 @@ export async function demoPicklist() {
       score: s.score,
       entry_count: s.entry_count,
       tier: team?.picklist_tier ?? null,
+      rank: team?.picklist_rank ?? null,
       notes: team?.picklist_notes ?? null,
       capabilities,
     };
   });
 }
 
-export async function demoSetPicklist(teamId: string, patch: { picklist_tier?: PicklistTier | null; picklist_notes?: string | null }) {
+export async function demoSetPicklist(
+  teamId: string,
+  patch: { picklist_tier?: PicklistTier | null; picklist_rank?: number | null; picklist_notes?: string | null }
+) {
   const db = await getDemoWorkspace();
   db.scoutedTeams = db.scoutedTeams.map((t) => (t.id === teamId ? { ...t, ...patch, updated_at: now() } : t));
   await persist();
@@ -567,6 +571,16 @@ export async function demoMyOpenTaskCount(uid = DEMO_USER_ID) {
   return db.tasks.filter(
     (t) => t.assignee_id === uid && t.status !== 'done' && activeProjects.has(t.project_id)
   ).length;
+}
+
+export async function demoMyTasks(uid = DEMO_USER_ID, limit = 6) {
+  const db = await getDemoWorkspace();
+  const active = new Map(db.projects.filter((p) => !p.deleted_at).map((p) => [p.id, p]));
+  return db.tasks
+    .filter((t) => t.assignee_id === uid && t.status !== 'done' && active.has(t.project_id))
+    .sort((a, b) => (a.due_date ?? '￿').localeCompare(b.due_date ?? '￿'))
+    .slice(0, limit)
+    .map((t) => ({ ...t, project: { id: t.project_id, name: active.get(t.project_id)!.name } }));
 }
 
 export async function demoCreateProject(vars: { name: string; description?: string; status: ProjectStatus; priority: Priority }) {

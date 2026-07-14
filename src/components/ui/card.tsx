@@ -7,7 +7,7 @@ export function Card({ className, ...props }: React.ComponentProps<typeof View>)
   return (
     <View
       className={cn(
-        'rounded-xl border border-border bg-card shadow-sm shadow-black/5',
+        'rounded-md border border-border bg-card',
         className
       )}
       {...props}

@@ -13,9 +13,9 @@ export function ScoreBar({
 }) {
   const pct = Math.max(0, Math.min(100, value));
   return (
-    <View className={cn('h-2 w-full overflow-hidden rounded-full bg-muted', className)}>
+    <View className={cn('h-2 w-full overflow-hidden rounded-none bg-muted', className)}>
       <View
-        className={cn('h-full rounded-full bg-primary', fillClassName)}
+        className={cn('h-full rounded-none bg-primary', fillClassName)}
         style={{ width: `${pct}%` }}
       />
     </View>

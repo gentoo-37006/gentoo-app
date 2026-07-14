@@ -41,22 +41,3 @@ export function summarizeAnswers(
     };
   });
 }
-
-/** Weight-weighted average of yes-fractions → 0..100, matching team_scores. */
-export function weightedScore(breakdowns: QuestionBreakdown[]): number {
-  let numerator = 0;
-  let denominator = 0;
-  for (const b of breakdowns) {
-    if (b.yesFraction === null) continue;
-    numerator += b.question.weight * b.yesFraction;
-    denominator += b.question.weight;
-  }
-  return denominator > 0 ? Math.round((100 * numerator) / denominator) : 0;
-}
-
-/** Tailwind text color class for a 0..100 score. */
-export function scoreTint(score: number): string {
-  if (score >= 70) return 'text-success';
-  if (score >= 40) return 'text-warning';
-  return 'text-destructive';
-}

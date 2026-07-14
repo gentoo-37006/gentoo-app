@@ -9,38 +9,26 @@ import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ScoreBar } from '@/components/ui/score-bar';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { useTeamScores } from '@/lib/queries/scouting';
-import { scoreTint } from '@/lib/scoring';
 import type { TeamScore } from '@/lib/types';
 
 function TeamCard({ team }: { team: TeamScore }) {
   const router = useRouter();
-  const tint = scoreTint(team.score);
   return (
     <Pressable className="active:opacity-75" onPress={() => router.push(`/scouting/pit/${team.team_id}` as any)}>
         <Card>
-          <CardContent className="gap-3 p-4">
-            <View className="flex-row items-center justify-between gap-3">
-              <View className="flex-1">
-                <Text className="text-base font-bold">Team {team.team_number}</Text>
-                <Text variant="muted" numberOfLines={1}>
-                  {team.team_name ?? 'Unknown name'}
-                </Text>
-              </View>
-              <View className="items-end">
-                <Text className={`text-2xl font-extrabold ${tint}`}>{team.score}%</Text>
-                <Text variant="small">
-                  {team.entry_count} {team.entry_count === 1 ? 'report' : 'reports'}
-                </Text>
-              </View>
+          <CardContent className="flex-row items-center justify-between gap-3 p-4">
+            <View className="flex-1">
+              <Text className="text-base font-bold">Team {team.team_number}</Text>
+              <Text variant="muted" numberOfLines={1}>
+                {team.team_name ?? 'Unknown name'}
+              </Text>
             </View>
-            <ScoreBar
-              value={team.score}
-              fillClassName={
-                team.score >= 70 ? 'bg-success' : team.score >= 40 ? 'bg-warning' : 'bg-destructive'
-              }
+            <Badge
+              variant="muted"
+              label={`${team.entry_count} ${team.entry_count === 1 ? 'report' : 'reports'}`}
             />
           </CardContent>
         </Card>
@@ -64,7 +52,7 @@ export default function PitScoutingList() {
 
   return (
     <Screen>
-      <ScreenHeader title="Pit scouting" description="Scout teams and track capability scores." backHref="/scouting">
+      <ScreenHeader title="Pit scouting" description="Scout teams and record their capabilities." backHref="/scouting">
         {isAdmin ? (
           <Button
             variant="outline"

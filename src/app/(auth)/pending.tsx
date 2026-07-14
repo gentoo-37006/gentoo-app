@@ -26,7 +26,7 @@ export default function PendingScreen() {
           <Card>
             <CardContent className="items-center gap-4 px-6 py-10">
               <View
-                className={`h-16 w-16 items-center justify-center rounded-2xl ${
+                className={`h-16 w-16 items-center justify-center rounded-md ${
                   rejected ? 'bg-destructive/15' : 'bg-warning/15'
                 }`}
               >

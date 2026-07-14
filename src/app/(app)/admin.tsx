@@ -87,7 +87,7 @@ function RoleChip({
       onPress={onPress}
       disabled={disabled}
       className={cn(
-        'rounded-full border px-3 py-1.5',
+        'rounded-sm border px-3 py-1.5',
         active ? 'border-primary bg-primary' : 'border-border bg-background active:bg-accent',
         disabled && 'opacity-50'
       )}

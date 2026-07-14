@@ -133,7 +133,7 @@ export default function SignInScreen() {
       <View className="flex-1 items-center justify-center p-6">
         <View className="w-full max-w-sm gap-8">
           <View className="items-center gap-3">
-            <View className="h-16 w-16 items-center justify-center rounded-2xl bg-primary">
+            <View className="h-16 w-16 items-center justify-center rounded-md bg-primary">
               <Icon as={Bot} size={32} className="text-primary-foreground" />
             </View>
             <View className="items-center">

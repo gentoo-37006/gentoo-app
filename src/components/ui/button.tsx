@@ -29,7 +29,7 @@ const buttonVariants = cva(
   }
 );
 
-const buttonTextVariants = cva('text-sm font-semibold', {
+const buttonTextVariants = cva('text-xs font-bold uppercase tracking-wider', {
   variants: {
     variant: {
       default: 'text-primary-foreground',
