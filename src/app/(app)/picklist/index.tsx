@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, runOnJS } from 'react-native-reanimated';
@@ -41,6 +41,8 @@ const NARROW_COL_WIDTH = 288; // w-72
 const COL_GAP = 12; // gap-3
 const BOARD_PAD = 16; // px-4
 const COL_HEADER_HEIGHT = 42;
+
+const grabCursor = Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : undefined;
 
 function tierLabel(key: TierKey): string {
   return key === 'untiered' ? 'Uncategorized' : PICKLIST_TIERS.find((t) => t.value === key)!.label;
@@ -118,8 +120,8 @@ function SegmentedChoice({
 }
 
 /**
- * Two-pane popup anchored under the toolbar: category list on the left, the
- * selected category's questions (Any/Yes/No) on the right.
+ * Two-pane popup: category list on the left; hovering (or tapping) a category
+ * reveals its questions (Any/Yes/No) on the right. Nothing shows until hover.
  */
 function FilterPopup({
   questions,
@@ -131,9 +133,7 @@ function FilterPopup({
   setFilters: React.Dispatch<React.SetStateAction<Filters>>;
 }) {
   const groups = groupByCategory(questions);
-  const [activeCategory, setActiveCategory] = React.useState<string | null>(
-    groups[0]?.category ?? null
-  );
+  const [activeCategory, setActiveCategory] = React.useState<string | null>(null);
   const active = groups.find((g) => g.category === activeCategory);
 
   const setChoice = (qid: string, choice: FilterChoice | undefined) =>
@@ -145,20 +145,21 @@ function FilterPopup({
     });
 
   return (
-    <View className="absolute left-0 right-0 top-full z-50 mt-1 flex-row rounded-md border border-border bg-popover md:right-auto md:w-[520px]">
+    <View className="flex-row rounded-md border border-border bg-popover">
       {groups.length === 0 ? (
         <View className="p-4">
           <Text variant="muted">No capability questions defined yet.</Text>
         </View>
       ) : (
         <>
-          <View className="w-44 border-r border-border p-1">
+          <View className="w-44 p-1">
             {groups.map((g) => {
               const selected = g.category === activeCategory;
               const n = g.questions.filter((q) => filters[q.id]).length;
               return (
                 <Pressable
                   key={g.category}
+                  onHoverIn={() => setActiveCategory(g.category)}
                   onPress={() => setActiveCategory(g.category)}
                   className={cn(
                     'flex-row items-center gap-1.5 rounded-sm px-2.5 py-2',
@@ -174,23 +175,21 @@ function FilterPopup({
               );
             })}
           </View>
-          <View className="flex-1 gap-3 p-3">
-            {active ? (
-              <>
-                <Text variant="label" className="text-muted-foreground">
-                  {active.category}
-                </Text>
-                {active.questions.map((q) => (
-                  <View key={q.id} className="flex-row items-center justify-between gap-3">
-                    <Text className="flex-1 text-sm" numberOfLines={2}>
-                      {q.prompt}
-                    </Text>
-                    <SegmentedChoice value={filters[q.id]} onChange={(c) => setChoice(q.id, c)} />
-                  </View>
-                ))}
-              </>
-            ) : null}
-          </View>
+          {active ? (
+            <View className="w-80 gap-3 border-l border-border p-3">
+              <Text variant="label" className="text-muted-foreground">
+                {active.category}
+              </Text>
+              {active.questions.map((q) => (
+                <View key={q.id} className="flex-row items-center justify-between gap-3">
+                  <Text className="flex-1 text-sm" numberOfLines={2}>
+                    {q.prompt}
+                  </Text>
+                  <SegmentedChoice value={filters[q.id]} onChange={(c) => setChoice(q.id, c)} />
+                </View>
+              ))}
+            </View>
+          ) : null}
         </>
       )}
     </View>
@@ -202,6 +201,7 @@ type CardLayout = { y: number; h: number };
 function TeamCard({
   team,
   index,
+  highlight,
   onDragStart,
   onDragMove,
   onDragEnd,
@@ -210,6 +210,8 @@ function TeamCard({
 }: {
   team: PicklistTeam;
   index: number;
+  /** null = no filters active; true = matches; false = doesn't match. */
+  highlight: boolean | null;
   onDragStart: (team: PicklistTeam, absX: number, absY: number) => void;
   onDragMove: (absX: number, absY: number) => void;
   onDragEnd: (team: PicklistTeam, absX: number, absY: number) => void;
@@ -229,7 +231,7 @@ function TeamCard({
   const pan = React.useMemo(
     () =>
       Gesture.Pan()
-        .activateAfterLongPress(200)
+        .activateAfterLongPress(150)
         .onStart((e) => {
           runOnJS(onDragStart)(team, e.absoluteX, e.absoluteY);
         })
@@ -250,12 +252,16 @@ function TeamCard({
       <GestureDetector gesture={pan}>
         <View
           className={cn(
-            'gap-2 rounded-md border border-border bg-background p-2.5',
+            'gap-2 rounded-md border bg-background p-2.5',
+            highlight === true ? 'border-success' : 'border-border',
+            highlight === false && 'opacity-40',
             dragging && 'opacity-30'
           )}
         >
-          <View className="flex-row items-center gap-2">
-            <Icon as={GripVertical} size={14} className="text-muted-foreground" />
+          <View className="flex-row items-start gap-2">
+            <View style={grabCursor} className="pt-0.5">
+              <Icon as={GripVertical} size={14} className="text-muted-foreground" />
+            </View>
             <Pressable
               className="flex-1 active:opacity-75"
               onPress={() => router.push(`/scouting/pit/${team.id}` as any)}
@@ -267,6 +273,16 @@ function TeamCard({
               <Text className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 idx: {index + 1} | reports: {team.entry_count}
               </Text>
+            </Pressable>
+            <Pressable
+              accessibilityLabel="Edit notes"
+              onPress={() => {
+                setDraft(team.notes ?? '');
+                setEditing((s) => !s);
+              }}
+              className="h-6 w-6 items-center justify-center rounded-sm active:bg-accent"
+            >
+              <Icon as={NotebookPen} size={13} className="text-muted-foreground" />
             </Pressable>
           </View>
 
@@ -289,20 +305,7 @@ function TeamCard({
                 {team.notes}
               </Text>
             </Pressable>
-          ) : (
-            <Pressable
-              onPress={() => {
-                setDraft('');
-                setEditing(true);
-              }}
-              className="flex-row items-center gap-1.5 self-start rounded-sm px-1 py-0.5 active:bg-accent"
-            >
-              <Icon as={NotebookPen} size={12} className="text-muted-foreground" />
-              <Text className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Add note
-              </Text>
-            </Pressable>
-          )}
+          ) : null}
         </View>
       </GestureDetector>
     </View>
@@ -318,12 +321,13 @@ export default function PicklistScreen() {
   const [search, setSearch] = React.useState('');
   const [filters, setFilters] = React.useState<Filters>({});
   const [showFilters, setShowFilters] = React.useState(false);
+  const [popupPos, setPopupPos] = React.useState<{ left: number; top: number } | null>(null);
 
   const filterCount = Object.keys(filters).length;
   const questionById = new Map((questions ?? []).map((q) => [q.id, q]));
 
-  // Full per-tier ordering (independent of search/filters) so drops always
-  // land in the complete tier list.
+  // Full per-tier ordering (independent of search) so drops always land in
+  // the complete tier list.
   const tierLists = React.useMemo(() => {
     const map = new Map<TierKey, PicklistTeam[]>();
     for (const key of TIER_ORDER) map.set(key, []);
@@ -332,13 +336,14 @@ export default function PicklistScreen() {
     return map;
   }, [teams]);
 
-  const visible = React.useCallback(
+  // Search hides; filters only highlight (matches green, misses dimmed).
+  const searchVisible = React.useCallback(
     (t: PicklistTeam) => {
       const q = search.trim().toLowerCase();
-      if (q && !String(t.team_number).includes(q) && !(t.team_name ?? '').toLowerCase().includes(q)) return false;
-      return matchesFilters(t, filters);
+      if (!q) return true;
+      return String(t.team_number).includes(q) || (t.team_name ?? '').toLowerCase().includes(q);
     },
-    [search, filters]
+    [search]
   );
 
   const columns = TIER_ORDER.map((key) => {
@@ -346,9 +351,34 @@ export default function PicklistScreen() {
     return {
       key,
       all,
-      shown: all.map((team, index) => ({ team, index })).filter(({ team }) => visible(team)),
+      shown: all.map((team, index) => ({ team, index })).filter(({ team }) => searchVisible(team)),
     };
   });
+
+  // ---- Filter popup anchoring --------------------------------------------------
+
+  const rootRef = React.useRef<View>(null);
+  const rootRect = React.useRef({ x: 0, y: 0 });
+  const filterBtnRef = React.useRef<View>(null);
+
+  const measureRoot = React.useCallback(() => {
+    rootRef.current?.measureInWindow((x, y) => {
+      rootRect.current = { x, y };
+      rootOrigin.value = { x, y };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const toggleFilters = () => {
+    if (showFilters) {
+      setShowFilters(false);
+      return;
+    }
+    filterBtnRef.current?.measureInWindow((x, y, _w, h) => {
+      setPopupPos({ left: x - rootRect.current.x, top: y - rootRect.current.y + h + 4 });
+      setShowFilters(true);
+    });
+  };
 
   // ---- Drag & drop ------------------------------------------------------------
 
@@ -357,29 +387,33 @@ export default function PicklistScreen() {
   const dragY = useSharedValue(0);
   const rootOrigin = useSharedValue({ x: 0, y: 0 });
 
-  const rootRef = React.useRef<View>(null);
   const boardRef = React.useRef<View>(null);
   const boardRect = React.useRef({ x: 0, y: 0, w: 0, h: 0 });
   const hScroll = React.useRef(0);
   const vScroll = React.useRef<Record<string, number>>({});
   const cardLayouts = React.useRef(new Map<string, CardLayout>());
 
+  const measureBoard = React.useCallback(() => {
+    boardRef.current?.measureInWindow((x, y, w, h) => {
+      boardRect.current = { x, y, w, h };
+    });
+  }, []);
+
   const onLayoutCard = React.useCallback((teamId: string, layout: CardLayout) => {
     cardLayouts.current.set(teamId, layout);
   }, []);
 
-  const onDragStart = React.useCallback((team: PicklistTeam, absX: number, absY: number) => {
-    rootRef.current?.measureInWindow((x, y) => {
-      rootOrigin.value = { x, y };
-    });
-    boardRef.current?.measureInWindow((x, y, w, h) => {
-      boardRect.current = { x, y, w, h };
-    });
-    dragX.value = absX;
-    dragY.value = absY;
-    setDragTeam(team);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const onDragStart = React.useCallback(
+    (team: PicklistTeam, absX: number, absY: number) => {
+      measureRoot();
+      measureBoard();
+      dragX.value = absX;
+      dragY.value = absY;
+      setDragTeam(team);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [measureRoot, measureBoard]
+  );
 
   const onDragMove = React.useCallback((absX: number, absY: number) => {
     dragX.value = absX;
@@ -409,7 +443,7 @@ export default function PicklistScreen() {
       const targetKey = TIER_ORDER[colIndex];
       const targetTier: PicklistTier | null = targetKey === 'untiered' ? null : targetKey;
       const fullList = tierLists.get(targetKey)!.filter((t) => t.id !== team.id);
-      const shownList = fullList.filter(visible);
+      const shownList = fullList.filter(searchVisible);
 
       // Insertion point from the drop Y against the visible cards' layouts.
       const contentY = absY - board.y - COL_HEADER_HEIGHT + (vScroll.current[targetKey] ?? 0);
@@ -432,12 +466,12 @@ export default function PicklistScreen() {
 
       moveTeam.mutate({ teamId: team.id, tier: targetTier, orderedIds });
     },
-    [isWide, tierLists, visible, moveTeam]
+    [isWide, tierLists, searchVisible, moveTeam]
   );
 
   const ghostStyle = useAnimatedStyle(() => ({
-    left: dragX.value - rootOrigin.value.x - 110,
-    top: dragY.value - rootOrigin.value.y - 24,
+    left: dragX.value - rootOrigin.value.x - 120,
+    top: dragY.value - rootOrigin.value.y - 30,
   }));
 
   // ---- Render -------------------------------------------------------------------
@@ -471,6 +505,7 @@ export default function PicklistScreen() {
               key={team.id}
               team={team}
               index={index}
+              highlight={filterCount > 0 ? matchesFilters(team, filters) : null}
               onDragStart={onDragStart}
               onDragMove={onDragMove}
               onDragEnd={onDragEnd}
@@ -484,16 +519,14 @@ export default function PicklistScreen() {
   );
 
   return (
-    <View ref={rootRef} className="flex-1 bg-background">
-      {/* Header stays above the columns so the filter popup can overlay them. */}
-      <View className="z-20 gap-3 px-4 pb-3 pt-5 md:px-6">
+    <View ref={rootRef} onLayout={measureRoot} className="flex-1 bg-background">
+      <View className="gap-3 px-4 pb-3 pt-5 md:px-6">
         <View className="flex-row items-center gap-2.5">
           <Text variant="h2">Picklist</Text>
           <Badge variant="default" label={String((teams ?? []).length)} />
         </View>
 
-        {/* Search + filter share a row; the popup anchors to this row. */}
-        <View className="relative z-50 flex-row items-center gap-2">
+        <View className="flex-row items-center gap-2">
           <View className="h-10 max-w-md flex-1 flex-row items-center gap-2 rounded-md border border-input bg-background px-3">
             <Icon as={Search} size={18} className="text-muted-foreground" />
             <Input
@@ -503,20 +536,18 @@ export default function PicklistScreen() {
               className="h-full flex-1 border-0 px-0"
             />
           </View>
-          <Button
-            variant={showFilters || filterCount > 0 ? 'default' : 'outline'}
-            size="sm"
-            icon={ListFilter}
-            label="Filter"
-            accessibilityLabel="Capability filters"
-            onPress={() => setShowFilters((s) => !s)}
-          />
+          <View ref={filterBtnRef} collapsable={false}>
+            <Button
+              variant={showFilters || filterCount > 0 ? 'default' : 'outline'}
+              size="sm"
+              icon={ListFilter}
+              label="Filter"
+              accessibilityLabel="Capability filters"
+              onPress={toggleFilters}
+            />
+          </View>
           {filterCount > 0 ? (
             <Button variant="ghost" size="sm" label="Clear all" onPress={() => setFilters({})} />
-          ) : null}
-
-          {showFilters ? (
-            <FilterPopup questions={questions ?? []} filters={filters} setFilters={setFilters} />
           ) : null}
         </View>
 
@@ -559,11 +590,11 @@ export default function PicklistScreen() {
           description="Scout some teams first, then drag them into tiers here."
         />
       ) : isWide ? (
-        <View ref={boardRef} className="z-0 flex-1 flex-row gap-3 px-6 pb-4">
+        <View ref={boardRef} onLayout={measureBoard} className="flex-1 flex-row gap-3 px-6 pb-4">
           {columns.map(renderColumn)}
         </View>
       ) : (
-        <View ref={boardRef} className="z-0 flex-1">
+        <View ref={boardRef} onLayout={measureBoard} className="flex-1">
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -580,26 +611,42 @@ export default function PicklistScreen() {
         </View>
       )}
 
-      {/* Click-away backdrop for the filter popup. */}
+      {/* Click-away backdrop + popup live at the root so they stack above
+          everything (including the header) on both web and native. */}
       {showFilters ? (
-        <Pressable
-          accessibilityLabel="Close filters"
-          className="absolute bottom-0 left-0 right-0 top-0 z-10"
-          onPress={() => setShowFilters(false)}
-        />
+        <>
+          <Pressable
+            accessibilityLabel="Close filters"
+            className="absolute bottom-0 left-0 right-0 top-0 z-30"
+            onPress={() => setShowFilters(false)}
+          />
+          {popupPos ? (
+            <View className="absolute z-40" style={popupPos}>
+              <FilterPopup questions={questions ?? []} filters={filters} setFilters={setFilters} />
+            </View>
+          ) : null}
+        </>
       ) : null}
 
-      {/* Ghost card that follows the finger while dragging. */}
+      {/* Ghost card that follows the pointer while dragging. */}
       {dragTeam ? (
         <Animated.View
           pointerEvents="none"
           style={ghostStyle}
-          className="absolute z-50 w-[220px] rounded-md border border-primary bg-card p-2.5 opacity-90"
+          className="absolute z-50 w-[240px] gap-1 rounded-md border border-primary bg-card p-2.5 opacity-95"
         >
-          <Text className="text-base font-extrabold">#{dragTeam.team_number}</Text>
+          <View className="flex-row items-center gap-2">
+            <Icon as={GripVertical} size={14} className="text-muted-foreground" />
+            <Text className="text-base font-extrabold">#{dragTeam.team_number}</Text>
+          </View>
           <Text variant="small" numberOfLines={1}>
             {dragTeam.team_name ?? 'Unknown name'}
           </Text>
+          {dragTeam.notes ? (
+            <Text className="text-xs text-muted-foreground" numberOfLines={1}>
+              {dragTeam.notes}
+            </Text>
+          ) : null}
         </Animated.View>
       ) : null}
     </View>
