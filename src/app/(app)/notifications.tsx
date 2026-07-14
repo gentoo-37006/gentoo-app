@@ -47,7 +47,7 @@ function NotificationRow({ item, onPress }: { item: AppNotification; onPress: ()
               <Text className="flex-1 font-semibold" numberOfLines={1}>
                 {item.title}
               </Text>
-              {!item.read ? <View className="h-2 w-2 rounded-full bg-primary" /> : null}
+              {!item.read ? <View className="h-2 w-2 rounded-sm bg-primary" /> : null}
             </View>
             {item.body ? <Text variant="muted">{item.body}</Text> : null}
             <Text variant="small">{timeAgo(item.created_at)}</Text>

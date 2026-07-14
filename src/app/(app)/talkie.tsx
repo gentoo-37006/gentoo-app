@@ -92,7 +92,7 @@ function TalkieCard({ request }: { request: TalkieWithPeople }) {
               {canDelete ? (
                 <Pressable
                   onPress={() => del.mutate(request.id)}
-                  className="h-7 w-7 items-center justify-center rounded-full active:bg-accent"
+                  className="h-7 w-7 items-center justify-center rounded-sm active:bg-accent"
                 >
                   <Icon as={X} size={16} className="text-muted-foreground" />
                 </Pressable>

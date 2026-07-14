@@ -48,7 +48,7 @@ export function WhatsNewModal({ visible, onClose }: { visible: boolean; onClose:
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View className="flex-1 items-center justify-center bg-black/50 p-6">
-        <View className="max-h-[80%] w-full max-w-md rounded-2xl border border-border bg-card p-5">
+        <View className="max-h-[80%] w-full max-w-md rounded-md border border-border bg-card p-5">
           <View className="flex-row items-center gap-2 pb-3">
             <Icon as={Sparkles} size={20} className="text-primary" />
             <Text variant="title" className="flex-1">
@@ -57,7 +57,7 @@ export function WhatsNewModal({ visible, onClose }: { visible: boolean; onClose:
             <Pressable
               onPress={onClose}
               accessibilityLabel="Close release notes"
-              className="h-8 w-8 items-center justify-center rounded-full active:bg-accent"
+              className="h-8 w-8 items-center justify-center rounded-sm active:bg-accent"
             >
               <Icon as={X} size={18} className="text-muted-foreground" />
             </Pressable>

@@ -135,7 +135,7 @@ function TaskEditor({
               <Pressable
                 key={t}
                 onPress={() => setTags((prev) => prev.filter((x) => x !== t))}
-                className="flex-row items-center gap-1 rounded-full bg-secondary px-2.5 py-1"
+                className="flex-row items-center gap-1 rounded-sm bg-secondary px-2.5 py-1"
               >
                 <Text className="text-xs font-semibold text-secondary-foreground">{t}</Text>
                 <Icon as={X} size={12} className="text-secondary-foreground" />
@@ -204,7 +204,7 @@ function TaskCard({
         {task.tags.length > 0 ? (
           <View className="flex-row flex-wrap gap-1.5">
             {task.tags.map((t) => (
-              <View key={t} className="flex-row items-center gap-1 rounded-full bg-muted px-2 py-0.5">
+              <View key={t} className="flex-row items-center gap-1 rounded-sm bg-muted px-2 py-0.5">
                 <Icon as={Tag} size={11} className="text-muted-foreground" />
                 <Text variant="small">{t}</Text>
               </View>

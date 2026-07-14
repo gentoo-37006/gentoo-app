@@ -31,7 +31,7 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
     <Pressable
       onPress={onPress}
       className={cn(
-        'rounded-full border px-3 py-1.5',
+        'rounded-sm border px-3 py-1.5',
         active ? 'border-primary bg-primary' : 'border-border bg-background active:bg-accent'
       )}
     >

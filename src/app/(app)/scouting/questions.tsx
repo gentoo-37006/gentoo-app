@@ -29,11 +29,11 @@ function QuestionRow({ q }: { q: CapabilityQuestion }) {
         <Text className="font-medium">{q.prompt}</Text>
         <View className="flex-row flex-wrap items-center gap-2">
           <Badge variant="secondary" label={q.category} />
-          <View className="flex-row items-center gap-1 rounded-full border border-border px-1">
+          <View className="flex-row items-center gap-1 rounded-sm border border-border px-1">
             <Pressable
               disabled={busy || q.weight <= 1}
               onPress={() => update.mutate({ id: q.id, weight: Math.max(1, q.weight - 1) })}
-              className="h-6 w-6 items-center justify-center rounded-full active:bg-accent"
+              className="h-6 w-6 items-center justify-center rounded-sm active:bg-accent"
             >
               <Icon as={Minus} size={14} className="text-foreground" />
             </Pressable>
@@ -41,7 +41,7 @@ function QuestionRow({ q }: { q: CapabilityQuestion }) {
             <Pressable
               disabled={busy}
               onPress={() => update.mutate({ id: q.id, weight: q.weight + 1 })}
-              className="h-6 w-6 items-center justify-center rounded-full active:bg-accent"
+              className="h-6 w-6 items-center justify-center rounded-sm active:bg-accent"
             >
               <Icon as={Plus} size={14} className="text-foreground" />
             </Pressable>

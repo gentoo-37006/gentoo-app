@@ -126,7 +126,7 @@ function Generator({ members, onClose }: { members: Profile[]; onClose: () => vo
                   key={m.id}
                   onPress={() => toggle(m.id)}
                   className={cn(
-                    'rounded-full border px-3 py-1.5',
+                    'rounded-sm border px-3 py-1.5',
                     active ? 'border-primary bg-primary' : 'border-border bg-background active:bg-accent'
                   )}
                 >
@@ -175,7 +175,7 @@ function ShiftRow({ shift, members }: { shift: ShiftWithAssignee; members: Profi
           </Pressable>
           <Pressable
             onPress={() => del.mutate(shift.id)}
-            className="h-8 w-8 items-center justify-center rounded-full active:bg-accent"
+            className="h-8 w-8 items-center justify-center rounded-sm active:bg-accent"
           >
             <Icon as={Trash2} size={16} className="text-muted-foreground" />
           </Pressable>
@@ -193,7 +193,7 @@ function ShiftRow({ shift, members }: { shift: ShiftWithAssignee; members: Profi
                     setEditing(false);
                   }}
                   className={cn(
-                    'rounded-full border px-3 py-1.5',
+                    'rounded-sm border px-3 py-1.5',
                     active ? 'border-primary bg-primary' : 'border-border bg-background active:bg-accent'
                   )}
                 >

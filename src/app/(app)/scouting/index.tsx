@@ -3,8 +3,6 @@ import { useRouter } from 'expo-router';
 import {
   ClipboardList,
   CalendarRange,
-  Radio,
-  ListOrdered,
   ChevronRight,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -25,7 +23,7 @@ type Section = {
 const SECTIONS: Section[] = [
   {
     label: 'Pit scouting',
-    description: 'Verify each team’s capabilities and build the pick-list score.',
+    description: 'Verify each team’s capabilities in the pit.',
     icon: ClipboardList,
     href: '/scouting/pit',
   },
@@ -34,18 +32,6 @@ const SECTIONS: Section[] = [
     description: 'Assign scouters to matches and collect their reports.',
     icon: CalendarRange,
     href: '/scouting/matches',
-  },
-  {
-    label: 'Talkie',
-    description: 'Request live intel from the pit crew during matches.',
-    icon: Radio,
-    href: '/talkie',
-  },
-  {
-    label: 'Pick-list',
-    description: 'Tier and rank teams from scouted data for alliance selection.',
-    icon: ListOrdered,
-    href: '/scouting/picklist',
   },
 ];
 
@@ -80,7 +66,7 @@ function SectionCard({ section }: { section: Section }) {
 export default function ScoutingHub() {
   return (
     <Screen>
-      <ScreenHeader title="Scouting" description="Everything your scouting team needs in one place." />
+      <ScreenHeader title="Scouting" description="Pit and match scouting for data collection." />
       <View className="gap-3">
         {SECTIONS.map((s) => (
           <SectionCard key={s.label} section={s} />

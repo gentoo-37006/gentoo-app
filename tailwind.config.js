@@ -48,11 +48,12 @@ module.exports = {
           foreground: 'hsl(var(--card-foreground))',
         },
       },
+      // Boxy scale — everything stays near-square (radius is 2px).
       borderRadius: {
-        xl: 'calc(var(--radius) + 4px)',
+        xl: 'calc(var(--radius) + 2px)',
         lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        md: 'var(--radius)',
+        sm: 'calc(var(--radius) - 1px)',
       },
     },
   },

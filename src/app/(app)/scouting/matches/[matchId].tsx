@@ -249,7 +249,7 @@ export default function MatchDetailScreen() {
                   {canRemove ? (
                     <Pressable
                       onPress={() => removeAssignment.mutate(a.id)}
-                      className="h-7 w-7 items-center justify-center rounded-full active:bg-accent"
+                      className="h-7 w-7 items-center justify-center rounded-sm active:bg-accent"
                     >
                       <Icon as={X} size={16} className="text-muted-foreground" />
                     </Pressable>
@@ -273,7 +273,7 @@ export default function MatchDetailScreen() {
                     onPress={() =>
                       assign.mutate({ matchId: match.id, scouterId: p.id, matchLabel: matchTitle(match) })
                     }
-                    className="rounded-full border border-border bg-background px-3 py-1.5 active:bg-accent"
+                    className="rounded-sm border border-border bg-background px-3 py-1.5 active:bg-accent"
                   >
                     <Text className="text-xs font-semibold">{p.full_name ?? 'Member'}</Text>
                   </Pressable>

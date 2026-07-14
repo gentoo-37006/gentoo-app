@@ -4,7 +4,10 @@ import {
   ClipboardList,
   Radio,
   ListChecks,
+  ListOrdered,
   CalendarClock,
+  Cable,
+  Trophy,
   Bell,
   Download,
   ShieldCheck,
@@ -22,13 +25,37 @@ export type NavItem = {
   hideOnDesktop?: boolean;
 };
 
+export type NavSection = { label: string; items: NavItem[] };
+
+/** Day-to-day team work: dashboard, projects, workshop tools. */
+export const GENERAL_NAV: NavItem[] = [
+  { name: 'index', label: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'tasks', label: 'Tasks', href: '/tasks', icon: ListChecks },
+  { name: 'cables', label: 'Cables', href: '/cables', icon: Cable },
+];
+
+/** Event-day operations: live dashboard, scouting, picklist, comms, pit duty. */
+export const COMPETITION_NAV: NavItem[] = [
+  { name: 'competition', label: 'Competition', href: '/competition', icon: Trophy },
+  { name: 'scouting', label: 'Scouting', href: '/scouting', icon: ClipboardList },
+  { name: 'picklist', label: 'Picklist', href: '/picklist', icon: ListOrdered },
+  { name: 'talkie', label: 'Talkie', href: '/talkie', icon: Radio },
+  { name: 'schedule', label: 'Pit schedule', href: '/schedule', icon: CalendarClock },
+];
+
+/** Sidebar sections on wide screens. */
+export const NAV_SECTIONS: NavSection[] = [
+  { label: 'General', items: GENERAL_NAV },
+  { label: 'Competition', items: COMPETITION_NAV },
+];
+
 /** Primary destinations — shown in the bottom tab bar on phones. */
 export const PRIMARY_NAV: NavItem[] = [
-  { name: 'index', label: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'scouting', label: 'Scouting', href: '/scouting', icon: ClipboardList },
-  { name: 'talkie', label: 'Talkie', href: '/talkie', icon: Radio },
-  { name: 'tasks', label: 'Tasks', href: '/tasks', icon: ListChecks },
-  { name: 'schedule', label: 'Schedule', href: '/schedule', icon: CalendarClock },
+  GENERAL_NAV[0], // Dashboard
+  GENERAL_NAV[1], // Tasks
+  COMPETITION_NAV[0], // Competition
+  COMPETITION_NAV[1], // Scouting
+  COMPETITION_NAV[2], // Picklist
 ];
 
 /** Secondary destinations — sidebar footer on wide screens, header/menu on phones. */
@@ -39,4 +66,4 @@ export const SECONDARY_NAV: NavItem[] = [
   { name: 'settings', label: 'Settings', href: '/settings', icon: Settings },
 ];
 
-export const ALL_NAV = [...PRIMARY_NAV, ...SECONDARY_NAV];
+export const ALL_NAV = [...GENERAL_NAV, ...COMPETITION_NAV, ...SECONDARY_NAV];

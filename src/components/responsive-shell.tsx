@@ -9,7 +9,7 @@ import { useAuth } from '@/lib/auth';
 import { isDesktopApp } from '@/lib/desktop-updates';
 import { useUnreadCount, useNotificationsRealtime } from '@/lib/queries/notifications';
 import { registerForPushNotifications } from '@/lib/push';
-import { PRIMARY_NAV, SECONDARY_NAV, ALL_NAV, type NavItem } from '@/lib/nav-items';
+import { PRIMARY_NAV, SECONDARY_NAV, NAV_SECTIONS, ALL_NAV, type NavItem } from '@/lib/nav-items';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Separator } from '@/components/ui/separator';
@@ -25,7 +25,7 @@ function CountBadge({ count, className }: { count: number; className?: string })
   return (
     <View
       className={cn(
-        'min-w-[18px] items-center justify-center rounded-full bg-destructive px-1.5 py-0.5',
+        'min-w-[18px] items-center justify-center rounded-sm bg-destructive px-1.5 py-0.5',
         className
       )}
     >
@@ -133,8 +133,15 @@ function Sidebar({
       </View>
       <Separator />
       <ScrollView className="flex-1 px-3 py-4" contentContainerClassName="gap-1">
-        {PRIMARY_NAV.map((item) => (
-          <SidebarLink key={item.name} item={item} active={isActiveRoute(item.href, pathname)} />
+        {NAV_SECTIONS.map((section, i) => (
+          <View key={section.label} className={cn('gap-1', i > 0 && 'mt-4')}>
+            <Text variant="label" className="px-3 pb-1 text-muted-foreground">
+              {section.label}
+            </Text>
+            {section.items.map((item) => (
+              <SidebarLink key={item.name} item={item} active={isActiveRoute(item.href, pathname)} />
+            ))}
+          </View>
         ))}
         <View className="my-3">
           <Separator />
@@ -197,7 +204,7 @@ function MobileHeader({
       <Text className="text-lg font-bold tracking-tight">{current?.label ?? 'Gentoo'}</Text>
       <View className="flex-row items-center gap-1">
         <Link href={bell.href as any} asChild>
-          <Pressable className="h-9 w-9 items-center justify-center rounded-full active:bg-accent">
+          <Pressable className="h-9 w-9 items-center justify-center rounded-sm active:bg-accent">
             <Icon as={bell.icon} size={22} className="text-foreground" />
             {unread > 0 ? (
               <View className="absolute right-0.5 top-0.5">

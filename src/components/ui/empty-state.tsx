@@ -19,7 +19,7 @@ export function EmptyState({
   return (
     <Card>
       <CardContent className="items-center gap-3 px-6 py-12">
-        <View className="h-14 w-14 items-center justify-center rounded-2xl bg-muted">
+        <View className="h-14 w-14 items-center justify-center rounded-md border border-border bg-muted">
           <Icon as={icon} size={26} className="text-muted-foreground" />
         </View>
         <Text variant="title" className="text-center">
