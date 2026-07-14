@@ -5,6 +5,8 @@ import { useAuth } from '@/lib/auth';
 import {
   demoMarkAllNotificationsRead,
   demoMarkNotificationRead,
+  demoClearAllNotifications,
+  demoClearNotification,
   demoNotifications,
   isDemoMode,
 } from '@/lib/demo';
@@ -65,6 +67,35 @@ export function useMarkAllNotificationsRead() {
         .update({ read: true })
         .eq('user_id', uid)
         .eq('read', false);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: notificationsKey(uid) }),
+  });
+}
+
+export function useClearNotification() {
+  const qc = useQueryClient();
+  const { session } = useAuth();
+  const uid = session?.user?.id;
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (isDemoMode()) return demoClearNotification(id);
+      const { error } = await supabase.from('notifications').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: notificationsKey(uid) }),
+  });
+}
+
+export function useClearAllNotifications() {
+  const qc = useQueryClient();
+  const { session } = useAuth();
+  const uid = session?.user?.id;
+  return useMutation({
+    mutationFn: async () => {
+      if (!uid) return;
+      if (isDemoMode()) return demoClearAllNotifications(uid);
+      const { error } = await supabase.from('notifications').delete().eq('user_id', uid);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: notificationsKey(uid) }),

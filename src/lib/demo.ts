@@ -660,3 +660,15 @@ export async function demoMarkAllNotificationsRead(uid = DEMO_USER_ID) {
   db.notifications = db.notifications.map((n) => (n.user_id === uid ? { ...n, read: true } : n));
   await persist();
 }
+
+export async function demoClearNotification(idValue: string) {
+  const db = await getDemoWorkspace();
+  db.notifications = db.notifications.filter((n) => n.id !== idValue);
+  await persist();
+}
+
+export async function demoClearAllNotifications(uid = DEMO_USER_ID) {
+  const db = await getDemoWorkspace();
+  db.notifications = db.notifications.filter((n) => n.user_id !== uid);
+  await persist();
+}
