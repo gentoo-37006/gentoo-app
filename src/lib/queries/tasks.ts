@@ -7,6 +7,7 @@ import {
   demoDeleteProject,
   demoDeleteTask,
   demoMyOpenTaskCount,
+  demoMyTasks,
   demoProject,
   demoProjects,
   demoRestoreProject,
@@ -90,6 +91,29 @@ export function useMyOpenTaskCount(uid?: string) {
   });
 }
 
+export type MyTask = Task & { project: { id: string; name: string } | null };
+
+/** Unfinished tasks assigned to the given user, soonest due first (dashboard). */
+export function useMyTasks(uid?: string, limit = 6) {
+  return useQuery({
+    queryKey: ['my_tasks', uid, limit],
+    enabled: !!uid,
+    queryFn: async (): Promise<MyTask[]> => {
+      if (isDemoMode()) return demoMyTasks(uid, limit);
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*, project:projects!inner(id, name, deleted_at)')
+        .eq('assignee_id', uid!)
+        .neq('status', 'done')
+        .is('project.deleted_at', null)
+        .order('due_date', { ascending: true, nullsFirst: false })
+        .limit(limit);
+      if (error) throw error;
+      return (data ?? []) as unknown as MyTask[];
+    },
+  });
+}
+
 export function useProject(projectId: string) {
   return useQuery({
     queryKey: taskKeys.project(projectId),
@@ -123,6 +147,7 @@ function useProjectsMutation<TVars, TData = unknown>(fn: (vars: TVars) => Promis
       qc.invalidateQueries({ queryKey: taskKeys.projects });
       qc.invalidateQueries({ queryKey: ['project'] });
       qc.invalidateQueries({ queryKey: ['my_open_tasks'] });
+      qc.invalidateQueries({ queryKey: ['my_tasks'] });
     },
   });
 }

@@ -569,6 +569,16 @@ export async function demoMyOpenTaskCount(uid = DEMO_USER_ID) {
   ).length;
 }
 
+export async function demoMyTasks(uid = DEMO_USER_ID, limit = 6) {
+  const db = await getDemoWorkspace();
+  const active = new Map(db.projects.filter((p) => !p.deleted_at).map((p) => [p.id, p]));
+  return db.tasks
+    .filter((t) => t.assignee_id === uid && t.status !== 'done' && active.has(t.project_id))
+    .sort((a, b) => (a.due_date ?? '￿').localeCompare(b.due_date ?? '￿'))
+    .slice(0, limit)
+    .map((t) => ({ ...t, project: { id: t.project_id, name: active.get(t.project_id)!.name } }));
+}
+
 export async function demoCreateProject(vars: { name: string; description?: string; status: ProjectStatus; priority: Priority }) {
   const db = await getDemoWorkspace();
   db.projects.unshift({ id: id('project'), name: vars.name, description: vars.description ?? null, status: vars.status, priority: vars.priority, created_by: DEMO_USER_ID, created_at: now(), updated_at: now(), deleted_at: null });
