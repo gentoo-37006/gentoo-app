@@ -2,14 +2,14 @@ import * as React from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, usePathname } from 'expo-router';
-import { Bot } from 'lucide-react-native';
+import { Bot, Menu } from 'lucide-react-native';
 import { cn } from '@/lib/utils';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useAuth } from '@/lib/auth';
 import { isDesktopApp } from '@/lib/desktop-updates';
 import { useUnreadCount, useNotificationsRealtime } from '@/lib/queries/notifications';
 import { registerForPushNotifications } from '@/lib/push';
-import { PRIMARY_NAV, SECONDARY_NAV, NAV_SECTIONS, ALL_NAV, type NavItem } from '@/lib/nav-items';
+import { SECONDARY_NAV, NAV_SECTIONS, ALL_NAV, type NavItem } from '@/lib/nav-items';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Separator } from '@/components/ui/separator';
@@ -163,45 +163,34 @@ function Sidebar({
   );
 }
 
-function TabBarItem({ item, active }: { item: NavItem; active: boolean }) {
-  return (
-    <Link href={item.href as any} asChild>
-      <Pressable className="flex-1 items-center justify-center gap-1 py-1.5">
-        <Icon
-          as={item.icon}
-          size={22}
-          className={active ? 'text-primary' : 'text-muted-foreground'}
-        />
-        <Text
-          className={cn(
-            'text-[11px] font-medium',
-            active ? 'text-primary' : 'text-muted-foreground'
-          )}
-          numberOfLines={1}
-        >
-          {item.label}
-        </Text>
-      </Pressable>
-    </Link>
-  );
-}
-
 function MobileHeader({
   pathname,
   unread,
   name,
   avatarUrl,
+  onOpenMenu,
 }: {
   pathname: string;
   unread: number;
   name?: string | null;
   avatarUrl?: string | null;
+  onOpenMenu: () => void;
 }) {
   const current = ALL_NAV.find((i) => isActiveRoute(i.href, pathname));
   const bell = SECONDARY_NAV.find((i) => i.name === 'notifications')!;
   return (
     <View className="flex-row items-center justify-between border-b border-border bg-card px-4 py-3">
-      <Text className="text-lg font-bold tracking-tight">{current?.label ?? 'Gentoo'}</Text>
+      <View className="flex-row items-center gap-2">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open menu"
+          onPress={onOpenMenu}
+          className="-ml-1 h-9 w-9 items-center justify-center rounded-sm active:bg-accent"
+        >
+          <Icon as={Menu} size={22} className="text-foreground" />
+        </Pressable>
+        <Text className="text-lg font-bold tracking-tight">{current?.label ?? 'Gentoo'}</Text>
+      </View>
       <View className="flex-row items-center gap-1">
         <Link href={bell.href as any} asChild>
           <Pressable className="h-9 w-9 items-center justify-center rounded-sm active:bg-accent">
@@ -229,6 +218,12 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
   const { profile, isAdmin, session, isDemo } = useAuth();
   const unread = useUnreadCount();
   useNotificationsRealtime();
+
+  // Mobile drawer; navigation closes it via the pathname effect below.
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  React.useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
 
   // Register this device for push once the member is signed in & approved.
   const userId = session?.user?.id;
@@ -260,13 +255,27 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
         unread={unread}
         name={profile?.full_name}
         avatarUrl={profile?.avatar_url}
+        onOpenMenu={() => setMenuOpen(true)}
       />
       <View className="flex-1">{children}</View>
-      <View className="flex-row border-t border-border bg-card">
-        {PRIMARY_NAV.map((item) => (
-          <TabBarItem key={item.name} item={item} active={isActiveRoute(item.href, pathname)} />
-        ))}
-      </View>
+      {menuOpen ? (
+        <View className="absolute bottom-0 left-0 right-0 top-0 z-50 flex-row">
+          <Sidebar
+            pathname={pathname}
+            isAdmin={isAdmin}
+            unread={unread}
+            name={profile?.full_name}
+            role={profile?.role}
+            avatarUrl={profile?.avatar_url}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close menu"
+            className="flex-1 bg-black/60"
+            onPress={() => setMenuOpen(false)}
+          />
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }

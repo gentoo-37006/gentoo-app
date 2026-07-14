@@ -49,16 +49,7 @@ export const NAV_SECTIONS: NavSection[] = [
   { label: 'Competition', items: COMPETITION_NAV },
 ];
 
-/** Primary destinations — shown in the bottom tab bar on phones. */
-export const PRIMARY_NAV: NavItem[] = [
-  GENERAL_NAV[0], // Dashboard
-  GENERAL_NAV[1], // Tasks
-  COMPETITION_NAV[0], // Competition
-  COMPETITION_NAV[1], // Scouting
-  COMPETITION_NAV[2], // Picklist
-];
-
-/** Secondary destinations — sidebar footer on wide screens, header/menu on phones. */
+/** Secondary destinations — sidebar footer, below the sections. */
 export const SECONDARY_NAV: NavItem[] = [
   { name: 'notifications', label: 'Notifications', href: '/notifications', icon: Bell },
   { name: 'downloads', label: 'Downloads', href: '/downloads', icon: Download, hideOnDesktop: true },
