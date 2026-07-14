@@ -14,7 +14,7 @@
     --popover-foreground: 0 0% 8%;
 
     /* Team accent — "gentoo" lilac (#CEA2FD family; darkened here for contrast on white) */
-    --primary: 269 60% 55%;
+    --primary: 269 65% 63%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 0 0% 93%;
@@ -37,7 +37,7 @@
 
     --border: 0 0% 86%;
     --input: 0 0% 82%;
-    --ring: 269 60% 55%;
+    --ring: 269 65% 63%;
 
     --radius: 0.125rem;
   }
@@ -52,8 +52,8 @@
     --popover: 0 0% 8%;
     --popover-foreground: 0 0% 93%;
 
-    /* Lilac #CEA2FD */
-    --primary: 269 96% 81%;
+    /* Light lilac (#D8B4FE) */
+    --primary: 269 96% 85%;
     --primary-foreground: 0 0% 4%;
 
     --secondary: 0 0% 12%;
@@ -76,6 +76,6 @@
 
     --border: 0 0% 15%;
     --input: 0 0% 18%;
-    --ring: 269 96% 81%;
+    --ring: 269 96% 85%;
   }
 }

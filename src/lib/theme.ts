@@ -18,7 +18,7 @@ export const NAV_THEME: { light: NavTheme; dark: NavTheme } = {
   light: {
     dark: false,
     colors: {
-      primary: '#8a47d1',
+      primary: '#9f63de',
       background: '#fafafa',
       card: '#ffffff',
       text: '#141414',
@@ -30,7 +30,7 @@ export const NAV_THEME: { light: NavTheme; dark: NavTheme } = {
   dark: {
     dark: true,
     colors: {
-      primary: '#cea2fd',
+      primary: '#d8b4fe',
       background: '#0a0a0a',
       card: '#121212',
       text: '#ededed',
