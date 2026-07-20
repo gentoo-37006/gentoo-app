@@ -244,11 +244,32 @@ export function useUpdateTask() {
   return useProjectsMutation<{ id: string } & Partial<Omit<TaskInput, 'project_id'>>>(
     async ({ id, ...patch }) => {
       if (isDemoMode()) return demoUpdateTask(id, patch);
+      type PrevTask = { assignee_id: string | null; title: string; project_id: string; project: { name: string } | null };
+      let prev: PrevTask | null = null;
+      if (patch.assignee_id) {
+        const { data } = await supabase
+          .from('tasks')
+          .select('assignee_id, title, project_id, project:project_id(name)')
+          .eq('id', id)
+          .single();
+        prev = data as unknown as PrevTask | null;
+      }
       const { error } = await supabase
         .from('tasks')
         .update({ ...patch, updated_at: new Date().toISOString() })
         .eq('id', id);
       if (error) throw error;
+      if (patch.assignee_id && prev && patch.assignee_id !== prev.assignee_id) {
+        const uid = await currentUserId();
+        if (patch.assignee_id !== uid) {
+          await notifyUsers([patch.assignee_id], {
+            type: 'task',
+            title: 'New task assigned',
+            body: `${patch.title ?? prev.title} · ${prev.project?.name ?? 'Project'}`,
+            data: { projectId: prev.project_id },
+          });
+        }
+      }
     }
   );
 }
