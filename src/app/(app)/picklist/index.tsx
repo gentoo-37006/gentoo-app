@@ -360,14 +360,15 @@ export default function PicklistScreen() {
   const rootRef = React.useRef<View>(null);
   const rootRect = React.useRef({ x: 0, y: 0 });
   const filterBtnRef = React.useRef<View>(null);
+  // Shared-value mirror of rootRect, read by the drag overlay's animated style.
+  const rootOrigin = useSharedValue({ x: 0, y: 0 });
 
   const measureRoot = React.useCallback(() => {
     rootRef.current?.measureInWindow((x, y) => {
       rootRect.current = { x, y };
       rootOrigin.value = { x, y };
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [rootOrigin]);
 
   const toggleFilters = () => {
     if (showFilters) {
@@ -385,7 +386,6 @@ export default function PicklistScreen() {
   const [dragTeam, setDragTeam] = React.useState<PicklistTeam | null>(null);
   const dragX = useSharedValue(0);
   const dragY = useSharedValue(0);
-  const rootOrigin = useSharedValue({ x: 0, y: 0 });
 
   const boardRef = React.useRef<View>(null);
   const boardRect = React.useRef({ x: 0, y: 0, w: 0, h: 0 });
@@ -403,6 +403,9 @@ export default function PicklistScreen() {
     cardLayouts.current.set(teamId, layout);
   }, []);
 
+  // Reanimated shared values are mutable containers written from gesture
+  // callbacks; the compiler's immutability/deps rules don't model that, so
+  // the writes and depless callbacks below carry targeted disables.
   const onDragStart = React.useCallback(
     (team: PicklistTeam, absX: number, absY: number) => {
       measureRoot();
@@ -410,13 +413,15 @@ export default function PicklistScreen() {
       dragX.value = absX;
       dragY.value = absY;
       setDragTeam(team);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [measureRoot, measureBoard]
   );
 
   const onDragMove = React.useCallback((absX: number, absY: number) => {
+    // eslint-disable-next-line react-hooks/immutability
     dragX.value = absX;
+    // eslint-disable-next-line react-hooks/immutability
     dragY.value = absY;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

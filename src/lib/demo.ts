@@ -3,7 +3,6 @@ import type {
   AnswerValue,
   AppNotification,
   CapabilityQuestion,
-  FunctionalRole,
   Match,
   MatchReport,
   PicklistTier,

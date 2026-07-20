@@ -16,7 +16,9 @@ import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
+import { useRouter } from 'expo-router';
 import { timeAgo } from '@/lib/format';
+import { hrefForNotification } from '@/lib/notification-links';
 import type { AppNotification, NotificationType } from '@/lib/types';
 import {
   useNotifications,
@@ -70,6 +72,7 @@ export default function NotificationsScreen() {
   const markAll = useMarkAllNotificationsRead();
   const clearNotification = useClearNotification();
   const clearAll = useClearAllNotifications();
+  const router = useRouter();
   const notifications = data ?? [];
   const hasUnread = notifications.some((n) => !n.read);
 
@@ -118,6 +121,8 @@ export default function NotificationsScreen() {
               item={n}
               onPress={() => {
                 if (!n.read) markRead.mutate(n.id);
+                const href = hrefForNotification(n);
+                if (href) router.push(href as never);
               }}
               onClear={() => clearNotification.mutate(n.id)}
             />

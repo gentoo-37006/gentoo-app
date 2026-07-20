@@ -20,6 +20,7 @@ import { useProjects, useMyTasks, useMyOpenTaskCount, type MyTask } from '@/lib/
 import { priorityVariant, labelOf } from '@/lib/task-style';
 import { PRIORITIES } from '@/lib/types';
 import { formatDate } from '@/lib/format';
+import { useNow } from '@/lib/use-now';
 
 type Stat = { label: string; value: string; icon: LucideIcon; tint: string };
 
@@ -35,8 +36,8 @@ function StatCard({ stat }: { stat: Stat }) {
   );
 }
 
-function MyTaskRow({ task }: { task: MyTask }) {
-  const overdue = task.due_date ? new Date(task.due_date).getTime() < Date.now() : false;
+function MyTaskRow({ task, now }: { task: MyTask; now: number }) {
+  const overdue = task.due_date ? new Date(task.due_date).getTime() < now : false;
   return (
     <Link href={`/tasks/${task.project_id}` as any} asChild>
       <Pressable className="active:opacity-75">
@@ -98,6 +99,7 @@ export default function DashboardScreen() {
   const projects = useProjects();
   const myTasks = useMyTasks(uid);
   const myTaskCount = useMyOpenTaskCount(uid);
+  const now = useNow();
 
   const firstName = profile?.full_name?.split(' ')[0];
 
@@ -149,7 +151,7 @@ export default function DashboardScreen() {
             </CardContent>
           </Card>
         ) : (
-          (myTasks.data ?? []).map((t) => <MyTaskRow key={t.id} task={t} />)
+          (myTasks.data ?? []).map((t) => <MyTaskRow key={t.id} task={t} now={now} />)
         )}
       </View>
 

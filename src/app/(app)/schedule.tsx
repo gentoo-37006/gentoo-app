@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
-import { CalendarClock, Wand2, Trash2, X } from 'lucide-react-native';
+import { CalendarClock, Wand2, Trash2 } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Card, CardContent } from '@/components/ui/card';

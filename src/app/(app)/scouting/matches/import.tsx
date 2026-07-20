@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Lock, Upload } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';

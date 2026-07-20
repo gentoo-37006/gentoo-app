@@ -12,6 +12,7 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react-native';
+import { useNow } from '@/lib/use-now';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
@@ -26,15 +27,6 @@ import { matchTitle, matchTeamNumbers, type TalkieStatus } from '@/lib/types';
 import { formatTime, formatDayLabel, timeAgo } from '@/lib/format';
 
 /** Re-renders every second while mounted; returns the current epoch ms. */
-function useNow(): number {
-  const [now, setNow] = React.useState(() => Date.now());
-  React.useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  return now;
-}
-
 function countdownParts(ms: number): { label: string; value: string }[] {
   const total = Math.max(0, Math.floor(ms / 1000));
   const d = Math.floor(total / 86400);
@@ -56,7 +48,8 @@ function countdownParts(ms: number): { label: string; value: string }[] {
 }
 
 function NextMatchCard({ matches }: { matches: MatchWithAssignments[] }) {
-  const now = useNow();
+  // 1s ticks: this card renders a live countdown to the next match.
+  const now = useNow(1000);
   const upcoming = matches
     .filter((m) => m.scheduled_time && new Date(m.scheduled_time).getTime() > now)
     .sort((a, b) => new Date(a.scheduled_time!).getTime() - new Date(b.scheduled_time!).getTime())[0];
@@ -176,8 +169,9 @@ export default function CompetitionScreen() {
   const teams = useTeamScores();
   useTalkieRealtime();
 
+  const now = useNow();
   const myShifts = (shifts.data ?? [])
-    .filter((s) => s.assignee_id === uid && new Date(s.end_time).getTime() > Date.now())
+    .filter((s) => s.assignee_id === uid && new Date(s.end_time).getTime() > now)
     .slice(0, 3);
 
   const latestTalkies = [...(talkies.data ?? [])]

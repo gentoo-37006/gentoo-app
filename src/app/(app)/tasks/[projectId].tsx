@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { OptionChips } from '@/components/ui/option-chips';
-import { cn } from '@/lib/utils';
 import { useProfiles } from '@/lib/queries/profiles';
 import {
   useProject,
@@ -168,16 +167,18 @@ function TaskCard({
   projectName,
   members,
   onEdit,
+  highlighted = false,
 }: {
   task: TaskWithAssignee;
   projectName: string;
   members: Profile[];
   onEdit: () => void;
+  highlighted?: boolean;
 }) {
   const update = useUpdateTask();
   const del = useDeleteTask();
   return (
-    <Card>
+    <Card className={highlighted ? 'border-primary' : undefined}>
       <CardContent className="gap-3 p-4">
         <View className="flex-row items-start gap-2">
           <Text className="flex-1 font-semibold">{task.title}</Text>
@@ -237,7 +238,10 @@ function TaskCard({
 
 export default function ProjectDetailScreen() {
   const router = useRouter();
-  const { projectId } = useLocalSearchParams<{ projectId: string }>();
+  const { projectId, task: focusParam } = useLocalSearchParams<{
+    projectId: string;
+    task?: string;
+  }>();
   const { data, isLoading } = useProject(projectId);
   const { data: profiles } = useProfiles();
   const updateProject = useUpdateProject();
@@ -245,6 +249,21 @@ export default function ProjectDetailScreen() {
 
   const [adding, setAdding] = React.useState(false);
   const [editingId, setEditingId] = React.useState<string | null>(null);
+
+  // Deep-linked task (?task=<id> from a notification tap): highlight its card,
+  // let the emphasis fade after a few seconds. Render-time adjustment keeps
+  // the param → state sync out of effects.
+  const [prevFocusParam, setPrevFocusParam] = React.useState(focusParam);
+  const [focusTaskId, setFocusTaskId] = React.useState<string | null>(focusParam ?? null);
+  if (prevFocusParam !== focusParam) {
+    setPrevFocusParam(focusParam);
+    setFocusTaskId(focusParam ?? null);
+  }
+  React.useEffect(() => {
+    if (!focusTaskId) return;
+    const t = setTimeout(() => setFocusTaskId(null), 6000);
+    return () => clearTimeout(t);
+  }, [focusTaskId]);
   const [fAssignee, setFAssignee] = React.useState<string>('any');
   const [fPriority, setFPriority] = React.useState<string>('any');
   const [fTag, setFTag] = React.useState<string>('any');
@@ -380,6 +399,7 @@ export default function ProjectDetailScreen() {
                     projectName={project.name}
                     members={members}
                     onEdit={() => setEditingId(t.id)}
+                    highlighted={t.id === focusTaskId}
                   />
                 )
               )}

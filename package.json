@@ -56,7 +56,8 @@
     "electron-builder": "^26.15.3",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~56.0.4",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.10"
   },
   "scripts": {
     "start": "expo start --dev-client",
@@ -81,6 +82,7 @@
     "update:production": "eas update --branch production",
     "update:preview": "eas update --branch preview",
     "lint": "expo lint",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "private": true

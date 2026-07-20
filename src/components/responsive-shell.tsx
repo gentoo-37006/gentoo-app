@@ -393,12 +393,16 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
   useNotificationsRealtime();
 
   // Mobile drawer + desktop scouting dropdown; navigation closes both.
+  // Render-time adjustment (not an effect) so closing happens in the same
+  // render pass as the route change, without a cascading re-render.
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [scoutingOpen, setScoutingOpen] = React.useState(false);
-  React.useEffect(() => {
+  const [prevPath, setPrevPath] = React.useState(pathname);
+  if (prevPath !== pathname) {
+    setPrevPath(pathname);
     setMenuOpen(false);
     setScoutingOpen(false);
-  }, [pathname]);
+  }
 
   // Register this device for push once the member is signed in & approved.
   const userId = session?.user?.id;

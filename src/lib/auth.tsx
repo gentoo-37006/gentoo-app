@@ -89,18 +89,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [queryClient]);
 
-  // Load the profile whenever the signed-in user changes.
+  // Reset profile state the moment the signed-in user changes. Render-time
+  // adjustment (react.dev "adjusting state when props change") instead of a
+  // sync setState inside the effect; the demo path manages profile itself.
   const userId = session?.user?.id;
+  const [prevUserId, setPrevUserId] = React.useState(userId);
+  if (prevUserId !== userId) {
+    setPrevUserId(userId);
+    if (isSupabaseConfigured && !isDemoMode() && userId !== DEMO_USER_ID) {
+      setProfile(null);
+      setProfileResolved(!userId);
+    }
+  }
+
+  // Fetch the profile for the (non-demo) signed-in user.
   React.useEffect(() => {
     let active = true;
     if (!isSupabaseConfigured) return;
     if (isDemoMode() || userId === DEMO_USER_ID) return;
-    if (!userId) {
-      setProfile(null);
-      setProfileResolved(true);
-      return;
-    }
-    setProfileResolved(false);
+    if (!userId) return;
     fetchProfile(userId).then((p) => {
       if (!active) return;
       setProfile(p);
@@ -145,7 +152,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = React.useMemo<AuthContextValue>(
     () => ({
       initializing: !authResolved || !profileResolved,
-      isConfigured: isSupabaseConfigured,
+      // Demo mode counts as configured: it runs entirely on local seed data,
+      // and the navigator must route demo sessions into the app.
+      isConfigured: isSupabaseConfigured || isDemoMode(),
       session,
       profile,
       isAdmin: profile?.role === 'admin',

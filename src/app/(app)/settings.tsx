@@ -5,13 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Icon } from '@/components/ui/icon';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
+import { WhatsNewModal } from '@/components/whats-new';
 import { APP_VERSION } from '@/lib/app-version';
 import { useAuth } from '@/lib/auth';
 import { useDesktopUpdates } from '@/lib/desktop-updates';
 import { supabase } from '@/lib/supabase';
 import { useThemeMode } from '@/lib/theme-mode';
 import { cn } from '@/lib/utils';
-import { WhatsNewModal } from '@/components/whats-new';
 import { LogOut, Moon, RefreshCw, Sparkles, Sun, SunMoon, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Alert, Pressable, View } from 'react-native';
@@ -234,7 +234,7 @@ export default function SettingsScreen() {
         </CardHeader>
         <CardContent className="gap-1">
           <Text variant="muted">© 2026 Gentoo Robotics. All rights reserved.</Text>
-          <Text variant="muted">Created by Yan and Radean</Text>
+          <Text variant="muted">Yan, Radean, and Ethan</Text>
           <Text variant="muted">Version {APP_VERSION}</Text>
           <View className="pt-2">
             <Button

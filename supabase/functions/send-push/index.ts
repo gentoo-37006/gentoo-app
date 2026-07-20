@@ -11,6 +11,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 interface NotificationRecord {
   user_id: string;
+  type: string;
   title: string;
   body: string | null;
   data: Record<string, unknown> | null;
@@ -42,7 +43,8 @@ Deno.serve(async (req: Request) => {
         to,
         title: record.title ?? 'Gentoo',
         body: record.body ?? '',
-        data: record.data ?? {},
+        // Include the type so a tapped push can route (see notification-links).
+        data: { ...(record.data ?? {}), type: record.type },
         sound: 'default',
         channelId: 'default',
       }));

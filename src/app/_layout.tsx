@@ -12,6 +12,8 @@ if (!globalThis.crypto.subtle) {
   };
 }
 
+/* eslint-disable import/first -- the crypto polyfill above must install before
+   app modules are evaluated (Metro executes requires in source order). */
 import * as React from 'react';
 import { ActivityIndicator, Platform, View } from 'react-native';
 import * as Updates from 'expo-updates';
@@ -83,35 +85,38 @@ function RootNavigator() {
   const segments = useSegments() as string[];
   const pathname = usePathname();
   const router = useRouter();
-  // Stays false until the first routing decision has been executed, preventing
-  // a one-frame flash of the wrong screen between when initializing becomes
-  // false and when the effect below actually fires.
-  const [settled, setSettled] = React.useState(false);
+  const inAuthGroup = segments[0] === '(auth)';
+  const onPublicDownloads = pathname === '/downloads';
 
+  // Derived, not state: the overlay hides once the current route matches the
+  // auth state, so there's never a flash of the wrong screen — including
+  // mid-redirect frames, which the old setSettled(true) marker let through.
+  let settled: boolean;
+  if (initializing) settled = false;
+  else if (!isConfigured || !session) settled = inAuthGroup || onPublicDownloads;
+  // profile can be stale-null while the fetch for the current session is still
+  // in flight (auth.tsx nulls it on user change). Wait for it.
+  else if (!profile) settled = false;
+  else if (profile.status !== 'approved') settled = segments[1] === 'pending';
+  else settled = !inAuthGroup;
+
+  // The effect only issues redirects; `settled` above tracks when they land.
   React.useEffect(() => {
     if (initializing) return;
-    const inAuthGroup = segments[0] === '(auth)';
-    const onPublicDownloads = pathname === '/downloads';
 
     if (!isConfigured || !session) {
       if (!inAuthGroup && !onPublicDownloads) router.replace('/sign-in');
-      setSettled(true);
       return;
     }
-
-    // profileResolved can be stale (true from a prior null-userId run) while the
-    // real profile fetch for the current session is still in flight. Wait for it.
     if (!profile) return;
 
     if (profile.status !== 'approved') {
       if (segments[1] !== 'pending') router.replace('/pending');
-      setSettled(true);
       return;
     }
 
     if (inAuthGroup) router.replace('/');
-    setSettled(true);
-  }, [initializing, isConfigured, session, profile, segments, pathname, router]);
+  }, [initializing, isConfigured, session, profile, segments, pathname, router, inAuthGroup, onPublicDownloads]);
 
   return (
     <>
