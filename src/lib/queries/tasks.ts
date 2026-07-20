@@ -227,14 +227,18 @@ export function useCreateTask() {
   return useProjectsMutation<TaskInput & { projectName: string }>(async ({ projectName, ...vars }) => {
     if (isDemoMode()) return demoCreateTask(vars);
     const uid = await currentUserId();
-    const { error } = await supabase.from('tasks').insert({ ...vars, created_by: uid });
+    const { data: created, error } = await supabase
+      .from('tasks')
+      .insert({ ...vars, created_by: uid })
+      .select('id')
+      .single();
     if (error) throw error;
     if (vars.assignee_id && vars.assignee_id !== uid) {
       await notifyUsers([vars.assignee_id], {
         type: 'task',
         title: 'New task assigned',
         body: `${vars.title} · ${projectName}`,
-        data: { projectId: vars.project_id },
+        data: { projectId: vars.project_id, taskId: created?.id },
       });
     }
   });
@@ -266,7 +270,7 @@ export function useUpdateTask() {
             type: 'task',
             title: 'New task assigned',
             body: `${patch.title ?? prev.title} · ${prev.project?.name ?? 'Project'}`,
-            data: { projectId: prev.project_id },
+            data: { projectId: prev.project_id, taskId: id },
           });
         }
       }
