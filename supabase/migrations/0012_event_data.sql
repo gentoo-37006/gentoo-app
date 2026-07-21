@@ -1,29 +1,29 @@
 -- ============================================================================
--- 0012_app_settings: Stores global application settings and sync states.
+-- 0012_event_data: Stores entire event sync JSON data.
 -- ============================================================================
 
-create table public.app_settings (
-  key text primary key,
-  value jsonb not null,
+create table public.event_data (
+  event_code text primary key,
+  data jsonb not null,
   updated_at timestamptz not null default now(),
   updated_by uuid references public.profiles (id) on delete set null
 );
 
 -- Enable RLS
-alter table public.app_settings enable row level security;
+alter table public.event_data enable row level security;
 
 -- Policies
-create policy "Anyone can read app_settings"
-  on public.app_settings for select
+create policy "Anyone can read event_data"
+  on public.event_data for select
   using (true);
 
-create policy "Admins can insert app_settings"
-  on public.app_settings for insert
-  with check (true);
+create policy "Admins can insert event_data"
+  on public.event_data for insert
+  with check (public.is_admin());
 
-create policy "Admins can update app_settings"
-  on public.app_settings for update
-  using (true);
+create policy "Admins can update event_data"
+  on public.event_data for update
+  using (public.is_admin());
 
 create policy "Admins can delete matches"
   on public.matches for delete

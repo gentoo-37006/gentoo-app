@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import { WhatsNewModal } from '@/components/whats-new';
 import { Input } from '@/components/ui/input';
 import { useSyncFTCScout } from '@/lib/queries/ftcscout';
-import { useAppSetting } from '@/lib/queries/settings';
+import { useEventData } from '@/lib/queries/settings';
 import { timeAgo } from '@/lib/format';
 import { Download, LogOut, Moon, RefreshCw, Sparkles, Sun, SunMoon, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
@@ -100,20 +100,20 @@ function AccountCard() {
 function FTCScoutSyncCard() {
   const { profile } = useAuth();
   const syncFTC = useSyncFTCScout();
-  const { data: settingData } = useAppSetting('ftcscout_sync');
+  const { data: settingData } = useEventData('active_event');
   
   const [eventCode, setEventCode] = React.useState('');
   
   React.useEffect(() => {
-    if (settingData?.value?.eventCode && !eventCode) {
-      setEventCode(settingData.value.eventCode as string);
+    if (settingData?.data?.eventCode && !eventCode) {
+      setEventCode(settingData.data.eventCode as string);
     }
   }, [settingData]);
 
   // if (profile?.role !== 'admin') return null;
 
-  const lastSynced = settingData?.value?.last_synced
-    ? timeAgo(settingData.value.last_synced as string)
+  const lastSynced = settingData?.data?.last_synced
+    ? timeAgo(settingData.data.last_synced as string)
     : 'Never';
 
   const handleSync = () => {

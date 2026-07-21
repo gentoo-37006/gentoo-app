@@ -6,9 +6,9 @@
 export type UserRole = 'admin' | 'member';
 export type UserStatus = 'pending' | 'approved' | 'rejected';
 
-export type AppSettings = {
-  key: string;
-  value: Record<string, unknown>;
+export type EventData = {
+  event_code: string;
+  data: Record<string, unknown>;
   updated_at: string;
   updated_by: string | null;
 };
