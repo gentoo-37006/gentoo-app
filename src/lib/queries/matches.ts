@@ -40,12 +40,57 @@ export function useMatches() {
     queryKey: matchKeys.all,
     queryFn: async (): Promise<MatchWithAssignments[]> => {
       if (isDemoMode()) return demoMatches();
+
+      // 1. Fetch active event matches from JSON
+      const { data: activeEventPointer } = await supabase
+        .from('event_data')
+        .select('data')
+        .eq('event_code', 'active_event')
+        .maybeSingle();
+
+      const eventCode = activeEventPointer?.data?.eventCode;
+      let eventMatches: any[] = [];
+      
+      if (eventCode) {
+        const { data: eventData } = await supabase
+          .from('event_data')
+          .select('data')
+          .eq('event_code', eventCode)
+          .maybeSingle();
+        eventMatches = eventData?.data?.matches || [];
+      }
+
+      // 2. Fetch DB matches to get UUIDs and assignments
       const { data, error } = await supabase
         .from('matches')
-        .select('*, assignments:scouting_assignments(id, scouter_id, team_number, status)')
-        .order('match_number', { ascending: true });
+        .select('*, assignments:scouting_assignments(id, scouter_id, team_number, status)');
       if (error) throw error;
-      return (data ?? []) as unknown as MatchWithAssignments[];
+      
+      const dbMatches = (data ?? []) as unknown as MatchWithAssignments[];
+      const dbMatchMap = new Map(dbMatches.map(m => [m.match_number, m]));
+
+      // 3. Construct the list using JSON as source of truth
+      // If no active event synced yet, fallback to DB matches
+      if (eventMatches.length === 0) {
+        return dbMatches.sort((a, b) => a.match_number - b.match_number);
+      }
+
+      return eventMatches
+        .sort((a, b) => a.match_number - b.match_number)
+        .map((m, index) => {
+          const dbMatch = dbMatchMap.get(m.match_number);
+          return {
+            id: dbMatch?.id || `match_${m.match_number}_${index}`,
+            match_number: m.match_number,
+            label: m.label,
+            red1: m.red1,
+            red2: m.red2,
+            blue1: m.blue1,
+            blue2: m.blue2,
+            created_at: dbMatch?.created_at || new Date().toISOString(),
+            assignments: dbMatch?.assignments || [],
+          } as MatchWithAssignments;
+        });
     },
   });
 }

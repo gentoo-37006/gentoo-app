@@ -56,13 +56,30 @@ export function useTeamScores() {
     queryKey: scoutingKeys.teamScores,
     queryFn: async (): Promise<TeamScore[]> => {
       if (isDemoMode()) return demoTeamScores();
-      const { data, error } = await supabase
-        .from('team_scores')
-        .select('*')
-        .order('score', { ascending: false })
-        .order('team_number', { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as TeamScore[];
+      
+      // TEMPORARY OVERRIDE: Fetch teams from active event in event_data
+      const { data: activeEventPointer } = await supabase
+        .from('event_data')
+        .select('data')
+        .eq('event_code', 'active_event')
+        .maybeSingle();
+
+      if (!activeEventPointer?.data?.eventCode) return [];
+
+      const { data: eventData } = await supabase
+        .from('event_data')
+        .select('data')
+        .eq('event_code', activeEventPointer.data.eventCode)
+        .maybeSingle();
+
+      const teams = eventData?.data?.teams || [];
+      
+      return teams.map((t: any) => ({
+        team_id: String(t.team_number),
+        team_number: t.team_number,
+        team_name: t.team_name,
+        score: 0
+      })) as TeamScore[];
     },
   });
 }

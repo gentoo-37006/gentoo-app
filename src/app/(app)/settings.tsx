@@ -105,6 +105,7 @@ function FTCScoutSyncCard() {
   const [eventCode, setEventCode] = React.useState('');
   
   React.useEffect(() => {
+    console.log('[FTCScoutSyncCard] settingData changed:', JSON.stringify(settingData, null, 2));
     if (settingData?.data?.eventCode && !eventCode) {
       setEventCode(settingData.data.eventCode as string);
     }
