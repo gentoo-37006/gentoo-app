@@ -146,8 +146,12 @@ export function useMatchDetail(matchId: string) {
         aErr = results[1].error;
         reports = results[2].data || [];
         rErr = results[2].error;
-        if (aErr) throw aErr;
-        if (rErr) throw rErr;
+        if (aErr) {
+          console.error("useMatchDetail - aErr (assignments):", aErr);
+        }
+        if (rErr) {
+          console.error("useMatchDetail - rErr (reports):", rErr);
+        }
       }
 
       let finalMatch = (match ?? null) as Match | null;
