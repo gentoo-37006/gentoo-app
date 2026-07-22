@@ -87,6 +87,9 @@ export function useMatches() {
             red2: m.red2,
             blue1: m.blue1,
             blue2: m.blue2,
+            has_been_played: m.has_been_played,
+            red_score: m.red_score,
+            blue_score: m.blue_score,
             created_at: dbMatch?.created_at || new Date().toISOString(),
             assignments: dbMatch?.assignments || [],
           } as MatchWithAssignments;
@@ -120,12 +123,16 @@ export type AssignmentWithScouter = ScoutingAssignment & {
 
 export function useMatchDetail(matchId: string) {
   return useQuery({
+    
     queryKey: matchKeys.detail(matchId),
     enabled: !!matchId,
     queryFn: async () => {
       if (isDemoMode()) return demoMatchDetail(matchId);
-      const [{ data: match, error: mErr }, { data: assignments, error: aErr }, { data: reports, error: rErr }] =
-        await Promise.all([
+      let match = null, mErr = null, assignments: any[] = [], aErr = null, reports: any[] = [], rErr = null;
+      const isMock = matchId.startsWith('match_');
+
+      if (!isMock) {
+        const results = await Promise.all([
           supabase.from('matches').select('*').eq('id', matchId).maybeSingle(),
           supabase
             .from('scouting_assignments')
@@ -133,11 +140,49 @@ export function useMatchDetail(matchId: string) {
             .eq('match_id', matchId),
           supabase.from('match_reports').select('*').eq('match_id', matchId).order('created_at'),
         ]);
-      if (mErr) throw mErr;
-      if (aErr) throw aErr;
-      if (rErr) throw rErr;
+        match = results[0].data;
+        mErr = results[0].error;
+        assignments = results[1].data || [];
+        aErr = results[1].error;
+        reports = results[2].data || [];
+        rErr = results[2].error;
+        if (aErr) throw aErr;
+        if (rErr) throw rErr;
+      }
+
+      let finalMatch = (match ?? null) as Match | null;
+      // Fallback: If match was not found in DB (because it failed to upsert or hasn't yet),
+      // let's try to pull it directly from the active event's JSON bundle.
+      if (!finalMatch) {
+        const { data: pointer } = await supabase.from('event_data').select('data').eq('event_code', 'active_event').maybeSingle();
+        if (pointer?.data?.eventCode) {
+          const { data: eventData } = await supabase.from('event_data').select('data').eq('event_code', pointer.data.eventCode).maybeSingle();
+          const matches = eventData?.data?.matches || [];
+          // If the matchId is something like "match_4_3", we can parse the match_number out of it.
+          // Or we can just find it by match_number if matchId is purely numeric.
+          const parsedMatchNum = matchId.startsWith('match_') ? parseInt(matchId.split('_')[1], 10) : null;
+          const found = matches.find((m: any) => m.match_number === parsedMatchNum || String(m.match_number) === matchId);
+          if (found) {
+            finalMatch = {
+              id: matchId,
+              match_number: found.match_number,
+              label: found.label || `Match ${found.match_number}`,
+              red1: found.red1,
+              red2: found.red2,
+              blue1: found.blue1,
+              blue2: found.blue2,
+              red_score: found.red_score,
+              blue_score: found.blue_score,
+              has_been_played: found.has_been_played,
+              created_at: new Date().toISOString(),
+              scheduled_time: null,
+            };
+          }
+        }
+      }
+
       return {
-        match: (match ?? null) as Match | null,
+        match: finalMatch,
         assignments: (assignments ?? []) as unknown as AssignmentWithScouter[],
         reports: (reports ?? []) as MatchReport[],
       };

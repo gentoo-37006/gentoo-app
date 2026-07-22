@@ -8,6 +8,7 @@ import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import {
   useMatches,
@@ -16,16 +17,36 @@ import {
   type MatchWithAssignments,
   type MyAssignment,
 } from '@/lib/queries/matches';
-import { matchTitle } from '@/lib/types';
+import { matchTitle, type Match } from '@/lib/types';
 
-function AllianceLine({ match }: { match: MatchWithAssignments }) {
+function AllianceLine({ match }: { match: MatchWithAssignments | Match }) {
   const fmt = (a: number | null, b: number | null) =>
     [a, b].filter((n) => n != null).join(' & ') || '—';
+    
+  const played = match.has_been_played;
+  const redWon = played && (match.red_score ?? 0) > (match.blue_score ?? 0);
+  const blueWon = played && (match.blue_score ?? 0) > (match.red_score ?? 0);
+  const tie = played && (match.blue_score ?? 0) === (match.red_score ?? 0);
+
   return (
-    <View className="flex-row gap-4">
-      <Text className="text-sm font-semibold text-destructive">{fmt(match.red1, match.red2)}</Text>
-      <Text variant="small">vs</Text>
-      <Text className="text-sm font-semibold text-primary">{fmt(match.blue1, match.blue2)}</Text>
+    <View className="flex-col gap-1">
+      <View className="flex-row gap-4 items-center">
+        <Text className={cn("text-sm font-semibold text-destructive", redWon && "font-black underline")}>
+          {fmt(match.red1, match.red2)}
+        </Text>
+        <Text variant="small">vs</Text>
+        <Text className={cn("text-sm font-semibold text-primary", blueWon && "font-black underline")}>
+          {fmt(match.blue1, match.blue2)}
+        </Text>
+      </View>
+      {played && (
+        <View className="flex-row gap-2 items-center">
+          <Badge variant={redWon ? "destructive" : "secondary"} label={String(match.red_score ?? 0)} />
+          <Text variant="small">-</Text>
+          <Badge variant={blueWon ? "default" : "secondary"} label={String(match.blue_score ?? 0)} />
+          {tie && <Text variant="small" className="text-muted-foreground ml-2">(Tie)</Text>}
+        </View>
+      )}
     </View>
   );
 }

@@ -129,6 +129,9 @@ export type Match = {
   red2: number | null;
   blue1: number | null;
   blue2: number | null;
+  red_score?: number | null;
+  blue_score?: number | null;
+  has_been_played?: boolean;
   created_at: string;
 };
 

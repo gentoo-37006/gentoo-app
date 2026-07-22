@@ -6,30 +6,39 @@ import { useUpdateEventData } from './settings';
 
 interface FTCScoutTeamInput {
   teamNumber: number;
-  name?: string;
-  teamName?: string;
+
+  stats: {
+    avg: { // modify based on game
+      totalPoints: number;
+    }
+    dqs: number;
+    wins: number;
+    losses: number;
+    ties: number;
+    rank: number;
+  }
 }
 
 interface FTCScoutMatchInput {
-  id?: number;
-  tournamentLevel?: string;
-  hasBeenPlayed?: boolean;
+  id: number;
+  tournamentLevel: string;
+  hasBeenPlayed: boolean;
 
-  scheduledStartTime?: string;
+  scheduledStartTime: string;
 
-  scores?: {
-    blue?: {
-      autoPoints?: number;
-      dcPoints?: number;
-      totalPoints?: number;
+  scores: {
+    blue: {
+      autoPoints: number;
+      dcPoints: number;
+      totalPoints: number;
     };
-    red?: {
-      autoPoints?: number;
-      dcPoints?: number;
-      totalPoints?: number;
+    red: {
+      autoPoints: number;
+      dcPoints: number;
+      totalPoints: number;
     };
   };
-  teams?: Array<{
+  teams: Array<{
     alliance: string;
     dq: boolean;
     teamNumber: number;
@@ -47,6 +56,9 @@ interface ScoutedMatch {
   red2: number | null;
   blue1: number | null;
   blue2: number | null;
+  red_score?: number | null;
+  blue_score?: number | null;
+  has_been_played?: boolean;
 }
 
 export function useSyncFTCScout() {
@@ -63,13 +75,13 @@ export function useSyncFTCScout() {
       // 1. Fetch from FTC Scout
       const matchesData = (await getEventMatches(eventCode)) as FTCScoutMatchInput[] | null;
       const teamsData = (await getEventTeams(eventCode)) as FTCScoutTeamInput[] | null;
-      console.log(matchesData);
+      console.log(teamsData);
       // 2. Parse into clean array
       let teamsArray: ScoutedTeam[] = [];
       if (teamsData && Array.isArray(teamsData)) {
         teamsArray = teamsData.map((t: FTCScoutTeamInput): ScoutedTeam => ({
           team_number: t.teamNumber,
-          team_name: t.name || t.teamName || null,
+          team_name: null,
         }));
       }
 
@@ -94,6 +106,9 @@ export function useSyncFTCScout() {
             red2: redTeams[1] || null,
             blue1: blueTeams[0] || null,
             blue2: blueTeams[1] || null,
+            has_been_played: m.hasBeenPlayed || false,
+            red_score: m.scores?.red?.totalPoints ?? null,
+            blue_score: m.scores?.blue?.totalPoints ?? null,
           };
         });
       }
