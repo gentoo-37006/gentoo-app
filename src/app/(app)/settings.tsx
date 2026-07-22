@@ -117,11 +117,16 @@ function FTCScoutSyncCard() {
     ? timeAgo(settingData.data.last_synced as string)
     : 'Never';
 
-  const handleSync = () => {
+  const handleSync = async () => {
     if (!eventCode.trim()) {
       Alert.alert('Error', 'Please enter an event code.');
       return;
     }
+    
+    // Quick console log to dump all event_data upon sync
+    const { data: allEventData } = await supabase.from('event_data').select('*');
+    console.log('[SYNC PRESSED] Dumping entire event_data table:', JSON.stringify(allEventData, null, 2));
+
     syncFTC.mutate(eventCode.trim(), {
       onSuccess: () => {
         Alert.alert('Success', 'Event data synced from FTC Scout.');

@@ -10,19 +10,30 @@ interface FTCScoutTeamInput {
   teamName?: string;
 }
 
-interface FTCScoutAlliance {
-  teams?: number[];
-}
-
 interface FTCScoutMatchInput {
-  matchNum?: number;
-  matchNumber?: number;
-  name?: string;
-  description?: string;
-  alliances?: {
-    red?: FTCScoutAlliance;
-    blue?: FTCScoutAlliance;
+  id?: number;
+  tournamentLevel?: string;
+  hasBeenPlayed?: boolean;
+
+  scheduledStartTime?: string;
+
+  scores?: {
+    blue?: {
+      autoPoints?: number;
+      dcPoints?: number;
+      totalPoints?: number;
+    };
+    red?: {
+      autoPoints?: number;
+      dcPoints?: number;
+      totalPoints?: number;
+    };
   };
+  teams?: Array<{
+    alliance: string;
+    dq: boolean;
+    teamNumber: number;
+  }>;
 }
 
 interface ScoutedTeam {
@@ -32,7 +43,6 @@ interface ScoutedTeam {
 
 interface ScoutedMatch {
   match_number: number;
-  label: string;
   red1: number | null;
   red2: number | null;
   blue1: number | null;
@@ -53,7 +63,7 @@ export function useSyncFTCScout() {
       // 1. Fetch from FTC Scout
       const matchesData = (await getEventMatches(eventCode)) as FTCScoutMatchInput[] | null;
       const teamsData = (await getEventTeams(eventCode)) as FTCScoutTeamInput[] | null;
-
+      console.log(matchesData);
       // 2. Parse into clean array
       let teamsArray: ScoutedTeam[] = [];
       if (teamsData && Array.isArray(teamsData)) {
@@ -66,13 +76,20 @@ export function useSyncFTCScout() {
       let matchesArray: ScoutedMatch[] = [];
       if (matchesData && Array.isArray(matchesData)) {
         matchesArray = matchesData.map((m: FTCScoutMatchInput): ScoutedMatch => {
-          const redTeams = m.alliances?.red?.teams || [];
-          const blueTeams = m.alliances?.blue?.teams || [];
-          const matchNum = m.matchNum || m.matchNumber || 0;
+          
+          const matchNum = m.id || 0;
+          const redTeams: number[] = [];
+          const blueTeams: number[] = [];
+          for(const team of m.teams || []) {
+            if(team.alliance.toLowerCase() == "red") {
+              redTeams.push(team.teamNumber);
+            } else {
+              blueTeams.push(team.teamNumber);
+            }
+          }
           
           return {
             match_number: matchNum,
-            label: m.name || m.description || `Match ${matchNum}`,
             red1: redTeams[0] || null,
             red2: redTeams[1] || null,
             blue1: blueTeams[0] || null,
