@@ -4,6 +4,22 @@ import { Text } from '@/components/ui/text';
 
 export type ChipOption<T extends string> = { value: T; label: string };
 
+function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      className={cn(
+        'rounded-sm border px-3 py-1.5',
+        active ? 'border-primary bg-primary' : 'border-border bg-background active:bg-accent'
+      )}
+    >
+      <Text className={cn('text-xs font-semibold', active ? 'text-primary-foreground' : 'text-foreground')}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 /** Single-select pill group used for statuses, priorities, etc. */
 export function OptionChips<T extends string>({
   options,
@@ -18,23 +34,9 @@ export function OptionChips<T extends string>({
 }) {
   return (
     <View className={cn('flex-row flex-wrap gap-2', className)}>
-      {options.map((o) => {
-        const active = value === o.value;
-        return (
-          <Pressable
-            key={o.value}
-            onPress={() => onChange(o.value)}
-            className={cn(
-              'rounded-sm border px-3 py-1.5',
-              active ? 'border-primary bg-primary' : 'border-border bg-background active:bg-accent'
-            )}
-          >
-            <Text className={cn('text-xs font-semibold', active ? 'text-primary-foreground' : 'text-foreground')}>
-              {o.label}
-            </Text>
-          </Pressable>
-        );
-      })}
+      {options.map((o) => (
+        <Chip key={o.value} label={o.label} active={value === o.value} onPress={() => onChange(o.value)} />
+      ))}
     </View>
   );
 }

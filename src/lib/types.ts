@@ -218,11 +218,11 @@ export const PROJECT_STATUSES: { value: ProjectStatus; label: string }[] = [
   { value: 'done', label: 'Done' },
 ];
 
+/** Selectable statuses. 'done' is absent: completing a task deletes it. */
 export const TASK_STATUSES: { value: TaskStatus; label: string }[] = [
   { value: 'todo', label: 'To do' },
   { value: 'in_progress', label: 'In progress' },
   { value: 'blocked', label: 'Blocked' },
-  { value: 'done', label: 'Done' },
 ];
 
 export const PRIORITIES: { value: Priority; label: string }[] = [
@@ -249,8 +249,12 @@ export type Task = {
   id: string;
   project_id: string;
   title: string;
+  /** Markdown body, edited on the task's own page. */
+  notes: string | null;
   status: TaskStatus;
-  assignee_id: string | null;
+  assignee_ids: string[];
+  /** Task this one waits on, set while status = 'blocked'. */
+  blocked_by: string | null;
   due_date: string | null;
   priority: Priority;
   tags: string[];

@@ -11,7 +11,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScoreBar } from '@/components/ui/score-bar';
 import { OptionChips } from '@/components/ui/option-chips';
 import {
   PROJECT_STATUSES,
@@ -67,9 +66,7 @@ function CreateProject({ onClose }: { onClose: () => void }) {
 
 function ProjectCard({ project }: { project: ProjectWithTasks }) {
   const router = useRouter();
-  const total = project.tasks.length;
-  const done = project.tasks.filter((t) => t.status === 'done').length;
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const open = project.tasks.length;
   return (
     <Pressable className="active:opacity-75" onPress={() => router.push(`/tasks/${project.id}` as any)}>
         <Card>
@@ -89,16 +86,9 @@ function ProjectCard({ project }: { project: ProjectWithTasks }) {
               <Badge variant={projectStatusVariant(project.status)} label={labelOf(PROJECT_STATUSES, project.status)} />
               <Badge variant={priorityVariant(project.priority)} label={labelOf(PRIORITIES, project.priority)} />
             </View>
-            {total > 0 ? (
-              <View className="gap-1">
-                <ScoreBar value={pct} fillClassName="bg-success" />
-                <Text variant="small">
-                  {done}/{total} tasks done
-                </Text>
-              </View>
-            ) : (
-              <Text variant="small">No tasks yet</Text>
-            )}
+            <Text variant="small">
+              {open === 0 ? 'All clear — no open tasks' : open === 1 ? '1 open task' : `${open} open tasks`}
+            </Text>
           </CardContent>
         </Card>
     </Pressable>

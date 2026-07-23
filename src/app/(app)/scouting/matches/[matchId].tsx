@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
+import { MultiSelect } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { useProfiles } from '@/lib/queries/profiles';
@@ -298,9 +299,22 @@ export default function MatchDetailScreen() {
   const assignments = data?.assignments ?? [];
   const reports = data?.reports ?? [];
   const myAssignment = assignments.find((a) => a.scouter_id === uid);
-  const assignedIds = new Set(assignments.map((a) => a.scouter_id));
-  const approved = (profiles ?? []).filter((p) => p.status === 'approved' && !assignedIds.has(p.id));
+  const assignedIds = assignments.map((a) => a.scouter_id);
+  const scouterOptions = (profiles ?? [])
+    .filter((p) => p.status === 'approved')
+    .map((p) => ({ value: p.id, label: p.full_name ?? 'Member' }));
   const canAssign = isDemo || isMatchRowId(match.id);
+
+  // Toggling an option assigns or unassigns; removals the member isn't allowed to
+  // make are skipped, matching the per-row remove button.
+  const setAssignees = (next: string[]) => {
+    next
+      .filter((id) => !assignedIds.includes(id))
+      .forEach((id) => assign.mutate({ matchId: match.id, scouterId: id, matchLabel: matchTitle(match) }));
+    assignments
+      .filter((a) => !next.includes(a.scouter_id) && (isAdmin || a.assigned_by === uid))
+      .forEach((a) => removeAssignment.mutate(a.id));
+  };
 
   return (
     <Screen>
@@ -346,26 +360,18 @@ export default function MatchDetailScreen() {
             <Text variant="small" className="border-t border-border pt-3 text-muted-foreground">
               This match isn’t in the database yet. Re-sync the event in Settings to assign scouters.
             </Text>
-          ) : approved.length > 0 ? (
+          ) : scouterOptions.length > 0 ? (
             <View className="gap-2 border-t border-border pt-3">
               <View className="flex-row items-center gap-1.5">
                 <Icon as={UserPlus} size={16} className="text-muted-foreground" />
-                <Text variant="small">Assign a scouter</Text>
+                <Text variant="small">Assign scouters</Text>
               </View>
-              <View className="flex-row flex-wrap gap-2">
-                {approved.map((p) => (
-                  <Pressable
-                    key={p.id}
-                    disabled={assign.isPending}
-                    onPress={() =>
-                      assign.mutate({ matchId: match.id, scouterId: p.id, matchLabel: matchTitle(match) })
-                    }
-                    className="rounded-sm border border-border bg-background px-3 py-1.5 active:bg-accent"
-                  >
-                    <Text className="text-xs font-semibold">{p.full_name ?? 'Member'}</Text>
-                  </Pressable>
-                ))}
-              </View>
+              <MultiSelect
+                options={scouterOptions}
+                values={assignedIds}
+                onChange={setAssignees}
+                placeholder="No one assigned"
+              />
               {assign.error ? (
                 <Text variant="small" className="text-destructive">{assign.error.message}</Text>
               ) : null}
