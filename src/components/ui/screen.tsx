@@ -14,7 +14,7 @@ export function Screen({
   children,
   className,
   contentClassName,
-  maxWidth = 'max-w-none',
+  maxWidth = 'max-w-6xl',
 }: {
   children: React.ReactNode;
   className?: string;

@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ListChecks, Plus, ChevronRight, Trash2 } from 'lucide-react-native';
+import { ListChecks, Plus, ChevronRight } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Card, CardContent } from '@/components/ui/card';
@@ -105,8 +105,8 @@ export default function ProjectsScreen() {
       <ScreenHeader title="Projects" description="Organize work into projects and tasks.">
         <Button
           variant="outline"
-          size="icon"
-          icon={Trash2}
+          size="sm"
+          label="Trash"
           accessibilityLabel="View trash"
           onPress={() => router.push('/tasks/trash' as any)}
         />

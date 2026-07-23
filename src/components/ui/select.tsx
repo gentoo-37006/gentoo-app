@@ -1,9 +1,10 @@
 import * as React from 'react';
-import { Modal, Pressable, ScrollView, View } from 'react-native';
+import { Dimensions, Pressable, ScrollView, View } from 'react-native';
 import { Check, ChevronDown } from 'lucide-react-native';
 import { cn } from '@/lib/utils';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { FadeModal } from '@/components/ui/fade-modal';
 
 export type SelectOption<T extends string> = { value: T; label: string };
 
@@ -34,25 +35,51 @@ function Trigger({
   );
 }
 
-/** Option sheet shared by both selects: tap-away backdrop over a scrollable list. */
-function OptionSheet<T extends string>({
+type Anchor = { left: number; top: number; width: number; height: number };
+
+function getMenuFrame(anchor: Anchor) {
+  const window = Dimensions.get('window');
+  const maxHeight = Math.min(320, window.height - 24);
+  const width = Math.min(Math.max(anchor.width, 192), window.width - 24);
+  const left = Math.min(Math.max(12, anchor.left), window.width - width - 12);
+  const below = anchor.top + anchor.height + 4;
+  const top = below + maxHeight > window.height - 12
+    ? Math.max(12, anchor.top - maxHeight - 4)
+    : below;
+
+  return { left, top, width, maxHeight };
+}
+
+/** Anchored dropdown shared by both selects: tap-away backdrop over a scrollable list. */
+function OptionDropdown<T extends string>({
   options,
   isActive,
   onPick,
   onClose,
+  onDismiss,
+  anchor,
+  visible,
   multiple,
 }: {
   options: SelectOption<T>[];
   isActive: (value: T) => boolean;
   onPick: (value: T) => void;
   onClose: () => void;
+  onDismiss: () => void;
+  anchor: Anchor;
+  visible: boolean;
   multiple?: boolean;
 }) {
+  const frame = getMenuFrame(anchor);
+
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable className="flex-1 justify-center bg-black/50 p-6" onPress={onClose}>
-        <View className="w-full max-w-sm self-center overflow-hidden rounded-md border border-border bg-popover">
-          <ScrollView className="max-h-80">
+    <FadeModal visible={visible} onRequestClose={onClose} onDismiss={onDismiss}>
+      <Pressable className="flex-1" onPress={onClose}>
+        <View
+          className="absolute overflow-hidden rounded-md border border-border bg-popover"
+          style={{ left: frame.left, top: frame.top, width: frame.width }}
+        >
+          <ScrollView style={{ maxHeight: frame.maxHeight }}>
             {options.map((o) => {
               const active = isActive(o.value);
               return (
@@ -76,7 +103,7 @@ function OptionSheet<T extends string>({
           ) : null}
         </View>
       </Pressable>
-    </Modal>
+    </FadeModal>
   );
 }
 
@@ -94,13 +121,21 @@ export function Select<T extends string>({
   className?: string;
 }) {
   const [open, setOpen] = React.useState(false);
+  const [anchor, setAnchor] = React.useState<Anchor | null>(null);
+  const triggerRef = React.useRef<View>(null);
   const current = options.find((o) => o.value === value);
+  const openDropdown = () =>
+    triggerRef.current?.measureInWindow((left, top, width, height) => {
+      setAnchor({ left, top, width, height });
+      setOpen(true);
+    });
 
   return (
-    <>
-      <Trigger label={current?.label} placeholder={placeholder} onPress={() => setOpen(true)} className={className} />
-      {open ? (
-        <OptionSheet
+    <View ref={triggerRef} collapsable={false}>
+      <Trigger label={current?.label} placeholder={placeholder} onPress={openDropdown} className={className} />
+      {anchor ? (
+        <OptionDropdown
+          visible={open}
           options={options}
           isActive={(v) => v === value}
           onPick={(v) => {
@@ -108,9 +143,11 @@ export function Select<T extends string>({
             setOpen(false);
           }}
           onClose={() => setOpen(false)}
+          onDismiss={() => setAnchor(null)}
+          anchor={anchor}
         />
       ) : null}
-    </>
+    </View>
   );
 }
 
@@ -128,23 +165,33 @@ export function MultiSelect<T extends string>({
   className?: string;
 }) {
   const [open, setOpen] = React.useState(false);
+  const [anchor, setAnchor] = React.useState<Anchor | null>(null);
+  const triggerRef = React.useRef<View>(null);
   const label = options
     .filter((o) => values.includes(o.value))
     .map((o) => o.label)
     .join(', ');
+  const openDropdown = () =>
+    triggerRef.current?.measureInWindow((left, top, width, height) => {
+      setAnchor({ left, top, width, height });
+      setOpen(true);
+    });
 
   return (
-    <>
-      <Trigger label={label} placeholder={placeholder} onPress={() => setOpen(true)} className={className} />
-      {open ? (
-        <OptionSheet
+    <View ref={triggerRef} collapsable={false}>
+      <Trigger label={label} placeholder={placeholder} onPress={openDropdown} className={className} />
+      {anchor ? (
+        <OptionDropdown
           multiple
+          visible={open}
           options={options}
           isActive={(v) => values.includes(v)}
           onPick={(v) => onChange(values.includes(v) ? values.filter((x) => x !== v) : [...values, v])}
           onClose={() => setOpen(false)}
+          onDismiss={() => setAnchor(null)}
+          anchor={anchor}
         />
       ) : null}
-    </>
+    </View>
   );
 }

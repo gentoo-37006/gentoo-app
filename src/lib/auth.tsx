@@ -86,10 +86,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
         setSession(data.session);
         setAuthResolved(true);
+        setProfileResolved(!data.session?.user?.id);
       });
       const { data } = supabase.auth.onAuthStateChange((_event, next) => {
         setSession(next);
         setAuthResolved(true);
+        if (!next?.user?.id) setProfileResolved(true);
       });
       sub = data;
     });
@@ -118,7 +120,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let active = true;
     if (!isSupabaseConfigured) return;
     if (isDemoMode() || userId === DEMO_USER_ID) return;
-    if (!userId) return;
+    if (!userId) {
+      setProfile(null);
+      setProfileResolved(true);
+      return;
+    }
+    setProfileResolved(false);
     fetchProfile(userId).then((p) => {
       if (!active) return;
       setProfile(p);

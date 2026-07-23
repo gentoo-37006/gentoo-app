@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import {
@@ -23,10 +23,12 @@ import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { DeleteButton } from '@/components/ui/delete-button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { OptionChips } from '@/components/ui/option-chips';
 import { MultiSelect, Select } from '@/components/ui/select';
+import { FadeModal, FADE_DURATION_MS } from '@/components/ui/fade-modal';
 import { cn } from '@/lib/utils';
 import { useProfiles } from '@/lib/queries/profiles';
 import {
@@ -87,8 +89,12 @@ function FilterMenu({ groups }: { groups: FilterGroup[] }) {
         label="Filter"
         onPress={openMenu}
       />
-      {open && pos ? (
-        <Modal visible transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+      {pos ? (
+        <FadeModal
+          visible={open}
+          onRequestClose={() => setOpen(false)}
+          onDismiss={() => setPos(null)}
+        >
           <Pressable className="flex-1" onPress={() => setOpen(false)}>
             <View className="absolute flex-row rounded-md border border-border bg-popover" style={pos}>
               <View className="w-32 p-1">
@@ -127,16 +133,26 @@ function FilterMenu({ groups }: { groups: FilterGroup[] }) {
               </ScrollView>
             </View>
           </Pressable>
-        </Modal>
+        </FadeModal>
       ) : null}
     </View>
   );
 }
 
 /** Centered scrollable overlay; the backdrop dismisses, the sheet swallows taps. */
-function ModalSheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+function ModalSheet({
+  visible,
+  onClose,
+  onDismiss,
+  children,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onDismiss?: () => void;
+  children: React.ReactNode;
+}) {
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+    <FadeModal visible={visible} onRequestClose={onClose} onDismiss={onDismiss}>
       <Pressable className="flex-1 justify-center bg-black/50 p-4" onPress={onClose}>
         <Pressable className="max-h-[85%] w-full max-w-lg self-center" onPress={() => {}}>
           <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -144,7 +160,7 @@ function ModalSheet({ onClose, children }: { onClose: () => void; children: Reac
           </ScrollView>
         </Pressable>
       </Pressable>
-    </Modal>
+    </FadeModal>
   );
 }
 
@@ -351,7 +367,7 @@ function TaskCard({
   const openNotes = () => router.push(`/tasks/${task.project_id}/${task.id}` as any);
   const complete = () => {
     // eslint-disable-next-line react-hooks/immutability -- shared values are mutable containers
-    shown.value = withTiming(0, { duration: 320 }, (finished) => {
+    shown.value = withTiming(0, { duration: FADE_DURATION_MS }, (finished) => {
       if (finished) runOnJS(remove)();
     });
   };
@@ -416,7 +432,7 @@ function TaskCard({
             <Button size="sm" label="Done" icon={Check} disabled={del.isPending} onPress={complete} className="flex-1 basis-24" />
             <Button variant="outline" size="sm" label="Notes" icon={FileText} onPress={openNotes} className="flex-1 basis-24" />
             <Button variant="outline" size="sm" label="Edit" icon={Pencil} onPress={onEdit} className="flex-1 basis-24" />
-            <Button
+            <DeleteButton
               variant="outline"
               size="sm"
               icon={Trash2}
@@ -443,7 +459,13 @@ export default function ProjectDetailScreen() {
   const trashProject = useTrashProject();
 
   const [adding, setAdding] = React.useState(false);
+  const [addMounted, setAddMounted] = React.useState(false);
   const [editingId, setEditingId] = React.useState<string | null>(null);
+  const openAddTask = () => {
+    setAddMounted(true);
+    setAdding(true);
+  };
+  const closeAddTask = () => setAdding(false);
 
   // Deep-linked task (?task=<id> from a notification tap): highlight its card,
   // let the emphasis fade after a few seconds. Render-time adjustment keeps
@@ -508,7 +530,7 @@ export default function ProjectDetailScreen() {
   return (
     <Screen>
       <ScreenHeader title={project.name} description={project.description ?? undefined} backHref="/tasks">
-        <Button
+        <DeleteButton
           variant="outline"
           size="icon"
           icon={Trash2}
@@ -555,19 +577,23 @@ export default function ProjectDetailScreen() {
               ]}
             />
           ) : null}
-          {editingId === null ? <Button size="sm" label="Add task" icon={Plus} onPress={() => setAdding(true)} /> : null}
+          {editingId === null ? <Button size="sm" label="Add task" icon={Plus} onPress={openAddTask} /> : null}
         </View>
       </View>
 
-      {adding ? (
-        <ModalSheet onClose={() => setAdding(false)}>
+      {addMounted ? (
+        <ModalSheet
+          visible={adding}
+          onClose={closeAddTask}
+          onDismiss={() => setAddMounted(false)}
+        >
           <TaskEditor
             projectId={project.id}
             projectName={project.name}
             members={members}
             siblings={tasks}
             onDone={(createdId) => {
-              setAdding(false);
+              closeAddTask();
               if (createdId) router.push(`/tasks/${project.id}/${createdId}` as any);
             }}
           />

@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { DeleteButton } from '@/components/ui/delete-button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import {
@@ -39,7 +40,7 @@ function QuestionRow({ q }: { q: CapabilityQuestion }) {
             onPress={() => update.mutate({ id: q.id, active: !q.active })}
             className="flex-1"
           />
-          <Button
+          <DeleteButton
             variant="outline"
             size="sm"
             label="Delete"

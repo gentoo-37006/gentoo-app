@@ -81,7 +81,9 @@ function useNativeUpdates() {
  * approved users in the app. The navigator stays mounted so redirects are safe.
  */
 function RootNavigator() {
+  const { colorScheme } = useColorScheme();
   const { initializing, isConfigured, session, profile } = useAuth();
+  const primaryColor = NAV_THEME[colorScheme === 'dark' ? 'dark' : 'light'].colors.primary;
   const segments = useSegments() as string[];
   const pathname = usePathname();
   const router = useRouter();
@@ -123,7 +125,7 @@ function RootNavigator() {
       <Stack screenOptions={{ headerShown: false }} />
       {!settled && (
         <View className="absolute inset-0 items-center justify-center bg-background">
-          <ActivityIndicator size="large" />
+          <ActivityIndicator size="large" color={primaryColor} />
         </View>
       )}
     </>

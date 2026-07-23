@@ -16,6 +16,7 @@ import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
+import { DeleteButton } from '@/components/ui/delete-button';
 import { useRouter } from 'expo-router';
 import { timeAgo } from '@/lib/format';
 import { hrefForNotification } from '@/lib/notification-links';
@@ -57,9 +58,13 @@ function NotificationRow({ item, onPress, onClear }: { item: AppNotification; on
             {item.body ? <Text variant="muted">{item.body}</Text> : null}
             <Text variant="small">{timeAgo(item.created_at)}</Text>
           </View>
-          <Pressable onPress={onClear} className="p-2 -mr-2">
-            <Icon as={Trash2} size={16} className="text-muted-foreground" />
-          </Pressable>
+          <DeleteButton
+            variant="ghost"
+            size="icon"
+            onPress={onClear}
+            className="-mr-2 h-8 w-8"
+            accessibilityLabel="Clear notification"
+          />
         </View>
       </Card>
     </Pressable>
@@ -91,7 +96,7 @@ export default function NotificationsScreen() {
                 onPress={() => markAll.mutate()}
               />
             ) : null}
-            <Button
+            <DeleteButton
               variant="outline"
               size="sm"
               label="Clear all"

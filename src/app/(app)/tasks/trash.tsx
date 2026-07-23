@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DeleteButton } from '@/components/ui/delete-button';
 import { useAuth } from '@/lib/auth';
 import { priorityVariant, projectStatusVariant, labelOf } from '@/lib/task-style';
 import { PRIORITIES, PROJECT_STATUSES } from '@/lib/types';
@@ -21,7 +22,6 @@ function TrashedProjectCard({ project }: { project: ProjectWithTasks }) {
   const { isAdmin, session } = useAuth();
   const restore = useRestoreProject();
   const del = useDeleteProject();
-  const [confirming, setConfirming] = React.useState(false);
   const canManage = isAdmin || project.created_by === session?.user?.id;
   const busy = restore.isPending || del.isPending;
 
@@ -52,13 +52,13 @@ function TrashedProjectCard({ project }: { project: ProjectWithTasks }) {
             className="flex-1"
           />
           {canManage ? (
-            <Button
-              variant={confirming ? 'destructive' : 'outline'}
+            <DeleteButton
+              variant="outline"
               size="sm"
-              label={confirming ? 'Tap to confirm' : 'Delete forever'}
+              label="Delete forever"
               icon={Trash2}
               disabled={busy}
-              onPress={() => (confirming ? del.mutate(project.id) : setConfirming(true))}
+              onPress={() => del.mutate(project.id)}
               className="flex-1"
             />
           ) : null}

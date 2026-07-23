@@ -1,9 +1,10 @@
 import * as React from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { Sparkles, X } from 'lucide-react-native';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
+import { FadeModal } from '@/components/ui/fade-modal';
 import { APP_VERSION } from '@/lib/app-version';
 import { useReleaseNotes, shouldShowWhatsNew, markWhatsNewSeen } from '@/lib/release-notes';
 
@@ -46,7 +47,7 @@ export function WhatsNewModal({ visible, onClose }: { visible: boolean; onClose:
   const { data, isLoading, isError } = useReleaseNotes(visible);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <FadeModal visible={visible} onRequestClose={onClose}>
       <View className="flex-1 items-center justify-center bg-black/50 p-6">
         <View className="max-h-[80%] w-full max-w-md rounded-md border border-border bg-card p-5">
           <View className="flex-row items-center gap-2 pb-3">
@@ -80,7 +81,7 @@ export function WhatsNewModal({ visible, onClose }: { visible: boolean; onClose:
           </View>
         </View>
       </View>
-    </Modal>
+    </FadeModal>
   );
 }
 

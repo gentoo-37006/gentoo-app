@@ -1,13 +1,13 @@
 import * as React from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { CalendarClock, Wand2, Trash2 } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
-import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { DeleteButton } from '@/components/ui/delete-button';
 import { Avatar } from '@/components/ui/avatar';
 import { OptionChips } from '@/components/ui/option-chips';
 import { MultiSelect, Select, type SelectOption } from '@/components/ui/select';
@@ -143,12 +143,13 @@ function ShiftRow({ shift, options }: { shift: ShiftWithAssignee; options: Selec
             value={shift.assignee_id ?? 'none'}
             onChange={(v) => reassign.mutate({ id: shift.id, assigneeId: v === 'none' ? null : v })}
           />
-          <Pressable
+          <DeleteButton
+            variant="ghost"
+            size="icon"
             onPress={() => del.mutate(shift.id)}
-            className="h-8 w-8 items-center justify-center rounded-sm active:bg-accent"
-          >
-            <Icon as={Trash2} size={16} className="text-muted-foreground" />
-          </Pressable>
+            className="h-8 w-8 rounded-sm"
+            accessibilityLabel="Delete shift"
+          />
         </View>
       </CardContent>
     </Card>
@@ -183,7 +184,7 @@ export default function ScheduleScreen() {
     <Screen>
       <ScreenHeader title="Pit schedule" description="Fair rotations for who staffs the pit.">
         {list.length > 0 ? (
-          <Button
+          <DeleteButton
             variant="outline"
             size="icon"
             icon={Trash2}
