@@ -69,6 +69,13 @@ export const PICKLIST_TIERS: { value: PicklistTier; label: string; short: string
   { value: 'dnp', label: 'Do not pick', short: 'DNP' },
 ];
 
+/** Tier plus the bucket for teams that haven't been tiered yet. */
+export type TierKey = PicklistTier | 'untiered';
+
+export function tierLabel(key: TierKey): string {
+  return key === 'untiered' ? 'Uncategorized' : PICKLIST_TIERS.find((t) => t.value === key)!.label;
+}
+
 export type ScoutedTeam = {
   id: string;
   team_number: number;

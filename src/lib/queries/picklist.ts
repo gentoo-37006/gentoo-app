@@ -19,6 +19,14 @@ export type PicklistTeam = {
   capabilities: Record<string, number>;
 };
 
+/** Within a tier: manual rank first (nulls last), then team number. */
+export function tierSort(a: PicklistTeam, b: PicklistTeam): number {
+  if (a.rank !== null && b.rank !== null && a.rank !== b.rank) return a.rank - b.rank;
+  if (a.rank !== null && b.rank === null) return -1;
+  if (a.rank === null && b.rank !== null) return 1;
+  return a.team_number - b.team_number;
+}
+
 export function usePicklist() {
   return useQuery({
     queryKey: picklistKey,

@@ -10,6 +10,7 @@ import {
   NotebookPen,
   ChevronRight,
   GripVertical,
+  Swords,
   X,
 } from 'lucide-react-native';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -22,10 +23,16 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useCapabilityQuestions } from '@/lib/queries/scouting';
-import { usePicklist, useMoveTeam, useSetPicklistNotes, type PicklistTeam } from '@/lib/queries/picklist';
-import { PICKLIST_TIERS, type CapabilityQuestion, type PicklistTier } from '@/lib/types';
+import { FacemashModal } from '@/components/facemash';
+import {
+  usePicklist,
+  useMoveTeam,
+  useSetPicklistNotes,
+  tierSort,
+  type PicklistTeam,
+} from '@/lib/queries/picklist';
+import { tierLabel, type CapabilityQuestion, type PicklistTier, type TierKey } from '@/lib/types';
 
-type TierKey = PicklistTier | 'untiered';
 const TIER_ORDER: TierKey[] = ['tier1', 'tier2', 'tier3', 'dnp', 'untiered'];
 
 const TIER_DOT: Record<TierKey, string> = {
@@ -44,21 +51,9 @@ const COL_HEADER_HEIGHT = 42;
 
 const grabCursor = Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : undefined;
 
-function tierLabel(key: TierKey): string {
-  return key === 'untiered' ? 'Uncategorized' : PICKLIST_TIERS.find((t) => t.value === key)!.label;
-}
-
 /** Per-question filter: absent = any. */
 type FilterChoice = 'yes' | 'no';
 type Filters = Record<string, FilterChoice>;
-
-/** Within a tier: manual rank first (nulls last), then team number. */
-function tierSort(a: PicklistTeam, b: PicklistTeam): number {
-  if (a.rank !== null && b.rank !== null && a.rank !== b.rank) return a.rank - b.rank;
-  if (a.rank !== null && b.rank === null) return -1;
-  if (a.rank === null && b.rank !== null) return 1;
-  return a.team_number - b.team_number;
-}
 
 function matchesFilters(team: PicklistTeam, filters: Filters): boolean {
   for (const [qid, choice] of Object.entries(filters)) {
@@ -322,6 +317,7 @@ export default function PicklistScreen() {
   const [filters, setFilters] = React.useState<Filters>({});
   const [showFilters, setShowFilters] = React.useState(false);
   const [popupPos, setPopupPos] = React.useState<{ left: number; top: number } | null>(null);
+  const [facemashOpen, setFacemashOpen] = React.useState(false);
 
   const filterCount = Object.keys(filters).length;
   const questionById = new Map((questions ?? []).map((q) => [q.id, q]));
@@ -551,6 +547,15 @@ export default function PicklistScreen() {
               onPress={toggleFilters}
             />
           </View>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={Swords}
+            label="Facemash"
+            accessibilityLabel="Compare two teams"
+            disabled={(teams ?? []).length < 2}
+            onPress={() => setFacemashOpen(true)}
+          />
           {filterCount > 0 ? (
             <Button variant="ghost" size="sm" label="Clear all" onPress={() => setFilters({})} />
           ) : null}
@@ -632,6 +637,13 @@ export default function PicklistScreen() {
           ) : null}
         </>
       ) : null}
+
+      <FacemashModal
+        visible={facemashOpen}
+        onClose={() => setFacemashOpen(false)}
+        teams={teams ?? []}
+        questions={questions ?? []}
+      />
 
       {/* Ghost card that follows the pointer while dragging. */}
       {dragTeam ? (
