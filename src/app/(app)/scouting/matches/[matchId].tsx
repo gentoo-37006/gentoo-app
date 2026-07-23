@@ -20,6 +20,7 @@ import {
   useAssignScouter,
   useRemoveAssignment,
   useSubmitMatchReport,
+  isMatchRowId,
 } from '@/lib/queries/matches';
 import { matchTitle, matchTeamNumbers, type Match } from '@/lib/types';
 
@@ -266,7 +267,7 @@ function ReportForm({
 
 export default function MatchDetailScreen() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
-  const { session, isAdmin } = useAuth();
+  const { session, isAdmin, isDemo } = useAuth();
   const uid = session?.user?.id;
   const { data, isLoading } = useMatchDetail(matchId);
   const { data: profiles } = useProfiles();
@@ -299,6 +300,7 @@ export default function MatchDetailScreen() {
   const myAssignment = assignments.find((a) => a.scouter_id === uid);
   const assignedIds = new Set(assignments.map((a) => a.scouter_id));
   const approved = (profiles ?? []).filter((p) => p.status === 'approved' && !assignedIds.has(p.id));
+  const canAssign = isDemo || isMatchRowId(match.id);
 
   return (
     <Screen>
@@ -340,7 +342,11 @@ export default function MatchDetailScreen() {
             })
           )}
 
-          {approved.length > 0 ? (
+          {!canAssign ? (
+            <Text variant="small" className="border-t border-border pt-3 text-muted-foreground">
+              This match isn’t in the database yet. Re-sync the event in Settings to assign scouters.
+            </Text>
+          ) : approved.length > 0 ? (
             <View className="gap-2 border-t border-border pt-3">
               <View className="flex-row items-center gap-1.5">
                 <Icon as={UserPlus} size={16} className="text-muted-foreground" />
@@ -360,6 +366,9 @@ export default function MatchDetailScreen() {
                   </Pressable>
                 ))}
               </View>
+              {assign.error ? (
+                <Text variant="small" className="text-destructive">{assign.error.message}</Text>
+              ) : null}
             </View>
           ) : null}
         </CardContent>

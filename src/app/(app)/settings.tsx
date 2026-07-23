@@ -101,9 +101,6 @@ function FTCScoutSyncCard() {
   const syncFTC = useSyncFTCScout();
   const { data: settingData } = useEventData('active_event');
 
-  // Log for debugging (outside effect is fine since this is not state-setting).
-  console.log('[FTCScoutSyncCard] settingData changed:', JSON.stringify(settingData, null, 2));
-
   const savedEventCode = (settingData?.data?.eventCode as string) ?? '';
 
   // Initialize state from the already-loaded setting value when this component first mounts.
@@ -116,15 +113,11 @@ function FTCScoutSyncCard() {
     ? timeAgo(settingData.data.last_synced as string)
     : 'Never';
 
-  const handleSync = async () => {
+  const handleSync = () => {
     if (!eventCode.trim()) {
       Alert.alert('Error', 'Please enter an event code.');
       return;
     }
-    
-    // Quick console log to dump all event_data upon sync
-    const { data: allEventData } = await supabase.from('event_data').select('*');
-    console.log('[SYNC PRESSED] Dumping entire event_data table:', JSON.stringify(allEventData, null, 2));
 
     syncFTC.mutate(eventCode.trim(), {
       onSuccess: () => {
@@ -146,7 +139,7 @@ function FTCScoutSyncCard() {
         <View>
           <Text className="mb-2 font-medium">Event Code</Text>
           <Input 
-            placeholder="e.g. 2023-US-CA-LA" 
+            placeholder="e.g. USAZCMPGC1"
             value={eventCode}
             onChangeText={setEventCode}
             editable={!syncFTC.isPending}

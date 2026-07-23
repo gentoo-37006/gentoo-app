@@ -2,6 +2,9 @@ import { getEventMatches, getEventTeams } from '@/lib/api/ftcscout';
 import { isDemoMode } from '@/lib/demo';
 import { supabase } from '@/lib/supabase';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { matchKeys } from './matches';
+import { picklistKey } from './picklist';
+import { scoutingKeys } from './scouting';
 import { useUpdateEventData } from './settings';
 
 interface FTCScoutTeamInput {
@@ -81,7 +84,7 @@ export function useSyncFTCScout() {
       // 1. Fetch from FTC Scout
       const matchesData = (await getEventMatches(eventCode)) as FTCScoutMatchInput[] | null;
       const teamsData = (await getEventTeams(eventCode)) as FTCScoutTeamInput[] | null;
-      console.log(teamsData);
+
       // 2. Parse into clean array
       let teamsArray: ScoutedTeam[] = [];
       if (teamsData && Array.isArray(teamsData)) {
@@ -154,19 +157,38 @@ export function useSyncFTCScout() {
         console.warn("Failed to update active_event pointer (table likely missing):", err.message);
       }
 
-      // 6. Push the array data into the relational tables for relations
+      // 6. Push the array data into the relational tables for relations.
+      // team_name is omitted — the FTC Scout event endpoint doesn't return names,
+      // so writing it would blank out any name already stored.
       if (teamsArray.length > 0) {
-        await supabase.from('scouted_teams').upsert(teamsArray, { onConflict: 'team_number' });
+        const { error: teamError } = await supabase
+          .from('scouted_teams')
+          .upsert(teamsArray.map(({ team_number }) => ({ team_number })), { onConflict: 'team_number' });
+        if (teamError) throw teamError;
       }
+      // Only the columns `matches` actually has — scores live in event_data. Sending the
+      // score fields makes PostgREST reject the whole batch, which leaves every match
+      // without a row (and therefore unassignable).
       if (matchesArray.length > 0) {
-        await supabase.from('matches').upsert(matchesArray, { onConflict: 'match_number' });
+        const { error: matchError } = await supabase.from('matches').upsert(
+          matchesArray.map((m) => ({
+            match_number: m.match_number,
+            scheduled_time: m.scheduled_time,
+            red1: m.red1,
+            red2: m.red2,
+            blue1: m.blue1,
+            blue2: m.blue2,
+          })),
+          { onConflict: 'match_number' }
+        );
+        if (matchError) throw matchError;
       }
     },
     onSuccess: () => {
       // Invalidate your queries so the UI pulls the fresh nested data
-      qc.invalidateQueries({ queryKey: ['event_syncs'] });
-      qc.invalidateQueries({ queryKey: ['matches'] });
-      qc.invalidateQueries({ queryKey: ['teams'] });
+      qc.invalidateQueries({ queryKey: matchKeys.all });
+      qc.invalidateQueries({ queryKey: scoutingKeys.teamScores });
+      qc.invalidateQueries({ queryKey: picklistKey });
     },
   });
 }

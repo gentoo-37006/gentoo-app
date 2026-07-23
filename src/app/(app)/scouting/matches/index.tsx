@@ -10,13 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
-import {
-  useMatches,
-  useMyAssignments,
-  useAutoAssign,
-  type MatchWithAssignments,
-  type MyAssignment,
-} from '@/lib/queries/matches';
+import { useMatches, useAutoAssign, type MatchWithAssignments } from '@/lib/queries/matches';
 import { matchTitle, type Match } from '@/lib/types';
 
 function AllianceLine({ match }: { match: MatchWithAssignments | Match }) {
@@ -51,19 +45,30 @@ function AllianceLine({ match }: { match: MatchWithAssignments | Match }) {
   );
 }
 
-function MatchCard({ match }: { match: MatchWithAssignments }) {
+function MatchCard({ match, uid }: { match: MatchWithAssignments; uid?: string }) {
   const router = useRouter();
   const submitted = match.assignments.filter((a) => a.status === 'submitted').length;
   const total = match.assignments.length;
+  const mine = match.assignments.find((a) => a.scouter_id === uid);
   return (
     <Pressable className="active:opacity-75" onPress={() => router.push(`/scouting/matches/${match.id}` as any)}>
-        <Card>
+        <Card className={cn(mine && 'border-primary/40 bg-primary/5')}>
           <CardContent className="flex-row items-center gap-3 p-4">
             <View className="flex-1 gap-1">
               <Text className="font-bold">{matchTitle(match)}</Text>
               <AllianceLine match={match} />
+              {mine ? (
+                <Text variant="small" className="text-primary">
+                  {mine.team_number ? `You: watch team ${mine.team_number}` : 'Assigned to you'}
+                </Text>
+              ) : null}
             </View>
-            {total > 0 ? (
+            {mine ? (
+              <Badge
+                variant={mine.status === 'submitted' ? 'success' : 'warning'}
+                label={mine.status === 'submitted' ? 'Submitted' : 'To do'}
+              />
+            ) : total > 0 ? (
               <Badge
                 variant={submitted === total ? 'success' : 'muted'}
                 label={`${submitted}/${total}`}
@@ -76,43 +81,16 @@ function MatchCard({ match }: { match: MatchWithAssignments }) {
   );
 }
 
-function MyAssignmentCard({ assignment }: { assignment: MyAssignment }) {
-  const router = useRouter();
-  const m = assignment.match;
-  if (!m) return null;
-  return (
-    <Pressable className="active:opacity-75" onPress={() => router.push(`/scouting/matches/${m.id}` as any)}>
-        <Card className="border-primary/40 bg-primary/5">
-          <CardContent className="flex-row items-center gap-3 p-4">
-            <View className="flex-1">
-              <Text className="font-semibold">{matchTitle(m)}</Text>
-              <Text variant="muted">
-                {assignment.team_number ? `Watch team ${assignment.team_number}` : 'Scout this match'}
-              </Text>
-            </View>
-            <Badge
-              variant={assignment.status === 'submitted' ? 'success' : 'warning'}
-              label={assignment.status === 'submitted' ? 'Submitted' : 'To do'}
-            />
-          </CardContent>
-        </Card>
-    </Pressable>
-  );
-}
-
 export default function MatchesScreen() {
   const router = useRouter();
   const { isAdmin, session } = useAuth();
   const uid = session?.user?.id;
   const { data: matches, isLoading } = useMatches();
-  const { data: myAssignments } = useMyAssignments(uid);
   const autoAssign = useAutoAssign();
-
-  const todo = (myAssignments ?? []).filter((a) => a.status === 'assigned');
 
   return (
     <Screen>
-      <ScreenHeader title="Match scouting" description="Assignments and the match schedule." backHref="/scouting">
+      <ScreenHeader title="Match scouting" description="Matches assigned to you are highlighted." backHref="/scouting">
         {isAdmin ? (
           <>
             <Button
@@ -127,15 +105,6 @@ export default function MatchesScreen() {
           </>
         ) : null}
       </ScreenHeader>
-
-      {todo.length > 0 ? (
-        <View className="gap-3">
-          <Text variant="title">Your assignments</Text>
-          {todo.map((a) => (
-            <MyAssignmentCard key={a.id} assignment={a} />
-          ))}
-        </View>
-      ) : null}
 
       {isLoading ? (
         <View className="py-12">
@@ -157,9 +126,8 @@ export default function MatchesScreen() {
         </EmptyState>
       ) : (
         <View className="gap-3">
-          <Text variant="title">Schedule</Text>
           {(matches ?? []).map((m) => (
-            <MatchCard key={m.id} match={m} />
+            <MatchCard key={m.id} match={m} uid={uid} />
           ))}
         </View>
       )}

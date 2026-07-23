@@ -23,6 +23,14 @@ export const matchKeys = {
   detail: (id: string) => ['match', id] as const,
 };
 
+/**
+ * Matches sourced from event_data JSON get a placeholder id when no row exists in
+ * `matches` yet. Those ids can't be used against uuid columns, so callers that touch
+ * the relational tables must check first.
+ */
+export const isMatchRowId = (id: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
 async function currentUserId(): Promise<string | undefined> {
   if (isDemoMode()) return demoCurrentUserId();
   const { data } = await supabase.auth.getSession();
@@ -133,18 +141,22 @@ export function useMatchDetail(matchId: string) {
     enabled: !!matchId,
     queryFn: async () => {
       if (isDemoMode()) return demoMatchDetail(matchId);
+
+      // Placeholder ids have no relational rows to fetch — skip straight to the JSON.
       const [{ data: match, error: mErr }, { data: assignments, error: aErr }, { data: reports, error: rErr }] =
-        await Promise.all([
-          supabase.from('matches').select('*').eq('id', matchId).maybeSingle(),
-          supabase
-            .from('scouting_assignments')
-            .select('*, scouter:profiles(full_name, avatar_url)')
-            .eq('match_id', matchId),
-          supabase.from('match_reports').select('*').eq('match_id', matchId).order('created_at'),
-        ]);
-      if (mErr) console.error(mErr)
-      if (aErr) console.error(aErr)
-      if (rErr) console.error(rErr)
+        isMatchRowId(matchId)
+          ? await Promise.all([
+              supabase.from('matches').select('*').eq('id', matchId).maybeSingle(),
+              supabase
+                .from('scouting_assignments')
+                .select('*, scouter:profiles!scouting_assignments_scouter_id_fkey(full_name, avatar_url)')
+                .eq('match_id', matchId),
+              supabase.from('match_reports').select('*').eq('match_id', matchId).order('created_at'),
+            ])
+          : [{ data: null, error: null }, { data: [], error: null }, { data: [], error: null }];
+      if (mErr) throw mErr;
+      if (aErr) throw aErr;
+      if (rErr) throw rErr;
 
       let finalMatch = (match ?? null) as Match | null;
 
@@ -162,19 +174,6 @@ export function useMatchDetail(matchId: string) {
         const found = matchNum != null ? eventMatches.find((m: any) => m.match_number === matchNum) : null;
 
         if (found) {
-          // if (!finalMatch) {
-          //   // No DB row — build entirely from JSON
-          //   finalMatch = {
-          //     id: matchId,
-          //     match_number: found.match_number,
-          //     label: found.label || `Match ${found.match_number}`,
-          //     red1: found.red1,
-          //     red2: found.red2,
-          //     blue1: found.blue1,
-          //     blue2: found.blue2,
-          //     created_at: new Date().toISOString(),
-          //   };
-          // }
           finalMatch = {
             id: matchId,
             match_number: found.match_number,
