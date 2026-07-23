@@ -98,18 +98,17 @@ function AccountCard() {
 }
 
 function FTCScoutSyncCard() {
-  const { profile } = useAuth();
   const syncFTC = useSyncFTCScout();
   const { data: settingData } = useEventData('active_event');
-  
-  const [eventCode, setEventCode] = React.useState('');
-  
-  React.useEffect(() => {
-    console.log('[FTCScoutSyncCard] settingData changed:', JSON.stringify(settingData, null, 2));
-    if (settingData?.data?.eventCode && !eventCode) {
-      setEventCode(settingData.data.eventCode as string);
-    }
-  }, [settingData]);
+
+  // Log for debugging (outside effect is fine since this is not state-setting).
+  console.log('[FTCScoutSyncCard] settingData changed:', JSON.stringify(settingData, null, 2));
+
+  const savedEventCode = (settingData?.data?.eventCode as string) ?? '';
+
+  // Initialize state from the already-loaded setting value when this component first mounts.
+  // Using a function initializer avoids any effect or ref.
+  const [eventCode, setEventCode] = React.useState(() => savedEventCode);
 
   // if (profile?.role !== 'admin') return null;
 

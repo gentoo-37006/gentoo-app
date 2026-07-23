@@ -38,11 +38,11 @@ interface FTCScoutMatchInput {
       totalPoints: number;
     };
   };
-  teams: Array<{
+  teams: {
     alliance: string;
     dq: boolean;
     teamNumber: number;
-  }>;
+  }[];
 }
 
 interface ScoutedTeam {
@@ -99,7 +99,7 @@ export function useSyncFTCScout() {
           const redTeams: number[] = [];
           const blueTeams: number[] = [];
           for(const team of m.teams || []) {
-            if(team.alliance.toLowerCase() == "red") {
+            if(team.alliance.toLowerCase() === "red") {
               redTeams.push(team.teamNumber);
             } else {
               blueTeams.push(team.teamNumber);
