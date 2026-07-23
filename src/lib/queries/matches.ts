@@ -40,12 +40,66 @@ export function useMatches() {
     queryKey: matchKeys.all,
     queryFn: async (): Promise<MatchWithAssignments[]> => {
       if (isDemoMode()) return demoMatches();
+
+      // 1. Fetch active event matches from JSON
+      const { data: activeEventPointer } = await supabase
+        .from('event_data')
+        .select('data')
+        .eq('event_code', 'active_event')
+        .maybeSingle();
+
+      const eventCode = activeEventPointer?.data?.eventCode;
+      let eventMatches: any[] = [];
+      
+      if (eventCode) {
+        const { data: eventData } = await supabase
+          .from('event_data')
+          .select('data')
+          .eq('event_code', eventCode)
+          .maybeSingle();
+        eventMatches = eventData?.data?.matches || [];
+      }
+
+      // 2. Fetch DB matches to get UUIDs and assignments
       const { data, error } = await supabase
         .from('matches')
-        .select('*, assignments:scouting_assignments(id, scouter_id, team_number, status)')
-        .order('match_number', { ascending: true });
+        .select('*, assignments:scouting_assignments(id, scouter_id, team_number, status)');
       if (error) throw error;
-      return (data ?? []) as unknown as MatchWithAssignments[];
+      
+      const dbMatches = (data ?? []) as unknown as MatchWithAssignments[];
+      const dbMatchMap = new Map(dbMatches.map(m => [m.match_number, m]));
+
+      // 3. Construct the list using JSON as source of truth
+      // If no active event synced yet, fallback to DB matches
+      if (eventMatches.length === 0) {
+        return dbMatches.sort((a, b) => a.match_number - b.match_number);
+      }
+
+      return eventMatches
+        .sort((a, b) => a.match_number - b.match_number)
+        .map((m, index) => {
+          const dbMatch = dbMatchMap.get(m.match_number);
+          return {
+            id: dbMatch?.id || `match_${m.match_number}_${index}`,
+            match_number: m.match_number,
+            label: m.label,
+            red1: m.red1,
+            red2: m.red2,
+            blue1: m.blue1,
+            blue2: m.blue2,
+            has_been_played: m.has_been_played,
+            tournament_level: m.tournament_level,
+            scheduled_time: m.scheduled_time ?? dbMatch?.scheduled_time ?? null,
+            red_score: m.red_score,
+            red_auto: m.red_auto,
+            red_dc: m.red_dc,
+            blue_score: m.blue_score,
+            blue_auto: m.blue_auto,
+            blue_dc: m.blue_dc,
+            created_at: dbMatch?.created_at || new Date().toISOString(),
+            assignments: dbMatch?.assignments || [],
+          } as MatchWithAssignments;
+        });
     },
   });
 }
@@ -88,11 +142,63 @@ export function useMatchDetail(matchId: string) {
             .eq('match_id', matchId),
           supabase.from('match_reports').select('*').eq('match_id', matchId).order('created_at'),
         ]);
-      if (mErr) throw mErr;
-      if (aErr) throw aErr;
-      if (rErr) throw rErr;
+      if (mErr) console.error(mErr)
+      if (aErr) console.error(aErr)
+      if (rErr) console.error(rErr)
+
+      let finalMatch = (match ?? null) as Match | null;
+
+      // Always pull score breakdown from event_data — the relational `matches` table
+      // doesn't have these columns (no migration privileges), so event_data is the source of truth.
+      const { data: pointer } = await supabase.from('event_data').select('data').eq('event_code', 'active_event').maybeSingle();
+      if (pointer?.data?.eventCode) {
+        const { data: eventData } = await supabase.from('event_data').select('data').eq('event_code', pointer.data.eventCode).maybeSingle();
+        const eventMatches: any[] = eventData?.data?.matches || [];
+
+        // Resolve match_number to look up in the JSON — works for both real UUIDs and mock IDs.
+        const matchNum = finalMatch?.match_number
+          ?? (matchId.startsWith('match_') ? parseInt(matchId.split('_')[1], 10) : null);
+
+        const found = matchNum != null ? eventMatches.find((m: any) => m.match_number === matchNum) : null;
+
+        if (found) {
+          // if (!finalMatch) {
+          //   // No DB row — build entirely from JSON
+          //   finalMatch = {
+          //     id: matchId,
+          //     match_number: found.match_number,
+          //     label: found.label || `Match ${found.match_number}`,
+          //     red1: found.red1,
+          //     red2: found.red2,
+          //     blue1: found.blue1,
+          //     blue2: found.blue2,
+          //     created_at: new Date().toISOString(),
+          //   };
+          // }
+          finalMatch = {
+            id: matchId,
+            match_number: found.match_number,
+            label: found.label || `Match ${found.match_number}`,
+            red1: found.red1,
+            red2: found.red2,
+            blue1: found.blue1,
+            blue2: found.blue2,
+            created_at: new Date().toISOString(),
+            red_score: found.red_score ?? null,
+            red_auto: found.red_auto ?? null,
+            red_dc: found.red_dc ?? null,
+            blue_score: found.blue_score ?? null,
+            blue_auto: found.blue_auto ?? null,
+            blue_dc: found.blue_dc ?? null,
+            has_been_played: found.has_been_played ?? false,
+            tournament_level: found.tournament_level ?? null,
+            scheduled_time: found.scheduled_time ?? finalMatch?.scheduled_time ?? null,
+          };
+        }
+      }
+
       return {
-        match: (match ?? null) as Match | null,
+        match: finalMatch,
         assignments: (assignments ?? []) as unknown as AssignmentWithScouter[],
         reports: (reports ?? []) as MatchReport[],
       };

@@ -12,7 +12,11 @@ import { useDesktopUpdates } from '@/lib/desktop-updates';
 import { supabase } from '@/lib/supabase';
 import { useThemeMode } from '@/lib/theme-mode';
 import { cn } from '@/lib/utils';
-import { LogOut, Moon, RefreshCw, Sparkles, Sun, SunMoon, type LucideIcon } from 'lucide-react-native';
+import { Input } from '@/components/ui/input';
+import { useSyncFTCScout } from '@/lib/queries/ftcscout';
+import { useEventData } from '@/lib/queries/settings';
+import { timeAgo } from '@/lib/format';
+import { Download, LogOut, Moon, RefreshCw, Sparkles, Sun, SunMoon, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Alert, Pressable, View } from 'react-native';
 
@@ -86,7 +90,80 @@ function AccountCard() {
             <Badge key={r} variant="secondary" label={r} />
           ))}
         </View>
+        <Text variant="muted">If linked, a role will automatically be assigned.</Text>
         <Button variant="outline" label="Sign out" icon={LogOut} onPress={signOut} />
+      </CardContent>
+    </Card>
+  );
+}
+
+function FTCScoutSyncCard() {
+  const { profile } = useAuth();
+  const syncFTC = useSyncFTCScout();
+  const { data: settingData } = useEventData('active_event');
+  
+  const [eventCode, setEventCode] = React.useState('');
+  
+  React.useEffect(() => {
+    console.log('[FTCScoutSyncCard] settingData changed:', JSON.stringify(settingData, null, 2));
+    if (settingData?.data?.eventCode && !eventCode) {
+      setEventCode(settingData.data.eventCode as string);
+    }
+  }, [settingData]);
+
+  // if (profile?.role !== 'admin') return null;
+
+  const lastSynced = settingData?.data?.last_synced
+    ? timeAgo(settingData.data.last_synced as string)
+    : 'Never';
+
+  const handleSync = async () => {
+    if (!eventCode.trim()) {
+      Alert.alert('Error', 'Please enter an event code.');
+      return;
+    }
+    
+    // Quick console log to dump all event_data upon sync
+    const { data: allEventData } = await supabase.from('event_data').select('*');
+    console.log('[SYNC PRESSED] Dumping entire event_data table:', JSON.stringify(allEventData, null, 2));
+
+    syncFTC.mutate(eventCode.trim(), {
+      onSuccess: () => {
+        Alert.alert('Success', 'Event data synced from FTC Scout.');
+      },
+      onError: (err) => {
+        Alert.alert('Sync Failed', err.message);
+      }
+    });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>FTC Scout Integration</CardTitle>
+        <CardDescription>Sync match schedules and team lists from api.ftcscout.org</CardDescription>
+      </CardHeader>
+      <CardContent className="gap-4">
+        <View>
+          <Text className="mb-2 font-medium">Event Code</Text>
+          <Input 
+            placeholder="e.g. 2023-US-CA-LA" 
+            value={eventCode}
+            onChangeText={setEventCode}
+            editable={!syncFTC.isPending}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+        <View className="flex-row items-center gap-3">
+          <Button 
+            label="Sync Event Data" 
+            icon={Download} 
+            loading={syncFTC.isPending} 
+            onPress={handleSync} 
+          />
+          <Text variant="small">Last synced: {lastSynced}</Text>
+        </View>
       </CardContent>
     </Card>
   );
@@ -213,6 +290,8 @@ export default function SettingsScreen() {
   return (
     <Screen maxWidth="max-w-2xl">
       <ScreenHeader title="Settings" description="Personalize the app and manage your account." />
+
+      <FTCScoutSyncCard />
 
       <AccountCard />
 

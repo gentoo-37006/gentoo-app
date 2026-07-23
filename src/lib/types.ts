@@ -6,6 +6,13 @@
 export type UserRole = 'admin' | 'member';
 export type UserStatus = 'pending' | 'approved' | 'rejected';
 
+export type EventData = {
+  event_code: string;
+  data: Record<string, unknown>;
+  updated_at: string;
+  updated_by: string | null;
+};
+
 /** Non-gating roles used for routing assignments and notifications. */
 export type FunctionalRole = 'scouter' | 'strategist' | 'pit';
 
@@ -122,6 +129,14 @@ export type Match = {
   red2: number | null;
   blue1: number | null;
   blue2: number | null;
+  red_score?: number | null;
+  blue_score?: number | null;
+  red_auto?: number | null;
+  red_dc?: number | null;
+  blue_auto?: number | null;
+  blue_dc?: number | null;
+  has_been_played?: boolean;
+  tournament_level?: string | null;
   created_at: string;
 };
 
