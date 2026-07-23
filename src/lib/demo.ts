@@ -49,10 +49,15 @@ type DemoWorkspace = {
   projects: Project[];
   tasks: Task[];
   pitShifts: PitShift[];
+  seededAt: string;
 };
 
 const now = () => new Date().toISOString();
 const id = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+function hoursFromNow(hours: number) {
+  return new Date(Date.now() + hours * 3_600_000).toISOString();
+}
 
 function daysFromNow(days: number, hour = 10) {
   const d = new Date();
@@ -131,10 +136,12 @@ function seedWorkspace(): DemoWorkspace {
     }))
   );
 
+  // Times are relative to the seed moment so the countdown and "my shifts"
+  // cards always look alive; getDemoWorkspace() re-rolls stale workspaces.
   const matches: Match[] = [
-    { id: 'match-1', match_number: 1, label: 'Qual 1', scheduled_time: daysFromNow(0, 9), red1: 11248, red2: 7244, blue1: 3596, blue2: 9915, created_at: timestamp },
-    { id: 'match-2', match_number: 2, label: 'Qual 2', scheduled_time: daysFromNow(0, 10), red1: 7244, red2: 3596, blue1: 11248, blue2: 14133, created_at: timestamp },
-    { id: 'match-3', match_number: 3, label: 'Qual 3', scheduled_time: daysFromNow(0, 11), red1: 9915, red2: 11248, blue1: 7244, blue2: 3596, created_at: timestamp },
+    { id: 'match-1', match_number: 1, label: 'Qual 1', scheduled_time: hoursFromNow(0.75), red1: 11248, red2: 7244, blue1: 3596, blue2: 9915, created_at: timestamp },
+    { id: 'match-2', match_number: 2, label: 'Qual 2', scheduled_time: hoursFromNow(1.75), red1: 7244, red2: 3596, blue1: 11248, blue2: 14133, created_at: timestamp },
+    { id: 'match-3', match_number: 3, label: 'Qual 3', scheduled_time: hoursFromNow(2.75), red1: 9915, red2: 11248, blue1: 7244, blue2: 3596, created_at: timestamp },
   ];
 
   const assignments: ScoutingAssignment[] = [
@@ -182,9 +189,10 @@ function seedWorkspace(): DemoWorkspace {
     projects,
     tasks,
     pitShifts: [
-      { id: 'shift-1', start_time: daysFromNow(0, 8), end_time: daysFromNow(0, 10), assignee_id: DEMO_PIT_ID, generated: true, created_at: timestamp },
-      { id: 'shift-2', start_time: daysFromNow(0, 10), end_time: daysFromNow(0, 12), assignee_id: DEMO_ADMIN_ID, generated: true, created_at: timestamp },
+      { id: 'shift-1', start_time: hoursFromNow(-1), end_time: hoursFromNow(1), assignee_id: DEMO_PIT_ID, generated: true, created_at: timestamp },
+      { id: 'shift-2', start_time: hoursFromNow(1), end_time: hoursFromNow(3), assignee_id: DEMO_ADMIN_ID, generated: true, created_at: timestamp },
     ],
+    seededAt: timestamp,
   };
 }
 
@@ -230,10 +238,19 @@ export function demoSession() {
   } as any;
 }
 
+const MAX_SEED_AGE_MS = 12 * 3_600_000;
+
 export async function getDemoWorkspace(): Promise<DemoWorkspace> {
   if (workspace) return workspace;
   const raw = await AsyncStorage.getItem(STORAGE_KEY);
-  workspace = raw ? (JSON.parse(raw) as DemoWorkspace) : seedWorkspace();
+  const parsed = raw ? (JSON.parse(raw) as DemoWorkspace) : null;
+  // Seed times are relative to the seed moment (match countdown, shifts, due
+  // dates), so an old workspace reads as a dead event. Re-roll stale ones —
+  // including pre-seededAt workspaces persisted by earlier app versions.
+  const fresh =
+    parsed?.seededAt != null &&
+    Date.now() - new Date(parsed.seededAt).getTime() < MAX_SEED_AGE_MS;
+  workspace = fresh ? parsed : seedWorkspace();
   await persist();
   return workspace;
 }

@@ -49,6 +49,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = React.useState<Profile | null>(null);
   const [authResolved, setAuthResolved] = React.useState(false);
   const [profileResolved, setProfileResolved] = React.useState(false);
+  // Demo mode as React state: render logic must NOT call isDemoMode() (a
+  // mutable module-global read) — the React Compiler memoizes renders
+  // assuming purity, and a cached stale `false` wedges the sign-in flow.
+  // Effects and callbacks may still read isDemoMode() directly.
+  const [demoActive, setDemoActive] = React.useState(false);
 
   // Subscribe to auth state. Profile loading is handled separately (below) to
   // avoid running queries inside the auth callback.
@@ -56,13 +61,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let sub: { subscription: { unsubscribe: () => void } } | null = null;
     let cancelled = false;
 
-    initDemoAuth().then(async (demoActive) => {
+    initDemoAuth().then(async (active) => {
       if (cancelled) return;
-      if (demoActive) {
+      if (active) {
+        setDemoActive(true);
         setSession(demoSession());
         setProfile(await demoProfile());
         setAuthResolved(true);
         setProfileResolved(true);
+        // Screens mounted before this resolved already fired their queries
+        // with isDemoMode() still false (against Supabase) and cached empty
+        // results. resetQueries (not clear) — it also refetches the active
+        // observers, which clear() leaves stranded on the removed cache.
+        queryClient.resetQueries();
         return;
       }
 
@@ -96,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [prevUserId, setPrevUserId] = React.useState(userId);
   if (prevUserId !== userId) {
     setPrevUserId(userId);
-    if (isSupabaseConfigured && !isDemoMode() && userId !== DEMO_USER_ID) {
+    if (isSupabaseConfigured && !demoActive && userId !== DEMO_USER_ID) {
       setProfile(null);
       setProfileResolved(!userId);
     }
@@ -133,6 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = React.useCallback(async () => {
     if (isDemoMode()) await stopDemoAuth();
     else await supabase.auth.signOut();
+    setDemoActive(false);
     queryClient.clear();
     setSession(null);
     setProfile(null);
@@ -143,6 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInDemo = React.useCallback(async () => {
     queryClient.clear();
     await startDemoAuth();
+    setDemoActive(true);
     setSession(demoSession());
     setProfile(await demoProfile());
     setAuthResolved(true);
@@ -154,17 +167,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       initializing: !authResolved || !profileResolved,
       // Demo mode counts as configured: it runs entirely on local seed data,
       // and the navigator must route demo sessions into the app.
-      isConfigured: isSupabaseConfigured || isDemoMode(),
+      isConfigured: isSupabaseConfigured || demoActive,
       session,
       profile,
       isAdmin: profile?.role === 'admin',
       isApproved: profile?.status === 'approved',
-      isDemo: isDemoMode(),
+      isDemo: demoActive,
       signInDemo,
       refreshProfile,
       signOut,
     }),
-    [authResolved, profileResolved, session, profile, signInDemo, refreshProfile, signOut]
+    [authResolved, profileResolved, demoActive, session, profile, signInDemo, refreshProfile, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
