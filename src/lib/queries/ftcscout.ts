@@ -57,8 +57,14 @@ interface ScoutedMatch {
   blue1: number | null;
   blue2: number | null;
   red_score?: number | null;
+  red_auto?: number | null;
+  red_dc?: number | null;
   blue_score?: number | null;
+  blue_auto?: number | null;
+  blue_dc?: number | null;
   has_been_played?: boolean;
+  tournament_level?: string | null;
+  scheduled_time?: string | null;
 }
 
 export function useSyncFTCScout() {
@@ -107,8 +113,14 @@ export function useSyncFTCScout() {
             blue1: blueTeams[0] || null,
             blue2: blueTeams[1] || null,
             has_been_played: m.hasBeenPlayed || false,
+            tournament_level: m.tournamentLevel || null,
+            scheduled_time: m.scheduledStartTime || null,
             red_score: m.scores?.red?.totalPoints ?? null,
+            red_auto: m.scores?.red?.autoPoints ?? null,
+            red_dc: m.scores?.red?.dcPoints ?? null,
             blue_score: m.scores?.blue?.totalPoints ?? null,
+            blue_auto: m.scores?.blue?.autoPoints ?? null,
+            blue_dc: m.scores?.blue?.dcPoints ?? null,
           };
         });
       }

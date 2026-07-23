@@ -31,24 +31,105 @@ function TeamChip({ n, color }: { n: number | null; color: string }) {
   );
 }
 
+function ScoreColumn({ label, auto, dc, total, isWinner }: {
+  label: string;
+  auto?: number | null;
+  dc?: number | null;
+  total?: number | null;
+  isWinner?: boolean;
+}) {
+  const isRed = label === 'RED';
+  const teamColor = isRed ? 'text-destructive' : 'text-primary';
+  const bgColor = isRed
+    ? isWinner ? 'bg-destructive/15 border-destructive' : 'border-border'
+    : isWinner ? 'bg-primary/15 border-primary' : 'border-border';
+  return (
+    <View className={cn('flex-1 rounded-lg border p-3 gap-1.5', bgColor)}>
+      <View className="flex-row items-center justify-between">
+        <Text className={cn('text-sm font-bold', teamColor)}>{label}</Text>
+        {isWinner && <Badge variant={isRed ? 'destructive' : 'default'} label="WIN" />}
+      </View>
+      {auto != null && (
+        <View className="flex-row justify-between">
+          <Text variant="small" className="text-muted-foreground">Auto</Text>
+          <Text variant="small" className="font-semibold">{auto}</Text>
+        </View>
+      )}
+      {dc != null && (
+        <View className="flex-row justify-between">
+          <Text variant="small" className="text-muted-foreground">Teleop</Text>
+          <Text variant="small" className="font-semibold">{dc}</Text>
+        </View>
+      )}
+      {total != null && (
+        <View className="flex-row justify-between border-t border-border mt-1 pt-1">
+          <Text variant="small" className="text-muted-foreground">Total</Text>
+          <Text className={cn('text-base font-black', teamColor)}>{total}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 function Alliances({ match }: { match: Match }) {
+  const played = !!match.has_been_played;
+  const redTotal = match.red_score ?? null;
+  const blueTotal = match.blue_score ?? null;
+  const redWon = played && redTotal !== null && blueTotal !== null && redTotal > blueTotal;
+  const blueWon = played && redTotal !== null && blueTotal !== null && blueTotal > redTotal;
+  const tie = played && redTotal !== null && blueTotal !== null && redTotal === blueTotal;
+
+  const levelLabel = match.tournament_level
+    ? match.tournament_level.charAt(0).toUpperCase() + match.tournament_level.slice(1).toLowerCase()
+    : null;
+
   return (
     <Card>
       <CardContent className="gap-3 p-4">
-        <View className="gap-1.5">
-          <Text variant="small" className="font-semibold text-destructive">RED</Text>
-          <View className="flex-row gap-2">
-            <TeamChip n={match.red1} color="text-destructive" />
-            <TeamChip n={match.red2} color="text-destructive" />
+        {/* Tournament level + scheduled time header */}
+        <View className="flex-row items-center gap-2">
+          {levelLabel && <Badge variant="secondary" label={levelLabel} />}
+          {match.scheduled_time && (
+            <Text variant="small" className="text-muted-foreground">
+              {new Date(match.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+          )}
+          {tie && <Badge variant="muted" label="TIE" />}
+        </View>
+
+        {/* Alliance columns */}
+        <View className="flex-row gap-3">
+          <View className="flex-1 gap-2">
+            <View className="flex-row gap-2">
+              <TeamChip n={match.red1} color="text-destructive" />
+              <TeamChip n={match.red2} color="text-destructive" />
+            </View>
+            <ScoreColumn
+              label="RED"
+              auto={played ? match.red_auto : undefined}
+              dc={played ? match.red_dc : undefined}
+              total={played ? redTotal : undefined}
+              isWinner={redWon}
+            />
+          </View>
+          <View className="flex-1 gap-2">
+            <View className="flex-row gap-2">
+              <TeamChip n={match.blue1} color="text-primary" />
+              <TeamChip n={match.blue2} color="text-primary" />
+            </View>
+            <ScoreColumn
+              label="BLUE"
+              auto={played ? match.blue_auto : undefined}
+              dc={played ? match.blue_dc : undefined}
+              total={played ? blueTotal : undefined}
+              isWinner={blueWon}
+            />
           </View>
         </View>
-        <View className="gap-1.5">
-          <Text variant="small" className="font-semibold text-primary">BLUE</Text>
-          <View className="flex-row gap-2">
-            <TeamChip n={match.blue1} color="text-primary" />
-            <TeamChip n={match.blue2} color="text-primary" />
-          </View>
-        </View>
+
+        {!played && (
+          <Text variant="small" className="text-muted-foreground text-center">Match not yet played</Text>
+        )}
       </CardContent>
     </Card>
   );

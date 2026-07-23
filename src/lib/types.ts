@@ -131,7 +131,12 @@ export type Match = {
   blue2: number | null;
   red_score?: number | null;
   blue_score?: number | null;
+  red_auto?: number | null;
+  red_dc?: number | null;
+  blue_auto?: number | null;
+  blue_dc?: number | null;
   has_been_played?: boolean;
+  tournament_level?: string | null;
   created_at: string;
 };
 

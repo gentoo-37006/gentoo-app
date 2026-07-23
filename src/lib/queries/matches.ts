@@ -88,8 +88,14 @@ export function useMatches() {
             blue1: m.blue1,
             blue2: m.blue2,
             has_been_played: m.has_been_played,
+            tournament_level: m.tournament_level,
+            scheduled_time: m.scheduled_time ?? dbMatch?.scheduled_time ?? null,
             red_score: m.red_score,
+            red_auto: m.red_auto,
+            red_dc: m.red_dc,
             blue_score: m.blue_score,
+            blue_auto: m.blue_auto,
+            blue_dc: m.blue_dc,
             created_at: dbMatch?.created_at || new Date().toISOString(),
             assignments: dbMatch?.assignments || [],
           } as MatchWithAssignments;
@@ -123,16 +129,12 @@ export type AssignmentWithScouter = ScoutingAssignment & {
 
 export function useMatchDetail(matchId: string) {
   return useQuery({
-    
     queryKey: matchKeys.detail(matchId),
     enabled: !!matchId,
     queryFn: async () => {
       if (isDemoMode()) return demoMatchDetail(matchId);
-      let match = null, mErr = null, assignments: any[] = [], aErr = null, reports: any[] = [], rErr = null;
-      const isMock = matchId.startsWith('match_');
-
-      if (!isMock) {
-        const results = await Promise.all([
+      const [{ data: match, error: mErr }, { data: assignments, error: aErr }, { data: reports, error: rErr }] =
+        await Promise.all([
           supabase.from('matches').select('*').eq('id', matchId).maybeSingle(),
           supabase
             .from('scouting_assignments')
@@ -140,48 +142,58 @@ export function useMatchDetail(matchId: string) {
             .eq('match_id', matchId),
           supabase.from('match_reports').select('*').eq('match_id', matchId).order('created_at'),
         ]);
-        match = results[0].data;
-        mErr = results[0].error;
-        assignments = results[1].data || [];
-        aErr = results[1].error;
-        reports = results[2].data || [];
-        rErr = results[2].error;
-        if (aErr) {
-          console.error("useMatchDetail - aErr (assignments):", aErr);
-        }
-        if (rErr) {
-          console.error("useMatchDetail - rErr (reports):", rErr);
-        }
-      }
+      if (mErr) console.error(mErr)
+      if (aErr) console.error(aErr)
+      if (rErr) console.error(rErr)
 
       let finalMatch = (match ?? null) as Match | null;
-      // Fallback: If match was not found in DB (because it failed to upsert or hasn't yet),
-      // let's try to pull it directly from the active event's JSON bundle.
-      if (!finalMatch) {
-        const { data: pointer } = await supabase.from('event_data').select('data').eq('event_code', 'active_event').maybeSingle();
-        if (pointer?.data?.eventCode) {
-          const { data: eventData } = await supabase.from('event_data').select('data').eq('event_code', pointer.data.eventCode).maybeSingle();
-          const matches = eventData?.data?.matches || [];
-          // If the matchId is something like "match_4_3", we can parse the match_number out of it.
-          // Or we can just find it by match_number if matchId is purely numeric.
-          const parsedMatchNum = matchId.startsWith('match_') ? parseInt(matchId.split('_')[1], 10) : null;
-          const found = matches.find((m: any) => m.match_number === parsedMatchNum || String(m.match_number) === matchId);
-          if (found) {
-            finalMatch = {
-              id: matchId,
-              match_number: found.match_number,
-              label: found.label || `Match ${found.match_number}`,
-              red1: found.red1,
-              red2: found.red2,
-              blue1: found.blue1,
-              blue2: found.blue2,
-              red_score: found.red_score,
-              blue_score: found.blue_score,
-              has_been_played: found.has_been_played,
-              created_at: new Date().toISOString(),
-              scheduled_time: null,
-            };
-          }
+
+      // Always pull score breakdown from event_data — the relational `matches` table
+      // doesn't have these columns (no migration privileges), so event_data is the source of truth.
+      const { data: pointer } = await supabase.from('event_data').select('data').eq('event_code', 'active_event').maybeSingle();
+      if (pointer?.data?.eventCode) {
+        const { data: eventData } = await supabase.from('event_data').select('data').eq('event_code', pointer.data.eventCode).maybeSingle();
+        const eventMatches: any[] = eventData?.data?.matches || [];
+
+        // Resolve match_number to look up in the JSON — works for both real UUIDs and mock IDs.
+        const matchNum = finalMatch?.match_number
+          ?? (matchId.startsWith('match_') ? parseInt(matchId.split('_')[1], 10) : null);
+
+        const found = matchNum != null ? eventMatches.find((m: any) => m.match_number === matchNum) : null;
+
+        if (found) {
+          // if (!finalMatch) {
+          //   // No DB row — build entirely from JSON
+          //   finalMatch = {
+          //     id: matchId,
+          //     match_number: found.match_number,
+          //     label: found.label || `Match ${found.match_number}`,
+          //     red1: found.red1,
+          //     red2: found.red2,
+          //     blue1: found.blue1,
+          //     blue2: found.blue2,
+          //     created_at: new Date().toISOString(),
+          //   };
+          // }
+          finalMatch = {
+            id: matchId,
+            match_number: found.match_number,
+            label: found.label || `Match ${found.match_number}`,
+            red1: found.red1,
+            red2: found.red2,
+            blue1: found.blue1,
+            blue2: found.blue2,
+            created_at: new Date().toISOString(),
+            red_score: found.red_score ?? null,
+            red_auto: found.red_auto ?? null,
+            red_dc: found.red_dc ?? null,
+            blue_score: found.blue_score ?? null,
+            blue_auto: found.blue_auto ?? null,
+            blue_dc: found.blue_dc ?? null,
+            has_been_played: found.has_been_played ?? false,
+            tournament_level: found.tournament_level ?? null,
+            scheduled_time: found.scheduled_time ?? finalMatch?.scheduled_time ?? null,
+          };
         }
       }
 
