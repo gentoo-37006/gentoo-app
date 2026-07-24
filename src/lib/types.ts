@@ -213,8 +213,8 @@ export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 
 export const PROJECT_STATUSES: { value: ProjectStatus; label: string }[] = [
   { value: 'planning', label: 'Planning' },
-  { value: 'active', label: 'Active' },
-  { value: 'on_hold', label: 'On hold' },
+  { value: 'active', label: 'In progress' },
+  { value: 'on_hold', label: 'Paused' },
   { value: 'done', label: 'Done' },
 ];
 
