@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { Dimensions, Pressable, ScrollView, View } from 'react-native';
-import { Check, ChevronDown } from 'lucide-react-native';
+import { Dimensions, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Check, X } from 'lucide-react-native';
 import { cn } from '@/lib/utils';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -21,12 +21,17 @@ function Trigger({
   className?: string;
   valueContent?: React.ReactNode;
 }) {
+  const [hovered, setHovered] = React.useState(false);
+
   return (
     <Pressable
       onPress={onPress}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
       className={cn(
         'h-11 flex-row items-center gap-2 rounded-lg border border-input bg-background px-3.5 active:bg-accent',
-        className
+        className,
+        hovered && 'bg-accent'
       )}
     >
       {valueContent ? (
@@ -36,7 +41,6 @@ function Trigger({
           {label || placeholder}
         </Text>
       )}
-      <Icon as={ChevronDown} size={16} className="text-muted-foreground" />
     </Pressable>
   );
 }
@@ -45,13 +49,10 @@ type Anchor = { left: number; top: number; width: number; height: number };
 
 function getMenuFrame(anchor: Anchor) {
   const window = Dimensions.get('window');
-  const maxHeight = Math.min(320, window.height - 24);
-  const width = Math.min(Math.max(anchor.width, 192), window.width - 24);
+  const width = Math.min(Math.max(anchor.width, 240), window.width - 24);
   const left = Math.min(Math.max(12, anchor.left), window.width - width - 12);
-  const below = anchor.top + anchor.height + 4;
-  const top = below + maxHeight > window.height - 12
-    ? Math.max(12, anchor.top - maxHeight - 4)
-    : below;
+  const top = Math.max(12, Math.min(anchor.top, window.height - 212));
+  const maxHeight = Math.min(360, window.height - top - 12);
 
   return { left, top, width, maxHeight };
 }
@@ -66,6 +67,10 @@ function OptionDropdown<T extends string>({
   anchor,
   visible,
   multiple,
+  renderOption,
+  selectedOptions,
+  onRemove,
+  renderSelectedOption,
 }: {
   options: SelectOption<T>[];
   isActive: (value: T) => boolean;
@@ -75,39 +80,124 @@ function OptionDropdown<T extends string>({
   anchor: Anchor;
   visible: boolean;
   multiple?: boolean;
+  renderOption?: (option: SelectOption<T>) => React.ReactNode;
+  selectedOptions: SelectOption<T>[];
+  onRemove?: (value: T) => void;
+  renderSelectedOption?: (option: SelectOption<T>) => React.ReactNode;
 }) {
   const frame = getMenuFrame(anchor);
+  const [query, setQuery] = React.useState('');
+  const filteredOptions = options.filter((option) =>
+    option.label.toLowerCase().includes(query.trim().toLowerCase())
+  );
+
+  const removeLast = () => {
+    if (query || !onRemove || selectedOptions.length === 0) return;
+    onRemove(selectedOptions[selectedOptions.length - 1].value);
+  };
 
   return (
     <FadeModal visible={visible} onRequestClose={onClose} onDismiss={onDismiss}>
       <View className="flex-1">
-        <Pressable className="absolute inset-0" onPress={onClose} />
+        <Pressable className="absolute inset-0 cursor-default" onPress={onClose} />
         <View
           className="absolute overflow-hidden rounded-md border border-border bg-popover"
-          style={{ left: frame.left, top: frame.top, width: frame.width }}
+          style={{ left: frame.left, top: frame.top, width: frame.width, maxHeight: frame.maxHeight }}
         >
-          <ScrollView style={{ maxHeight: frame.maxHeight }}>
-            {options.map((o) => {
+          <View
+            className="min-h-11 flex-row flex-wrap items-center gap-1.5 border-b border-border px-2 py-2"
+            style={{ minHeight: anchor.height }}
+          >
+            {selectedOptions.map((option) => (
+              <View
+                key={option.value}
+                className={cn(
+                  'flex-row items-center gap-1 rounded-sm',
+                  onRemove && 'bg-muted px-1.5 py-1'
+                )}
+              >
+                {renderSelectedOption ? (
+                  renderSelectedOption(option)
+                ) : renderOption ? (
+                  renderOption(option)
+                ) : (
+                  <Text className="text-sm font-medium">{option.label}</Text>
+                )}
+                {onRemove ? (
+                  <Pressable
+                    accessibilityLabel={`Remove ${option.label}`}
+                    onPress={() => onRemove(option.value)}
+                    className="rounded-sm p-0.5 active:bg-accent"
+                  >
+                    <Icon as={X} size={13} className="text-muted-foreground" />
+                  </Pressable>
+                ) : null}
+              </View>
+            ))}
+            <TextInput
+              autoFocus
+              value={query}
+              onChangeText={setQuery}
+              onKeyPress={(event) => {
+                if (event.nativeEvent.key === 'Backspace') removeLast();
+              }}
+              onSubmitEditing={() => {
+                if (!query.trim()) {
+                  onClose();
+                  return;
+                }
+                const firstOption = filteredOptions[0];
+                if (!firstOption) return;
+                onPick(firstOption.value);
+                setQuery('');
+              }}
+              blurOnSubmit={false}
+              placeholder={selectedOptions.length > 0 ? '' : 'Search...'}
+              placeholderTextColor="hsl(215 16% 47%)"
+              className="h-8 min-w-16 flex-1 bg-transparent px-1 text-sm text-foreground outline-none"
+            />
+          </View>
+
+          {multiple ? (
+            <View className="px-3 pb-1 pt-2.5">
+              <Text className="text-xs text-muted-foreground">Select as many as you like</Text>
+            </View>
+          ) : null}
+
+          <ScrollView style={{ maxHeight: frame.maxHeight - anchor.height - (multiple ? 36 : 0) }}>
+            {filteredOptions.map((o) => {
               const active = isActive(o.value);
               return (
                 <Pressable
                   key={o.value}
-                  onPress={() => onPick(o.value)}
-                  className={cn('flex-row items-center gap-2 px-3.5 py-2.5', active ? 'bg-accent' : 'active:bg-accent')}
+                  onPress={() => {
+                    onPick(o.value);
+                    setQuery('');
+                  }}
+                  className={cn(
+                    'flex-row items-center gap-2 px-3.5 py-2.5 hover:bg-accent',
+                    active ? 'bg-accent' : 'active:bg-accent'
+                  )}
                 >
-                  <Text className="flex-1 text-sm font-medium" numberOfLines={1}>
-                    {o.label}
-                  </Text>
+                  <View className="flex-1">
+                    {renderOption ? (
+                      renderOption(o)
+                    ) : (
+                      <Text className="text-sm font-medium" numberOfLines={1}>
+                        {o.label}
+                      </Text>
+                    )}
+                  </View>
                   {active ? <Icon as={Check} size={16} className="text-primary" /> : null}
                 </Pressable>
               );
             })}
+            {filteredOptions.length === 0 ? (
+              <View className="px-3.5 py-4">
+                <Text className="text-sm text-muted-foreground">No matches</Text>
+              </View>
+            ) : null}
           </ScrollView>
-          {multiple ? (
-            <Pressable onPress={onClose} className="border-t border-border py-2.5 active:bg-accent">
-              <Text className="text-center text-sm font-semibold text-primary">Done</Text>
-            </Pressable>
-          ) : null}
         </View>
       </View>
     </FadeModal>
@@ -160,6 +250,8 @@ export function Select<T extends string>({
           onClose={() => setOpen(false)}
           onDismiss={() => setAnchor(null)}
           anchor={anchor}
+          renderOption={renderValue}
+          selectedOptions={current ? [current] : []}
         />
       ) : null}
     </View>
@@ -172,12 +264,18 @@ export function MultiSelect<T extends string>({
   onChange,
   placeholder = 'Select…',
   className,
+  renderValue,
+  renderOption,
+  renderSelectedOption,
 }: {
   options: SelectOption<T>[];
   values: T[];
   onChange: (values: T[]) => void;
   placeholder?: string;
   className?: string;
+  renderValue?: (options: SelectOption<T>[]) => React.ReactNode;
+  renderOption?: (option: SelectOption<T>) => React.ReactNode;
+  renderSelectedOption?: (option: SelectOption<T>) => React.ReactNode;
 }) {
   const [open, setOpen] = React.useState(false);
   const [anchor, setAnchor] = React.useState<Anchor | null>(null);
@@ -186,6 +284,7 @@ export function MultiSelect<T extends string>({
     .filter((o) => values.includes(o.value))
     .map((o) => o.label)
     .join(', ');
+  const selectedOptions = options.filter((o) => values.includes(o.value));
   const openDropdown = () =>
     triggerRef.current?.measureInWindow((left, top, width, height) => {
       setAnchor({ left, top, width, height });
@@ -194,7 +293,17 @@ export function MultiSelect<T extends string>({
 
   return (
     <View ref={triggerRef} collapsable={false}>
-      <Trigger label={label} placeholder={placeholder} onPress={openDropdown} className={className} />
+      <Trigger
+        label={label}
+        placeholder={placeholder}
+        onPress={openDropdown}
+        className={className}
+        valueContent={
+          selectedOptions.length > 0 && renderValue
+            ? renderValue(selectedOptions)
+            : undefined
+        }
+      />
       {anchor ? (
         <OptionDropdown
           multiple
@@ -205,6 +314,12 @@ export function MultiSelect<T extends string>({
           onClose={() => setOpen(false)}
           onDismiss={() => setAnchor(null)}
           anchor={anchor}
+          renderOption={renderOption}
+          selectedOptions={selectedOptions}
+          onRemove={(value) => {
+            onChange(values.filter((item) => item !== value));
+          }}
+          renderSelectedOption={renderSelectedOption}
         />
       ) : null}
     </View>

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Dimensions, Pressable, View } from 'react-native';
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { Button } from '@/components/ui/button';
 import { FadeModal } from '@/components/ui/fade-modal';
 import { Icon } from '@/components/ui/icon';
@@ -58,13 +58,18 @@ function menuPosition(anchor: Anchor) {
 export function DatePicker({
   value,
   onChange,
+  className,
+  compact = false,
 }: {
   value: string | null;
   onChange: (value: string | null) => void;
+  className?: string;
+  compact?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const [anchor, setAnchor] = React.useState<Anchor | null>(null);
   const [month, setMonth] = React.useState(() => parseDate(value) ?? new Date());
+  const [hovered, setHovered] = React.useState(false);
   const triggerRef = React.useRef<View>(null);
   const selected = parseDate(value);
 
@@ -79,13 +84,18 @@ export function DatePicker({
     <View ref={triggerRef} collapsable={false}>
       <Pressable
         onPress={openPicker}
-        className="h-10 flex-row items-center gap-2 rounded-md border border-input bg-background px-3 active:bg-accent"
+        onHoverIn={() => setHovered(true)}
+        onHoverOut={() => setHovered(false)}
+        className={cn(
+          'h-10 flex-row items-center gap-2 rounded-md border border-input bg-background px-3 active:bg-accent',
+          className,
+          hovered && 'bg-accent'
+        )}
       >
-        <Icon as={CalendarDays} size={16} className="text-muted-foreground" />
+        {!compact ? <Icon as={CalendarDays} size={16} className="text-muted-foreground" /> : null}
         <Text className={cn('flex-1 text-sm font-medium', !value && 'text-muted-foreground')}>
           {dateLabel(value)}
         </Text>
-        <Icon as={ChevronDown} size={16} className="text-muted-foreground" />
       </Pressable>
 
       {anchor ? (
@@ -95,7 +105,10 @@ export function DatePicker({
           onDismiss={() => setAnchor(null)}
         >
           <View className="flex-1">
-            <Pressable className="absolute inset-0" onPress={() => setOpen(false)} />
+            <Pressable
+              className="absolute inset-0 cursor-default"
+              onPress={() => setOpen(false)}
+            />
             <View
               className="absolute gap-3 rounded-md border border-border bg-popover p-3"
               style={menuPosition(anchor)}
@@ -148,7 +161,7 @@ export function DatePicker({
                         setOpen(false);
                       }}
                       className={cn(
-                        'h-9 w-[14.2857%] items-center justify-center rounded-sm',
+                        'h-9 w-[14.2857%] items-center justify-center rounded-sm hover:bg-accent',
                         isSelected ? 'bg-primary' : 'active:bg-accent'
                       )}
                     >

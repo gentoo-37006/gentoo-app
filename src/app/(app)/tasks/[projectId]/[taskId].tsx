@@ -1,11 +1,9 @@
 import * as React from 'react';
-import { ActivityIndicator, Dimensions, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   CalendarDays,
   ChevronLeft,
-  ChevronDown,
-  Check,
   CircleDot,
   Eye,
   ExternalLink,
@@ -30,9 +28,8 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { Icon } from '@/components/ui/icon';
 import { Markdown } from '@/components/ui/markdown';
-import { Select } from '@/components/ui/select';
+import { MultiSelect, Select } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
-import { FadeModal } from '@/components/ui/fade-modal';
 import {
   useAllTasks,
   useDeleteTask,
@@ -65,8 +62,6 @@ function TaskField({
   );
 }
 
-type DropdownAnchor = { left: number; top: number; width: number; height: number };
-
 function AssigneeDropdown({
   members,
   values,
@@ -76,95 +71,54 @@ function AssigneeDropdown({
   values: string[];
   onChange: (values: string[]) => void;
 }) {
-  const [open, setOpen] = React.useState(false);
-  const [anchor, setAnchor] = React.useState<DropdownAnchor | null>(null);
-  const triggerRef = React.useRef<View>(null);
-  const selected = members.filter((member) => values.includes(member.id));
-  const windowSize = Dimensions.get('window');
-  const menuWidth = anchor
-    ? Math.min(Math.max(anchor.width, 286), windowSize.width - 24)
-    : 286;
-  const menuLeft = anchor
-    ? Math.min(Math.max(12, anchor.left), windowSize.width - menuWidth - 12)
-    : 12;
-  const menuTop = anchor
-    ? anchor.top + anchor.height + 320 > windowSize.height
-      ? Math.max(12, anchor.top - 304)
-      : anchor.top + anchor.height + 4
-    : 12;
-
-  const openDropdown = () =>
-    triggerRef.current?.measureInWindow((left, top, width, height) => {
-      setAnchor({ left, top, width, height });
-      setOpen(true);
-    });
-
-  const toggle = (id: string) =>
-    onChange(values.includes(id) ? values.filter((value) => value !== id) : [...values, id]);
+  const options = members.map((member) => ({
+    value: member.id,
+    label: member.full_name ?? 'Member',
+  }));
 
   return (
-    <View ref={triggerRef} collapsable={false}>
-      <Pressable
-        onPress={openDropdown}
-        className="min-h-10 flex-row items-center gap-2 rounded-md border border-input bg-background px-2 py-1.5 active:bg-accent"
-      >
-        <View className="flex-1 flex-row flex-wrap gap-1.5">
-          {selected.length > 0 ? (
-            selected.map((member) => (
+    <MultiSelect
+      options={options}
+      values={values}
+      onChange={onChange}
+      placeholder="Unassigned"
+      className="h-auto min-h-10 rounded-md border-transparent bg-transparent px-2 py-1.5"
+      renderValue={(selectedOptions) => (
+        <View className="flex-row flex-wrap gap-1.5">
+          {selectedOptions.map((option) => {
+            const member = members.find((item) => item.id === option.value);
+            return (
               <View
-                key={member.id}
+                key={option.value}
                 className="flex-row items-center gap-1.5 rounded-sm bg-muted px-1.5 py-1"
               >
-                <Avatar name={member.full_name} uri={member.avatar_url} size={22} />
-                <Text className="text-sm font-medium">{member.full_name ?? 'Member'}</Text>
+                <Avatar name={member?.full_name} uri={member?.avatar_url} size={22} />
+                <Text className="text-sm font-medium">{option.label}</Text>
                 <Icon as={X} size={13} className="text-muted-foreground" />
               </View>
-            ))
-          ) : (
-            <Text variant="muted">Unassigned</Text>
-          )}
+            );
+          })}
         </View>
-        <Icon as={ChevronDown} size={16} className="text-muted-foreground" />
-      </Pressable>
-
-      {anchor ? (
-        <FadeModal
-          visible={open}
-          onRequestClose={() => setOpen(false)}
-          onDismiss={() => setAnchor(null)}
-        >
-          <Pressable className="flex-1" onPress={() => setOpen(false)}>
-            <View
-              className="absolute overflow-hidden rounded-md border border-border bg-popover"
-              style={{ left: menuLeft, top: menuTop, width: menuWidth }}
-            >
-              <View className="border-b border-border px-3 py-3">
-                <Text className="text-sm text-muted-foreground">Select as many as you like</Text>
-              </View>
-              <ScrollView style={{ maxHeight: 250 }} contentContainerClassName="p-1.5">
-                {members.map((member) => {
-                  const active = values.includes(member.id);
-                  return (
-                    <Pressable
-                      key={member.id}
-                      onPress={() => toggle(member.id)}
-                      className={cn(
-                        'flex-row items-center gap-2.5 rounded-sm px-2 py-2',
-                        active ? 'bg-accent' : 'active:bg-accent'
-                      )}
-                    >
-                      <Avatar name={member.full_name} uri={member.avatar_url} size={24} />
-                      <Text className="flex-1 text-sm font-medium">{member.full_name ?? 'Member'}</Text>
-                      {active ? <Icon as={Check} size={16} className="text-primary" /> : null}
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          </Pressable>
-        </FadeModal>
-      ) : null}
-    </View>
+      )}
+      renderOption={(option) => {
+        const member = members.find((item) => item.id === option.value);
+        return (
+          <View className="flex-row items-center gap-2">
+            <Avatar name={member?.full_name} uri={member?.avatar_url} size={24} />
+            <Text className="text-sm font-medium">{option.label}</Text>
+          </View>
+        );
+      }}
+      renderSelectedOption={(option) => {
+        const member = members.find((item) => item.id === option.value);
+        return (
+          <View className="flex-row items-center gap-1.5">
+            <Avatar name={member?.full_name} uri={member?.avatar_url} size={20} />
+            <Text className="text-sm font-medium">{option.label}</Text>
+          </View>
+        );
+      }}
+    />
   );
 }
 
@@ -187,6 +141,8 @@ export default function TaskNotesScreen() {
   const [titleDraft, setTitleDraft] = React.useState('');
   const [tagsDraft, setTagsDraft] = React.useState('');
   const [blockerError, setBlockerError] = React.useState<string | null>(null);
+  const [projectHovered, setProjectHovered] = React.useState(false);
+  const [tagsHovered, setTagsHovered] = React.useState(false);
   const titleSaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const notesSaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -373,7 +329,7 @@ export default function TaskNotesScreen() {
             renderValue={(option) => (
               <Badge variant={taskStatusVariant(option.value)} label={option.label} />
             )}
-            className="h-10 rounded-md"
+            className="h-10 rounded-md border-transparent bg-transparent px-2 hover:bg-accent"
           />
 
           {task.status === 'blocked' ? (
@@ -383,7 +339,7 @@ export default function TaskNotesScreen() {
                 <View className="flex-1">
                   <Select
                     options={[
-                      { value: 'none', label: 'No blocker' },
+                      { value: 'none', label: 'Nothing' },
                       ...projectBlockerOptions,
                       ...taskBlockerOptions,
                     ]}
@@ -407,7 +363,7 @@ export default function TaskNotesScreen() {
                         },
                       });
                     }}
-                    className="h-10 rounded-md"
+                    className="h-10 rounded-md border-transparent bg-transparent px-2 hover:bg-accent"
                   />
                 </View>
                 {blockedByTask ? (
@@ -443,12 +399,21 @@ export default function TaskNotesScreen() {
           <DatePicker
             value={task.due_date}
             onChange={(due_date) => update.mutate({ id: task.id, due_date })}
+            className="border-transparent bg-transparent px-2 hover:bg-accent"
           />
         </TaskField>
 
         <TaskField icon={FolderKanban} label="Project">
-          <Pressable className="self-start active:opacity-70" onPress={() => router.push(backHref as any)}>
-            <Text className="text-sm font-medium underline">{project?.name ?? 'Project'}</Text>
+          <Pressable
+            onHoverIn={() => setProjectHovered(true)}
+            onHoverOut={() => setProjectHovered(false)}
+            className={cn(
+              'min-h-10 w-full justify-center rounded-md px-2 active:bg-accent',
+              projectHovered && 'bg-accent'
+            )}
+            onPress={() => router.push(backHref as any)}
+          >
+            <Text className="text-sm font-medium">{project?.name ?? 'Project'}</Text>
           </Pressable>
         </TaskField>
 
@@ -460,7 +425,7 @@ export default function TaskNotesScreen() {
             renderValue={(option) => (
               <Badge variant={priorityVariant(option.value)} label={option.label} />
             )}
-            className="h-10 rounded-md"
+            className="h-10 rounded-md border-transparent bg-transparent px-2 hover:bg-accent"
           />
         </TaskField>
 
@@ -474,11 +439,16 @@ export default function TaskNotesScreen() {
               onSubmitEditing={saveTags}
               placeholder="Comma-separated tags"
               autoCapitalize="none"
-              className="h-9 rounded-md"
+              className="h-10 rounded-md border-transparent bg-transparent px-2 outline-none focus:border-transparent"
             />
           ) : (
             <Pressable
-              className="self-start active:opacity-70"
+              onHoverIn={() => setTagsHovered(true)}
+              onHoverOut={() => setTagsHovered(false)}
+              className={cn(
+                'min-h-10 w-full justify-center rounded-md px-2 active:bg-accent',
+                tagsHovered && 'bg-accent'
+              )}
               onPress={() => {
                 setTagsDraft(task.tags.join(', '));
                 setEditingField('tags');

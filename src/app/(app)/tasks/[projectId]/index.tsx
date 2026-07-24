@@ -32,9 +32,9 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { OptionChips } from '@/components/ui/option-chips';
 import { MultiSelect, Select } from '@/components/ui/select';
+import { DatePicker } from '@/components/ui/date-picker';
 import { FadeModal, FADE_DURATION_MS } from '@/components/ui/fade-modal';
 import { cn } from '@/lib/utils';
-import { formatDate } from '@/lib/format';
 import { useProfiles } from '@/lib/queries/profiles';
 import {
   useProject,
@@ -472,6 +472,68 @@ function TaskCard({
   );
 }
 
+function InlineTagsEditor({
+  tags,
+  onChange,
+}: {
+  tags: string[];
+  onChange: (tags: string[]) => void;
+}) {
+  const joined = tags.join(', ');
+  const [editing, setEditing] = React.useState(false);
+  const [hovered, setHovered] = React.useState(false);
+  const [draft, setDraft] = React.useState(joined);
+
+  const save = () => {
+    const next = Array.from(
+      new Set(
+        draft
+          .split(',')
+          .map((tag) => tag.trim().toLowerCase())
+          .filter(Boolean)
+      )
+    );
+    if (next.join(', ') !== joined) onChange(next);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <Input
+        autoFocus
+        value={draft}
+        onChangeText={setDraft}
+        onBlur={save}
+        onSubmitEditing={save}
+        placeholder="Comma-separated tags"
+        autoCapitalize="none"
+        className="h-10 rounded-md border-transparent bg-transparent px-1 outline-none focus:border-transparent"
+      />
+    );
+  }
+
+  return (
+    <Pressable
+      onPress={() => {
+        setDraft(joined);
+        setEditing(true);
+      }}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      className={cn(
+        'min-h-10 w-full flex-row flex-wrap content-center gap-1 rounded-md px-1 py-1 active:bg-accent',
+        hovered && 'bg-accent'
+      )}
+    >
+      {tags.length > 0 ? (
+        tags.map((tag) => <Badge key={tag} variant="muted" label={tag} />)
+      ) : (
+        <Text variant="small">No tags</Text>
+      )}
+    </Pressable>
+  );
+}
+
 function TaskTableRow({
   task,
   profiles,
@@ -482,8 +544,12 @@ function TaskTableRow({
   highlighted?: boolean;
 }) {
   const router = useRouter();
+  const update = useUpdateTask();
   const del = useDeleteTask();
-  const assignees = profiles.filter((profile) => task.assignee_ids.includes(profile.id));
+  const assigneeOptions = profiles.map((profile) => ({
+    value: profile.id,
+    label: profile.full_name ?? 'Member',
+  }));
   const openNotes = () => router.push(`/tasks/${task.project_id}/${task.id}` as any);
 
   return (
@@ -507,42 +573,97 @@ function TaskTableRow({
       </View>
 
       <View className="w-[136px] justify-center px-2 py-2">
-        <Badge variant={taskStatusVariant(task.status)} label={labelOf(TASK_STATUSES, task.status)} />
+        <Select
+          options={TASK_STATUSES}
+          value={task.status}
+          onChange={(status: TaskStatus) =>
+            update.mutate({
+              id: task.id,
+              status,
+              blocked_by: status === 'blocked' ? task.blocked_by : null,
+              blocked_by_project: status === 'blocked' ? task.blocked_by_project : null,
+            })
+          }
+          renderValue={(option) => (
+            <Badge variant={taskStatusVariant(option.value)} label={option.label} />
+          )}
+          className="h-10 gap-1 rounded-md border-transparent bg-transparent px-1"
+        />
       </View>
 
-      <View className="w-44 justify-center px-3 py-2">
-        {assignees.length > 0 ? (
-          <View className="flex-row flex-wrap gap-2">
-            {assignees.map((assignee) => (
-              <View key={assignee.id} className="max-w-full flex-row items-center gap-1.5">
-                <Avatar name={assignee.full_name} uri={assignee.avatar_url} size={24} />
-                <Text variant="small" className="shrink">
-                  {assignee.full_name ?? 'Member'}
-                </Text>
+      <View className="w-44 justify-center px-2 py-2">
+        <MultiSelect
+          options={assigneeOptions}
+          values={task.assignee_ids}
+          onChange={(assignee_ids) => update.mutate({ id: task.id, assignee_ids })}
+          placeholder="Unassigned"
+          className="h-auto min-h-10 gap-1 rounded-md border-transparent bg-transparent px-1 py-1"
+          renderValue={(selectedOptions) => (
+            <View className="flex-row flex-wrap gap-2">
+              {selectedOptions.map((option) => {
+                const assignee = profiles.find((profile) => profile.id === option.value);
+                return (
+                  <View key={option.value} className="max-w-full flex-row items-center gap-1.5">
+                    <Avatar
+                      name={assignee?.full_name}
+                      uri={assignee?.avatar_url}
+                      size={24}
+                    />
+                    <Text variant="small" className="shrink">
+                      {option.label}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+          renderOption={(option) => {
+            const assignee = profiles.find((profile) => profile.id === option.value);
+            return (
+              <View className="flex-row items-center gap-2">
+                <Avatar name={assignee?.full_name} uri={assignee?.avatar_url} size={24} />
+                <Text className="text-sm font-medium">{option.label}</Text>
               </View>
-            ))}
-          </View>
-        ) : (
-          <Text variant="small">Unassigned</Text>
-        )}
+            );
+          }}
+          renderSelectedOption={(option) => {
+            const assignee = profiles.find((profile) => profile.id === option.value);
+            return (
+              <View className="flex-row items-center gap-1.5">
+                <Avatar name={assignee?.full_name} uri={assignee?.avatar_url} size={20} />
+                <Text className="text-sm font-medium">{option.label}</Text>
+              </View>
+            );
+          }}
+        />
       </View>
 
-      <View className="w-[120px] justify-center px-3 py-2">
-        <Text className={cn('text-sm', !task.due_date && 'text-muted-foreground')} numberOfLines={1}>
-          {task.due_date ? formatDate(task.due_date) : 'No date'}
-        </Text>
+      <View className="w-[120px] justify-center px-2 py-2">
+        <DatePicker
+          compact
+          value={task.due_date}
+          onChange={(due_date) => update.mutate({ id: task.id, due_date })}
+          className="border-transparent bg-transparent px-1"
+        />
       </View>
 
-      <View className="w-28 justify-center px-3 py-2">
-        <Badge variant={priorityVariant(task.priority)} label={labelOf(PRIORITIES, task.priority)} />
+      <View className="w-28 justify-center px-2 py-2">
+        <Select
+          options={PRIORITIES}
+          value={task.priority}
+          onChange={(priority) => update.mutate({ id: task.id, priority })}
+          renderValue={(option) => (
+            <Badge variant={priorityVariant(option.value)} label={option.label} />
+          )}
+          className="h-10 gap-1 rounded-md border-transparent bg-transparent px-1"
+        />
       </View>
 
-      <View className="w-44 flex-row flex-wrap content-center gap-1 px-3 py-2">
-        {task.tags.length > 0 ? (
-          task.tags.map((tag) => <Badge key={tag} variant="muted" label={tag} />)
-        ) : (
-          <Text variant="small">No tags</Text>
-        )}
+      <View className="w-44 justify-center px-2 py-2">
+        <InlineTagsEditor
+          tags={task.tags}
+          onChange={(tags) => update.mutate({ id: task.id, tags })}
+        />
       </View>
 
       <View className="w-12 items-center justify-center px-1">
@@ -831,7 +952,7 @@ export default function ProjectDetailScreen() {
             renderValue={(option) => (
               <Badge variant={projectStatusVariant(option.value)} label={option.label} />
             )}
-            className="h-10 rounded-md"
+            className="h-10 rounded-md border-transparent bg-transparent px-2 hover:bg-accent"
           />
         </View>
 
@@ -847,7 +968,7 @@ export default function ProjectDetailScreen() {
             renderValue={(option) => (
               <Badge variant={priorityVariant(option.value)} label={option.label} />
             )}
-            className="h-10 rounded-md"
+            className="h-10 rounded-md border-transparent bg-transparent px-2 hover:bg-accent"
           />
         </View>
       </View>
@@ -882,7 +1003,7 @@ export default function ProjectDetailScreen() {
       ) : (
         <TaskTable
           tasks={filtered}
-          profiles={allProfiles}
+          profiles={members}
           focusTaskId={focusTaskId}
         />
       )}
