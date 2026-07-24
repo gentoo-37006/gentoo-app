@@ -3,19 +3,19 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
+import { Input } from '@/components/ui/input';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { WhatsNewModal } from '@/components/whats-new';
 import { APP_VERSION } from '@/lib/app-version';
 import { useAuth } from '@/lib/auth';
 import { useDesktopUpdates } from '@/lib/desktop-updates';
+import { timeAgo } from '@/lib/format';
+import { useSyncFTCScout } from '@/lib/queries/ftcscout';
+import { useEventData } from '@/lib/queries/settings';
 import { supabase } from '@/lib/supabase';
 import { useThemeMode } from '@/lib/theme-mode';
 import { cn } from '@/lib/utils';
-import { Input } from '@/components/ui/input';
-import { useSyncFTCScout } from '@/lib/queries/ftcscout';
-import { useEventData } from '@/lib/queries/settings';
-import { timeAgo } from '@/lib/format';
 import { Download, LogOut, Moon, RefreshCw, Sparkles, Sun, SunMoon, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Alert, Pressable, View } from 'react-native';
@@ -305,7 +305,7 @@ export default function SettingsScreen() {
         </CardHeader>
         <CardContent className="gap-1">
           <Text variant="muted">© 2026 Gentoo Robotics. All rights reserved.</Text>
-          <Text variant="muted">Yan, Radean, and Ethan</Text>
+          <Text variant="muted">Yan, Radean, Ethan, and Max</Text>
           <Text variant="muted">Version {APP_VERSION}</Text>
           <View className="pt-2">
             <Button
