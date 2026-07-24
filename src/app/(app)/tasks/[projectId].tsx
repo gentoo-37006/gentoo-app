@@ -73,7 +73,13 @@ function TaskEditor({
     setTagInput('');
   };
 
+  // Synchronous re-entrancy guard: disabled={busy} only takes effect on the
+  // next render, so a fast double-click can submit twice in the same frame —
+  // duplicating the task and its assignment notification.
+  const submitting = React.useRef(false);
+
   const onSave = async () => {
+    if (submitting.current) return;
     setError(null);
     if (!title.trim()) {
       setError('Title is required.');
@@ -84,21 +90,26 @@ function TaskEditor({
       return;
     }
     const due = dueDate.trim() || null;
-    if (initial) {
-      await update.mutateAsync({ id: initial.id, title: title.trim(), status, priority, assignee_id: assigneeId, due_date: due, tags });
-    } else {
-      await create.mutateAsync({
-        project_id: projectId,
-        projectName,
-        title: title.trim(),
-        status,
-        priority,
-        assignee_id: assigneeId,
-        due_date: due,
-        tags,
-      });
+    submitting.current = true;
+    try {
+      if (initial) {
+        await update.mutateAsync({ id: initial.id, title: title.trim(), status, priority, assignee_id: assigneeId, due_date: due, tags });
+      } else {
+        await create.mutateAsync({
+          project_id: projectId,
+          projectName,
+          title: title.trim(),
+          status,
+          priority,
+          assignee_id: assigneeId,
+          due_date: due,
+          tags,
+        });
+      }
+      onDone();
+    } finally {
+      submitting.current = false;
     }
-    onDone();
   };
 
   return (
