@@ -30,6 +30,7 @@ import { OptionChips } from '@/components/ui/option-chips';
 import { MultiSelect, Select } from '@/components/ui/select';
 import { FadeModal, FADE_DURATION_MS } from '@/components/ui/fade-modal';
 import { cn } from '@/lib/utils';
+import { formatDate } from '@/lib/format';
 import { useProfiles } from '@/lib/queries/profiles';
 import {
   useProject,
@@ -39,7 +40,7 @@ import {
   useUpdateProject,
   useTrashProject,
 } from '@/lib/queries/tasks';
-import { priorityVariant, labelOf } from '@/lib/task-style';
+import { priorityVariant, taskStatusVariant, labelOf } from '@/lib/task-style';
 import {
   PRIORITIES,
   PROJECT_STATUSES,
@@ -212,7 +213,7 @@ function TaskEditor({
   const [priority, setPriority] = React.useState<Priority>(initial?.priority ?? 'medium');
   const [assigneeIds, setAssigneeIds] = React.useState<string[]>(initial?.assignee_ids ?? []);
   const [blockedBy, setBlockedBy] = React.useState<string | null>(initial?.blocked_by ?? null);
-  const [dueDate, setDueDate] = React.useState(initial?.due_date ?? '');
+  const [dueDate, setDueDate] = React.useState(initial?.due_date?.slice(0, 10) ?? '');
   const [tags, setTags] = React.useState<string[]>(initial?.tags ?? []);
   const [tagInput, setTagInput] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
@@ -244,6 +245,7 @@ function TaskEditor({
       priority,
       assignee_ids: assigneeIds,
       blocked_by: status === 'blocked' ? blockedBy : null,
+      blocked_by_project: null,
       due_date: dueDate.trim() || null,
       tags,
     };
@@ -338,6 +340,7 @@ function TaskEditor({
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function TaskCard({
   task,
   siblings,
@@ -425,7 +428,12 @@ function TaskCard({
             options={TASK_STATUSES}
             value={task.status}
             onChange={(s) =>
-              update.mutate({ id: task.id, status: s, blocked_by: s === 'blocked' ? task.blocked_by : null })
+              update.mutate({
+                id: task.id,
+                status: s,
+                blocked_by: s === 'blocked' ? task.blocked_by : null,
+                blocked_by_project: s === 'blocked' ? task.blocked_by_project : null,
+              })
             }
           />
           <View className="flex-row flex-wrap gap-2">
@@ -447,6 +455,144 @@ function TaskCard({
   );
 }
 
+function TaskTableRow({
+  task,
+  profiles,
+  highlighted = false,
+}: {
+  task: Task;
+  profiles: Profile[];
+  highlighted?: boolean;
+}) {
+  const router = useRouter();
+  const del = useDeleteTask();
+  const assignees = profiles.filter((profile) => task.assignee_ids.includes(profile.id));
+  const openNotes = () => router.push(`/tasks/${task.project_id}/${task.id}` as any);
+
+  return (
+    <View
+      className={cn(
+        'min-h-14 flex-row items-stretch border-t border-border',
+        highlighted && 'bg-primary/10'
+      )}
+    >
+      <View className="min-w-[260px] flex-1 justify-center px-3 py-2.5">
+        <Pressable className="flex-row items-center gap-2 active:opacity-70" onPress={openNotes}>
+          <Text
+            className={cn(
+              'flex-1 text-sm font-semibold',
+              task.status === 'done' && 'text-muted-foreground line-through'
+            )}
+          >
+            {task.title}
+          </Text>
+        </Pressable>
+      </View>
+
+      <View className="w-[136px] justify-center px-2 py-2">
+        <Badge variant={taskStatusVariant(task.status)} label={labelOf(TASK_STATUSES, task.status)} />
+      </View>
+
+      <View className="w-44 justify-center px-3 py-2">
+        {assignees.length > 0 ? (
+          <View className="flex-row flex-wrap gap-2">
+            {assignees.map((assignee) => (
+              <View key={assignee.id} className="max-w-full flex-row items-center gap-1.5">
+                <Avatar name={assignee.full_name} uri={assignee.avatar_url} size={24} />
+                <Text variant="small" className="shrink">
+                  {assignee.full_name ?? 'Member'}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text variant="small">Unassigned</Text>
+        )}
+      </View>
+
+      <View className="w-[120px] justify-center px-3 py-2">
+        <Text className={cn('text-sm', !task.due_date && 'text-muted-foreground')} numberOfLines={1}>
+          {task.due_date ? formatDate(task.due_date) : 'No date'}
+        </Text>
+      </View>
+
+      <View className="w-28 justify-center px-3 py-2">
+        <Badge variant={priorityVariant(task.priority)} label={labelOf(PRIORITIES, task.priority)} />
+      </View>
+
+      <View className="w-44 flex-row flex-wrap content-center gap-1 px-3 py-2">
+        {task.tags.length > 0 ? (
+          task.tags.map((tag) => <Badge key={tag} variant="muted" label={tag} />)
+        ) : (
+          <Text variant="small">No tags</Text>
+        )}
+      </View>
+
+      <View className="w-12 items-center justify-center px-1">
+        <DeleteButton
+          variant="ghost"
+          size="icon"
+          icon={Trash2}
+          accessibilityLabel={`Delete ${task.title}`}
+          disabled={del.isPending}
+          onPress={() => del.mutate(task.id)}
+        />
+      </View>
+    </View>
+  );
+}
+
+function TaskTable({
+  tasks,
+  profiles,
+  focusTaskId,
+}: {
+  tasks: Task[];
+  profiles: Profile[];
+  focusTaskId: string | null;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator
+      contentContainerStyle={{ minWidth: '100%' }}
+    >
+      <View className="flex-1 overflow-visible rounded-md border border-border" style={{ minWidth: 1028 }}>
+        <View className="h-10 flex-row items-center rounded-t-md bg-muted/60">
+          <View className="min-w-[260px] flex-1 px-3">
+            <Text variant="label" className="text-muted-foreground">Task</Text>
+          </View>
+          <View className="w-[136px] px-2">
+            <Text variant="label" className="text-muted-foreground">Status</Text>
+          </View>
+          <View className="w-44 px-3">
+            <Text variant="label" className="text-muted-foreground">Assignees</Text>
+          </View>
+          <View className="w-[120px] px-3">
+            <Text variant="label" className="text-muted-foreground">Due date</Text>
+          </View>
+          <View className="w-28 px-3">
+            <Text variant="label" className="text-muted-foreground">Priority</Text>
+          </View>
+          <View className="w-44 px-3">
+            <Text variant="label" className="text-muted-foreground">Tags</Text>
+          </View>
+          <View className="w-12" />
+        </View>
+
+        {tasks.map((task) => (
+          <TaskTableRow
+            key={task.id}
+            task={task}
+            profiles={profiles}
+            highlighted={task.id === focusTaskId}
+          />
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
 export default function ProjectDetailScreen() {
   const router = useRouter();
   const { projectId, task: focusParam } = useLocalSearchParams<{
@@ -460,14 +606,13 @@ export default function ProjectDetailScreen() {
 
   const [adding, setAdding] = React.useState(false);
   const [addMounted, setAddMounted] = React.useState(false);
-  const [editingId, setEditingId] = React.useState<string | null>(null);
   const openAddTask = () => {
     setAddMounted(true);
     setAdding(true);
   };
   const closeAddTask = () => setAdding(false);
 
-  // Deep-linked task (?task=<id> from a notification tap): highlight its card,
+  // Deep-linked task (?task=<id> from a notification tap): highlight its row,
   // let the emphasis fade after a few seconds. Render-time adjustment keeps
   // the param → state sync out of effects.
   const [prevFocusParam, setPrevFocusParam] = React.useState(focusParam);
@@ -577,7 +722,7 @@ export default function ProjectDetailScreen() {
               ]}
             />
           ) : null}
-          {editingId === null ? <Button size="sm" label="Add task" icon={Plus} onPress={openAddTask} /> : null}
+          <Button size="sm" label="Add task" icon={Plus} onPress={openAddTask} />
         </View>
       </View>
 
@@ -603,42 +748,11 @@ export default function ProjectDetailScreen() {
       {tasks.length === 0 ? (
         <EmptyState icon={Plus} title="No tasks yet" description="Add the first task to get this project moving." />
       ) : (
-        TASK_STATUSES.map((s) => {
-          const group = filtered.filter((t) => t.status === s.value);
-          if (group.length === 0) return null;
-          return (
-            <View key={s.value} className="gap-2">
-              <Text variant="label" className="text-muted-foreground">
-                {s.label} ({group.length})
-              </Text>
-              {group.map((t) =>
-                editingId === t.id ? (
-                  <TaskEditor
-                    key={t.id}
-                    projectId={project.id}
-                    projectName={project.name}
-                    members={members}
-                    siblings={tasks.filter((x) => x.id !== t.id)}
-                    initial={t}
-                    onDone={(openId) => {
-                      setEditingId(null);
-                      if (openId) router.push(`/tasks/${project.id}/${openId}` as any);
-                    }}
-                  />
-                ) : (
-                  <TaskCard
-                    key={t.id}
-                    task={t}
-                    siblings={tasks.filter((x) => x.id !== t.id)}
-                    profiles={allProfiles}
-                    onEdit={() => setEditingId(t.id)}
-                    highlighted={t.id === focusTaskId}
-                  />
-                )
-              )}
-            </View>
-          );
-        })
+        <TaskTable
+          tasks={filtered}
+          profiles={allProfiles}
+          focusTaskId={focusTaskId}
+        />
       )}
     </Screen>
   );

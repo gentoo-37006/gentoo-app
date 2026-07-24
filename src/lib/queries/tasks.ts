@@ -24,6 +24,7 @@ export const taskKeys = {
   projects: ['projects'] as const,
   trashed: ['projects', 'trashed'] as const,
   project: (id: string) => ['project', id] as const,
+  allTasks: ['tasks', 'all'] as const,
 };
 
 async function currentUserId(): Promise<string | undefined> {
@@ -42,7 +43,7 @@ export function useProjects() {
       if (isDemoMode()) return demoProjects();
       const { data, error } = await supabase
         .from('projects')
-        .select('*, tasks:tasks(id)')
+        .select('*, tasks:tasks!tasks_project_id_fkey(id)')
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -59,7 +60,7 @@ export function useTrashedProjects() {
       if (isDemoMode()) return demoTrashedProjects();
       const { data, error } = await supabase
         .from('projects')
-        .select('*, tasks:tasks(id)')
+        .select('*, tasks:tasks!tasks_project_id_fkey(id)')
         .not('deleted_at', 'is', null)
         .order('deleted_at', { ascending: false });
       if (error) throw error;
@@ -78,7 +79,7 @@ export function useMyOpenTaskCount(uid?: string) {
       // !inner join + filter so tasks in trashed projects don't count.
       const { count, error } = await supabase
         .from('tasks')
-        .select('id, projects!inner(deleted_at)', { count: 'exact', head: true })
+        .select('id, projects!tasks_project_id_fkey!inner(deleted_at)', { count: 'exact', head: true })
         .contains('assignee_ids', [uid!])
         .is('projects.deleted_at', null);
       if (error) throw error;
@@ -98,7 +99,7 @@ export function useMyTasks(uid?: string, limit = 6) {
       if (isDemoMode()) return demoMyTasks(uid, limit);
       const { data, error } = await supabase
         .from('tasks')
-        .select('*, project:projects!inner(id, name, deleted_at)')
+        .select('*, project:projects!tasks_project_id_fkey!inner(id, name, deleted_at)')
         .contains('assignee_ids', [uid!])
         .is('project.deleted_at', null)
         .order('due_date', { ascending: true, nullsFirst: false })
@@ -133,6 +134,33 @@ export function useProject(projectId: string) {
   });
 }
 
+export type TaskWithProject = Task & { project: { id: string; name: string } | null };
+
+export function useAllTasks() {
+  return useQuery({
+    queryKey: taskKeys.allTasks,
+    queryFn: async (): Promise<TaskWithProject[]> => {
+      if (isDemoMode()) {
+        const projects = await demoProjects();
+        const projectData = await Promise.all(projects.map((project) => demoProject(project.id)));
+        return projectData.flatMap(({ project, tasks }) =>
+          tasks.map((task) => ({
+            ...task,
+            project: project ? { id: project.id, name: project.name } : null,
+          }))
+        );
+      }
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*, project:projects!tasks_project_id_fkey!inner(id, name, deleted_at)')
+        .is('project.deleted_at', null)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as TaskWithProject[];
+    },
+  });
+}
+
 function useProjectsMutation<TVars, TData = unknown>(fn: (vars: TVars) => Promise<TData>) {
   const qc = useQueryClient();
   return useMutation({
@@ -141,6 +169,7 @@ function useProjectsMutation<TVars, TData = unknown>(fn: (vars: TVars) => Promis
       // Prefix match also covers taskKeys.trashed (['projects', 'trashed']).
       qc.invalidateQueries({ queryKey: taskKeys.projects });
       qc.invalidateQueries({ queryKey: ['project'] });
+      qc.invalidateQueries({ queryKey: taskKeys.allTasks });
       qc.invalidateQueries({ queryKey: ['my_open_tasks'] });
       qc.invalidateQueries({ queryKey: ['my_tasks'] });
     },
@@ -215,6 +244,7 @@ export type TaskInput = {
   status: TaskStatus;
   assignee_ids: string[];
   blocked_by: string | null;
+  blocked_by_project: string | null;
   due_date: string | null;
   priority: Priority;
   tags: string[];
@@ -253,7 +283,7 @@ export function useUpdateTask() {
       if (patch.assignee_ids?.length) {
         const { data } = await supabase
           .from('tasks')
-          .select('assignee_ids, title, project_id, project:project_id(name)')
+          .select('assignee_ids, title, project_id, project:projects!tasks_project_id_fkey(name)')
           .eq('id', id)
           .single();
         prev = data as unknown as PrevTask | null;

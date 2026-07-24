@@ -159,9 +159,9 @@ function seedWorkspace(): DemoWorkspace {
   ];
 
   const tasks: Task[] = [
-    { id: 'task-1', project_id: 'project-pit', title: 'Label battery cables', notes: '## Why\n\nInspectors flagged unlabeled leads last event.\n\n- [ ] Print labels\n- [ ] Wrap both ends\n- [ ] Photograph for the log', status: 'in_progress', assignee_ids: [DEMO_PIT_ID, DEMO_ADMIN_ID], blocked_by: null, due_date: daysFromNow(1), priority: 'high', tags: ['pit', 'electrical'], created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
-    { id: 'task-2', project_id: 'project-pit', title: 'Charge driver station laptop', notes: null, status: 'blocked', assignee_ids: [DEMO_ADMIN_ID], blocked_by: 'task-1', due_date: daysFromNow(0, 18), priority: 'urgent', tags: ['drive'], created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
-    { id: 'task-3', project_id: 'project-scouting', title: 'Import qualification schedule', notes: null, status: 'todo', assignee_ids: [DEMO_STRATEGIST_ID], blocked_by: null, due_date: null, priority: 'medium', tags: ['scouting'], created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'task-1', project_id: 'project-pit', title: 'Label battery cables', notes: '## Why\n\nInspectors flagged unlabeled leads last event.\n\n- [ ] Print labels\n- [ ] Wrap both ends\n- [ ] Photograph for the log', status: 'in_progress', assignee_ids: [DEMO_PIT_ID, DEMO_ADMIN_ID], blocked_by: null, blocked_by_project: null, due_date: daysFromNow(1), priority: 'high', tags: ['pit', 'electrical'], created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'task-2', project_id: 'project-pit', title: 'Charge driver station laptop', notes: null, status: 'blocked', assignee_ids: [DEMO_ADMIN_ID], blocked_by: 'task-1', blocked_by_project: null, due_date: daysFromNow(0, 18), priority: 'urgent', tags: ['drive'], created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'task-3', project_id: 'project-scouting', title: 'Import qualification schedule', notes: null, status: 'todo', assignee_ids: [DEMO_STRATEGIST_ID], blocked_by: null, blocked_by_project: null, due_date: null, priority: 'medium', tags: ['scouting'], created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
   ];
 
   return {
@@ -619,11 +619,13 @@ export async function demoRestoreProject(idValue: string) {
 export async function demoDeleteProject(idValue: string) {
   const db = await getDemoWorkspace();
   db.projects = db.projects.filter((p) => p.id !== idValue);
-  db.tasks = db.tasks.filter((t) => t.project_id !== idValue);
+  db.tasks = db.tasks
+    .filter((t) => t.project_id !== idValue)
+    .map((t) => (t.blocked_by_project === idValue ? { ...t, blocked_by_project: null } : t));
   await persist();
 }
 
-export async function demoCreateTask(vars: { project_id: string; title: string; notes: string | null; status: TaskStatus; assignee_ids: string[]; blocked_by: string | null; due_date: string | null; priority: Priority; tags: string[] }) {
+export async function demoCreateTask(vars: { project_id: string; title: string; notes: string | null; status: TaskStatus; assignee_ids: string[]; blocked_by: string | null; blocked_by_project: string | null; due_date: string | null; priority: Priority; tags: string[] }) {
   const db = await getDemoWorkspace();
   const taskId = id('task');
   db.tasks.push({ id: taskId, created_by: DEMO_USER_ID, created_at: now(), updated_at: now(), ...vars });

@@ -13,11 +13,13 @@ function Trigger({
   placeholder,
   onPress,
   className,
+  valueContent,
 }: {
   label?: string;
   placeholder: string;
   onPress: () => void;
   className?: string;
+  valueContent?: React.ReactNode;
 }) {
   return (
     <Pressable
@@ -27,9 +29,13 @@ function Trigger({
         className
       )}
     >
-      <Text className={cn('flex-1 text-sm font-medium', !label && 'text-muted-foreground')} numberOfLines={1}>
-        {label || placeholder}
-      </Text>
+      {valueContent ? (
+        <View className="flex-1">{valueContent}</View>
+      ) : (
+        <Text className={cn('flex-1 text-sm font-medium', !label && 'text-muted-foreground')} numberOfLines={1}>
+          {label || placeholder}
+        </Text>
+      )}
       <Icon as={ChevronDown} size={16} className="text-muted-foreground" />
     </Pressable>
   );
@@ -74,7 +80,8 @@ function OptionDropdown<T extends string>({
 
   return (
     <FadeModal visible={visible} onRequestClose={onClose} onDismiss={onDismiss}>
-      <Pressable className="flex-1" onPress={onClose}>
+      <View className="flex-1">
+        <Pressable className="absolute inset-0" onPress={onClose} />
         <View
           className="absolute overflow-hidden rounded-md border border-border bg-popover"
           style={{ left: frame.left, top: frame.top, width: frame.width }}
@@ -102,7 +109,7 @@ function OptionDropdown<T extends string>({
             </Pressable>
           ) : null}
         </View>
-      </Pressable>
+      </View>
     </FadeModal>
   );
 }
@@ -113,12 +120,14 @@ export function Select<T extends string>({
   onChange,
   placeholder = 'Select…',
   className,
+  renderValue,
 }: {
   options: SelectOption<T>[];
   value: T | null;
   onChange: (value: T) => void;
   placeholder?: string;
   className?: string;
+  renderValue?: (option: SelectOption<T>) => React.ReactNode;
 }) {
   const [open, setOpen] = React.useState(false);
   const [anchor, setAnchor] = React.useState<Anchor | null>(null);
@@ -132,7 +141,13 @@ export function Select<T extends string>({
 
   return (
     <View ref={triggerRef} collapsable={false}>
-      <Trigger label={current?.label} placeholder={placeholder} onPress={openDropdown} className={className} />
+      <Trigger
+        label={current?.label}
+        placeholder={placeholder}
+        onPress={openDropdown}
+        className={className}
+        valueContent={current && renderValue ? renderValue(current) : undefined}
+      />
       {anchor ? (
         <OptionDropdown
           visible={open}

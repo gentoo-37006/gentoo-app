@@ -8,6 +8,10 @@ import {
 } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text, TextClassContext } from '@/components/ui/text';
+import {
+  DeleteTooltipPortal,
+  type DeleteTooltipAnchor,
+} from '@/components/ui/delete-tooltip-portal';
 import { cn } from '@/lib/utils';
 
 function useShiftPressed() {
@@ -50,7 +54,9 @@ export function DeleteButton({
   const shiftPressed = useShiftPressed();
   const [hovered, setHovered] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
+  const [tooltipAnchor, setTooltipAnchor] = React.useState<DeleteTooltipAnchor | null>(null);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const buttonRef = React.useRef<View>(null);
   const isDisabled = disabled || loading;
   const isWeb = Platform.OS === 'web';
   const webDeleteEnabled = isWeb && shiftPressed;
@@ -59,6 +65,12 @@ export function DeleteButton({
     !isDisabled && ((isWeb && hovered && !shiftPressed) || (!isWeb && confirming));
   const showDangerIcon =
     !isDisabled && ((isWeb && hovered && shiftPressed) || (!isWeb && confirming));
+  const tooltipText = isWeb ? 'Hold Shift to delete' : 'Press again to delete';
+
+  const measureTooltipAnchor = () =>
+    buttonRef.current?.measureInWindow((left, top, width, height) => {
+      setTooltipAnchor({ left, top, width, height });
+    });
 
   React.useEffect(
     () => () => {
@@ -75,6 +87,7 @@ export function DeleteButton({
 
   return (
     <Pressable
+      ref={buttonRef}
       {...pressableProps}
       className={cn(
         'relative',
@@ -109,14 +122,17 @@ export function DeleteButton({
       }
       onHoverIn={(event) => {
         setHovered(true);
+        measureTooltipAnchor();
         onHoverIn?.(event);
       }}
       onHoverOut={(event) => {
         setHovered(false);
+        setTooltipAnchor(null);
         onHoverOut?.(event);
       }}
     >
-      {showTooltip ? (
+      <DeleteTooltipPortal visible={isWeb && showTooltip} anchor={tooltipAnchor} text={tooltipText} />
+      {showTooltip && !isWeb ? (
         <View
           pointerEvents="none"
           className="absolute bottom-full left-0 right-0 z-50 mb-2 items-center"
@@ -127,7 +143,7 @@ export function DeleteButton({
               numberOfLines={1}
               selectable={false}
             >
-              {isWeb ? 'Hold Shift to delete' : 'Press again to delete'}
+              {tooltipText}
             </Text>
           </View>
         </View>
