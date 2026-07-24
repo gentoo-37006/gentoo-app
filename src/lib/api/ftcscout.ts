@@ -3,7 +3,7 @@ const SEASON = 2025;
 
 /**
  * Fetches the match schedule for a given FTC event.
- * @param eventCode e.g., '2023-US-CA-LA'
+ * @param eventCode e.g CAONCMP
  */
 export async function getEventMatches(eventCode: string): Promise<any> {
   const controller = new AbortController();
@@ -26,7 +26,7 @@ export async function getEventMatches(eventCode: string): Promise<any> {
 
 /**
  * Fetches the participating teams for a given FTC event.
- * @param eventCode e.g., '2023-US-CA-LA'
+ * @param eventCode e.g CAONCMP
  */
 export async function getEventTeams(eventCode: string): Promise<any> {
   const controller = new AbortController();
