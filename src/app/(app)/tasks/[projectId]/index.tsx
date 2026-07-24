@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import {
@@ -41,6 +41,7 @@ import {
   useCreateTask,
   useUpdateTask,
   useDeleteTask,
+  useReorderTasks,
   useUpdateProject,
   useTrashProject,
 } from '@/lib/queries/tasks';
@@ -475,9 +476,11 @@ function TaskCard({
 function InlineTagsEditor({
   tags,
   onChange,
+  onOpenChange,
 }: {
   tags: string[];
   onChange: (tags: string[]) => void;
+  onOpenChange: (open: boolean) => void;
 }) {
   const joined = tags.join(', ');
   const [editing, setEditing] = React.useState(false);
@@ -495,6 +498,7 @@ function InlineTagsEditor({
     );
     if (next.join(', ') !== joined) onChange(next);
     setEditing(false);
+    onOpenChange(false);
   };
 
   if (editing) {
@@ -517,6 +521,7 @@ function InlineTagsEditor({
       onPress={() => {
         setDraft(joined);
         setEditing(true);
+        onOpenChange(true);
       }}
       onHoverIn={() => setHovered(true)}
       onHoverOut={() => setHovered(false)}
@@ -538,10 +543,12 @@ function TaskTableRow({
   task,
   profiles,
   highlighted = false,
+  onMetadataOpenChange,
 }: {
   task: Task;
   profiles: Profile[];
   highlighted?: boolean;
+  onMetadataOpenChange: (open: boolean) => void;
 }) {
   const router = useRouter();
   const update = useUpdateTask();
@@ -588,6 +595,7 @@ function TaskTableRow({
             <Badge variant={taskStatusVariant(option.value)} label={option.label} />
           )}
           className="h-10 gap-1 rounded-md border-transparent bg-transparent px-1"
+          onOpenChange={onMetadataOpenChange}
         />
       </View>
 
@@ -635,6 +643,7 @@ function TaskTableRow({
               </View>
             );
           }}
+          onOpenChange={onMetadataOpenChange}
         />
       </View>
 
@@ -644,6 +653,7 @@ function TaskTableRow({
           value={task.due_date}
           onChange={(due_date) => update.mutate({ id: task.id, due_date })}
           className="border-transparent bg-transparent px-1"
+          onOpenChange={onMetadataOpenChange}
         />
       </View>
 
@@ -656,6 +666,7 @@ function TaskTableRow({
             <Badge variant={priorityVariant(option.value)} label={option.label} />
           )}
           className="h-10 gap-1 rounded-md border-transparent bg-transparent px-1"
+          onOpenChange={onMetadataOpenChange}
         />
       </View>
 
@@ -663,6 +674,7 @@ function TaskTableRow({
         <InlineTagsEditor
           tags={task.tags}
           onChange={(tags) => update.mutate({ id: task.id, tags })}
+          onOpenChange={onMetadataOpenChange}
         />
       </View>
 
@@ -684,11 +696,267 @@ function TaskTable({
   tasks,
   profiles,
   focusTaskId,
+  onReorder,
 }: {
   tasks: Task[];
   profiles: Profile[];
   focusTaskId: string | null;
+  onReorder: (taskIds: string[]) => void;
 }) {
+  type PointerDrag = {
+    taskId: string;
+    pointerId: number;
+    startX: number;
+    startY: number;
+    offsetX: number;
+    offsetY: number;
+    sourceElement: HTMLElement;
+    ghost: HTMLElement | null;
+    line: HTMLElement | null;
+    insertionIndex: number | null;
+    markerTaskId: string | null;
+    markerEdge: 'before' | 'after' | null;
+    moveListener: ((event: PointerEvent) => void) | null;
+    endListener: ((event: PointerEvent) => void) | null;
+    cancelListener: ((event: PointerEvent) => void) | null;
+  };
+
+  const [draggingId, setDraggingId] = React.useState<string | null>(null);
+  const [openMetadataTaskIds, setOpenMetadataTaskIds] = React.useState<Set<string>>(
+    () => new Set()
+  );
+  const pointerDrag = React.useRef<PointerDrag | null>(null);
+  const suppressNextClick = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!draggingId || typeof document === 'undefined') return;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.userSelect = 'none';
+    document.getSelection()?.removeAllRanges();
+    return () => {
+      document.body.style.userSelect = previousUserSelect;
+    };
+  }, [draggingId]);
+
+  const clearDragVisuals = () => {
+    const drag = pointerDrag.current;
+    drag?.ghost?.remove();
+    drag?.line?.remove();
+    if (drag?.moveListener) window.removeEventListener('pointermove', drag.moveListener);
+    if (drag?.endListener) window.removeEventListener('pointerup', drag.endListener);
+    if (drag?.cancelListener) window.removeEventListener('pointercancel', drag.cancelListener);
+    pointerDrag.current = null;
+    setDraggingId(null);
+  };
+
+  const reorderAt = (taskId: string, insertionIndex: number) => {
+    const fromIndex = tasks.findIndex((task) => task.id === taskId);
+    if (fromIndex < 0) return;
+    const reordered = [...tasks];
+    const [dragged] = reordered.splice(fromIndex, 1);
+    reordered.splice(insertionIndex, 0, dragged);
+    if (reordered.some((task, index) => task.id !== tasks[index]?.id)) {
+      onReorder(reordered.map((task) => task.id));
+    }
+  };
+
+  const startPointerDrag = (
+    event: React.PointerEvent<HTMLElement>,
+    taskId: string
+  ) => {
+    if (event.button !== 0 || openMetadataTaskIds.size > 0) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const drag: PointerDrag = {
+      taskId,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      offsetX: event.clientX - bounds.left,
+      offsetY: event.clientY - bounds.top,
+      sourceElement: event.currentTarget,
+      ghost: null,
+      line: null,
+      insertionIndex: null,
+      markerTaskId: null,
+      markerEdge: null,
+      moveListener: null,
+      endListener: null,
+      cancelListener: null,
+    };
+    drag.moveListener = (pointerEvent) => movePointerDrag(pointerEvent);
+    drag.endListener = (pointerEvent) => endPointerDrag(pointerEvent);
+    drag.cancelListener = (pointerEvent) => {
+      if (pointerDrag.current?.pointerId === pointerEvent.pointerId) clearDragVisuals();
+    };
+    pointerDrag.current = drag;
+    window.addEventListener('pointermove', drag.moveListener, { passive: false });
+    window.addEventListener('pointerup', drag.endListener);
+    window.addEventListener('pointercancel', drag.cancelListener);
+  };
+
+  const movePointerDrag = (event: {
+    pointerId: number;
+    clientX: number;
+    clientY: number;
+    preventDefault: () => void;
+  }) => {
+    const drag = pointerDrag.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
+    if (!drag.ghost && distance < 5) return;
+
+    if (!drag.ghost) {
+      const bounds = drag.sourceElement.getBoundingClientRect();
+      const ghost = drag.sourceElement.cloneNode(true) as HTMLElement;
+      ghost.removeAttribute('data-task-row');
+      Object.assign(ghost.style, {
+        position: 'fixed',
+        left: `${event.clientX - drag.offsetX}px`,
+        top: `${event.clientY - drag.offsetY}px`,
+        width: `${bounds.width}px`,
+        opacity: '0.65',
+        pointerEvents: 'none',
+        zIndex: '9999',
+        backgroundColor: getComputedStyle(document.body).backgroundColor,
+        boxShadow: '0 10px 28px rgba(0, 0, 0, 0.28)',
+      });
+      document.body.appendChild(ghost);
+      drag.ghost = ghost;
+      drag.sourceElement.setPointerCapture(event.pointerId);
+      setDraggingId(drag.taskId);
+    }
+
+    event.preventDefault();
+    drag.ghost.style.left = `${event.clientX - drag.offsetX}px`;
+    drag.ghost.style.top = `${event.clientY - drag.offsetY}px`;
+
+    const allRows = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-task-row="true"]')
+    );
+    const sourceRow = allRows.find((row) => row.dataset.taskId === drag.taskId);
+    const rows = allRows.filter((row) => row.dataset.taskId !== drag.taskId);
+    const sourceIndex = tasks.findIndex((task) => task.id === drag.taskId);
+    const previousRow =
+      sourceIndex > 0
+        ? allRows.find((row) => row.dataset.taskId === tasks[sourceIndex - 1]?.id)
+        : undefined;
+    let insertionIndex = rows.length;
+    let marker:
+      | { taskId: string; edge: 'before' | 'after'; insertionIndex: number }
+      | null =
+      rows.length > 0
+        ? {
+            taskId: rows[rows.length - 1].dataset.taskId!,
+            edge: 'after',
+            insertionIndex,
+          }
+        : null;
+    const sourceBounds = sourceRow?.getBoundingClientRect();
+    const previousBounds = previousRow?.getBoundingClientRect();
+    if (
+      sourceRow &&
+      sourceBounds &&
+      sourceIndex === tasks.length - 1 &&
+      event.clientY > sourceBounds.bottom
+    ) {
+      insertionIndex = sourceIndex;
+      marker = {
+        taskId: drag.taskId,
+        edge: 'after',
+        insertionIndex,
+      };
+    } else if (
+      sourceRow &&
+      sourceBounds &&
+      sourceIndex === 0 &&
+      event.clientY < sourceBounds.top
+    ) {
+      insertionIndex = sourceIndex;
+      marker = {
+        taskId: drag.taskId,
+        edge: 'before',
+        insertionIndex,
+      };
+    } else if (
+      sourceRow &&
+      sourceBounds &&
+      previousBounds &&
+      event.clientY >= previousBounds.top + previousBounds.height / 2 &&
+      event.clientY < sourceBounds.top
+    ) {
+      insertionIndex = sourceIndex;
+      marker = {
+        taskId: drag.taskId,
+        edge: 'before',
+        insertionIndex,
+      };
+    } else if (
+      sourceRow &&
+      sourceBounds &&
+      event.clientY >= sourceBounds.top &&
+      event.clientY <= sourceBounds.bottom
+    ) {
+      insertionIndex = sourceIndex;
+      marker = {
+        taskId: drag.taskId,
+        edge: event.clientY < sourceBounds.top + sourceBounds.height / 2 ? 'before' : 'after',
+        insertionIndex,
+      };
+    } else {
+      for (let index = 0; index < rows.length; index += 1) {
+        const bounds = rows[index].getBoundingClientRect();
+        if (event.clientY < bounds.top + bounds.height / 2) {
+          insertionIndex = index;
+          marker = {
+            taskId: rows[index].dataset.taskId!,
+            edge: 'before',
+            insertionIndex,
+          };
+          break;
+        }
+      }
+    }
+    drag.insertionIndex = marker?.insertionIndex ?? null;
+    if (marker) {
+      drag.markerTaskId = marker.taskId;
+      drag.markerEdge = marker.edge;
+      const line = drag.line ?? document.createElement('div');
+      line.className =
+        'pointer-events-none fixed z-[9998] h-0.5 bg-primary';
+      drag.line = line;
+      const target = allRows.find((row) => row.dataset.taskId === marker.taskId);
+      if (target) {
+        const bounds = target.getBoundingClientRect();
+        Object.assign(line.style, {
+          left: `${bounds.left}px`,
+          top: `${marker.edge === 'before' ? bounds.top - 1 : bounds.bottom - 1}px`,
+          width: `${bounds.width}px`,
+        });
+        if (!line.isConnected) document.body.appendChild(line);
+      }
+    }
+  };
+
+  const endPointerDrag = (event: {
+    pointerId: number;
+    preventDefault: () => void;
+  }) => {
+    const drag = pointerDrag.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (drag.sourceElement.hasPointerCapture(event.pointerId)) {
+      drag.sourceElement.releasePointerCapture(event.pointerId);
+    }
+    if (drag.ghost) {
+      event.preventDefault();
+      suppressNextClick.current = true;
+      setTimeout(() => {
+        suppressNextClick.current = false;
+      }, 0);
+      if (drag.insertionIndex !== null) reorderAt(drag.taskId, drag.insertionIndex);
+    }
+    clearDragVisuals();
+  };
+
   return (
     <ScrollView
       horizontal
@@ -718,14 +986,70 @@ function TaskTable({
           <View className="w-12" />
         </View>
 
-        {tasks.map((task) => (
-          <TaskTableRow
-            key={task.id}
-            task={task}
-            profiles={profiles}
-            highlighted={task.id === focusTaskId}
-          />
-        ))}
+        {tasks.map((task, index) => {
+          const webDragProps =
+            Platform.OS === 'web'
+              ? {
+                  'data-task-row': 'true',
+                  'data-task-index': index,
+                  onPointerDown: (event: React.PointerEvent<HTMLElement>) =>
+                    startPointerDrag(event, task.id),
+                  onClickCapture: (event: React.MouseEvent<HTMLElement>) => {
+                    if (!suppressNextClick.current) return;
+                    suppressNextClick.current = false;
+                    event.preventDefault();
+                    event.stopPropagation();
+                  },
+                }
+              : {};
+
+          return (
+            <React.Fragment key={task.id}>
+              {Platform.OS === 'web' ? (
+                React.createElement(
+                  'div',
+                  {
+                    ...webDragProps,
+                    'data-task-id': task.id,
+                    className: cn(
+                      'relative',
+                      draggingId === task.id && 'cursor-grabbing opacity-40'
+                    ),
+                  },
+                  <TaskTableRow
+                  task={task}
+                  profiles={profiles}
+                  highlighted={task.id === focusTaskId}
+                  onMetadataOpenChange={(open) => {
+                    setOpenMetadataTaskIds((current) => {
+                      const next = new Set(current);
+                      if (open) next.add(task.id);
+                      else next.delete(task.id);
+                      return next;
+                    });
+                  }}
+                />
+                )
+              ) : (
+                <View className={cn('relative', draggingId === task.id && 'opacity-40')}>
+                  <TaskTableRow
+                    task={task}
+                    profiles={profiles}
+                    highlighted={task.id === focusTaskId}
+                    onMetadataOpenChange={(open) => {
+                      setOpenMetadataTaskIds((current) => {
+                        const next = new Set(current);
+                        if (open) next.add(task.id);
+                        else next.delete(task.id);
+                        return next;
+                      });
+                    }}
+                  />
+                </View>
+              )}
+            </React.Fragment>
+          );
+        })}
       </View>
     </ScrollView>
   );
@@ -740,6 +1064,7 @@ export default function ProjectDetailScreen() {
   const { data, isLoading } = useProject(projectId);
   const { data: profiles } = useProfiles();
   const createTask = useCreateTask();
+  const reorderTasks = useReorderTasks();
   const updateProject = useUpdateProject();
   const trashProject = useTrashProject();
 
@@ -756,6 +1081,7 @@ export default function ProjectDetailScreen() {
       due_date: null,
       priority: 'medium',
       tags: [],
+      sort_order: Math.max(0, ...(data?.tasks ?? []).map((task) => task.sort_order ?? 0)) + 10,
     });
   };
 
@@ -831,6 +1157,14 @@ export default function ProjectDetailScreen() {
     if (fTag !== 'any' && !t.tags.includes(fTag)) return false;
     return true;
   });
+  const reorderVisibleTasks = (visibleTaskIds: string[]) => {
+    const visibleIds = new Set(visibleTaskIds);
+    let visibleIndex = 0;
+    const taskIds = tasks.map((task) =>
+      visibleIds.has(task.id) ? visibleTaskIds[visibleIndex++] : task.id
+    );
+    reorderTasks.mutate({ projectId: project.id, taskIds });
+  };
 
   const assigneeFilterOptions = [
     { value: 'any', label: 'Anyone' },
@@ -1005,6 +1339,7 @@ export default function ProjectDetailScreen() {
           tasks={filtered}
           profiles={members}
           focusTaskId={focusTaskId}
+          onReorder={reorderVisibleTasks}
         />
       )}
     </Screen>

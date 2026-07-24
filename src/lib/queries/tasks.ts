@@ -10,6 +10,7 @@ import {
   demoMyTasks,
   demoProject,
   demoProjects,
+  demoReorderTasks,
   demoRestoreProject,
   demoTrashedProjects,
   demoTrashProject,
@@ -122,6 +123,7 @@ export function useProject(projectId: string) {
           .from('tasks')
           .select('*')
           .eq('project_id', projectId)
+          .order('sort_order', { ascending: true })
           .order('created_at', { ascending: true }),
       ]);
       if (pErr) throw pErr;
@@ -248,6 +250,7 @@ export type TaskInput = {
   due_date: string | null;
   priority: Priority;
   tags: string[];
+  sort_order?: number;
 };
 
 /** Resolves to the new task's id so callers can open its notes page. */
@@ -305,6 +308,55 @@ export function useUpdateTask() {
       }
     }
   );
+}
+
+export function useReorderTasks() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      taskIds,
+    }: {
+      projectId: string;
+      taskIds: string[];
+    }) => {
+      if (isDemoMode()) return demoReorderTasks(taskIds);
+      const results = await Promise.all(
+        taskIds.map((id, index) =>
+          supabase
+            .from('tasks')
+            .update({ sort_order: (index + 1) * 10 })
+            .eq('id', id)
+        )
+      );
+      const error = results.find((result) => result.error)?.error;
+      if (error) throw error;
+    },
+    onMutate: async ({ projectId, taskIds }) => {
+      const queryKey = taskKeys.project(projectId);
+      await qc.cancelQueries({ queryKey });
+      const previous = qc.getQueryData<{ project: Project | null; tasks: Task[] }>(queryKey);
+      if (previous) {
+        const positions = new Map(taskIds.map((id, index) => [id, index]));
+        qc.setQueryData(queryKey, {
+          ...previous,
+          tasks: [...previous.tasks].sort(
+            (a, b) =>
+              (positions.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+              (positions.get(b.id) ?? Number.MAX_SAFE_INTEGER)
+          ),
+        });
+      }
+      return { previous, queryKey };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) qc.setQueryData(context.queryKey, context.previous);
+    },
+    onSettled: (_data, _error, variables) => {
+      qc.invalidateQueries({ queryKey: taskKeys.project(variables.projectId) });
+      qc.invalidateQueries({ queryKey: taskKeys.allTasks });
+    },
+  });
 }
 
 export function useDeleteTask() {

@@ -60,11 +60,13 @@ export function DatePicker({
   onChange,
   className,
   compact = false,
+  onOpenChange,
 }: {
   value: string | null;
   onChange: (value: string | null) => void;
   className?: string;
   compact?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = React.useState(false);
   const [anchor, setAnchor] = React.useState<Anchor | null>(null);
@@ -78,7 +80,12 @@ export function DatePicker({
       setMonth(parseDate(value) ?? new Date());
       setAnchor({ left, top, width, height });
       setOpen(true);
+      onOpenChange?.(true);
     });
+  const closePicker = () => {
+    setOpen(false);
+    onOpenChange?.(false);
+  };
 
   return (
     <View ref={triggerRef} collapsable={false}>
@@ -101,13 +108,13 @@ export function DatePicker({
       {anchor ? (
         <FadeModal
           visible={open}
-          onRequestClose={() => setOpen(false)}
+          onRequestClose={closePicker}
           onDismiss={() => setAnchor(null)}
         >
           <View className="flex-1">
             <Pressable
               className="absolute inset-0 cursor-default"
-              onPress={() => setOpen(false)}
+              onPress={closePicker}
             />
             <View
               className="absolute gap-3 rounded-md border border-border bg-popover p-3"
@@ -158,7 +165,7 @@ export function DatePicker({
                       key={dateString}
                       onPress={() => {
                         onChange(dateString);
-                        setOpen(false);
+                        closePicker();
                       }}
                       className={cn(
                         'h-9 w-[14.2857%] items-center justify-center rounded-sm hover:bg-accent',
@@ -188,7 +195,7 @@ export function DatePicker({
                   disabled={!value}
                   onPress={() => {
                     onChange(null);
-                    setOpen(false);
+                    closePicker();
                   }}
                 />
               </View>

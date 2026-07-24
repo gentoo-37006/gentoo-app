@@ -211,6 +211,7 @@ export function Select<T extends string>({
   placeholder = 'Select…',
   className,
   renderValue,
+  onOpenChange,
 }: {
   options: SelectOption<T>[];
   value: T | null;
@@ -218,6 +219,7 @@ export function Select<T extends string>({
   placeholder?: string;
   className?: string;
   renderValue?: (option: SelectOption<T>) => React.ReactNode;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = React.useState(false);
   const [anchor, setAnchor] = React.useState<Anchor | null>(null);
@@ -227,7 +229,12 @@ export function Select<T extends string>({
     triggerRef.current?.measureInWindow((left, top, width, height) => {
       setAnchor({ left, top, width, height });
       setOpen(true);
+      onOpenChange?.(true);
     });
+  const closeDropdown = () => {
+    setOpen(false);
+    onOpenChange?.(false);
+  };
 
   return (
     <View ref={triggerRef} collapsable={false}>
@@ -245,9 +252,9 @@ export function Select<T extends string>({
           isActive={(v) => v === value}
           onPick={(v) => {
             onChange(v);
-            setOpen(false);
+            closeDropdown();
           }}
-          onClose={() => setOpen(false)}
+          onClose={closeDropdown}
           onDismiss={() => setAnchor(null)}
           anchor={anchor}
           renderOption={renderValue}
@@ -267,6 +274,7 @@ export function MultiSelect<T extends string>({
   renderValue,
   renderOption,
   renderSelectedOption,
+  onOpenChange,
 }: {
   options: SelectOption<T>[];
   values: T[];
@@ -276,6 +284,7 @@ export function MultiSelect<T extends string>({
   renderValue?: (options: SelectOption<T>[]) => React.ReactNode;
   renderOption?: (option: SelectOption<T>) => React.ReactNode;
   renderSelectedOption?: (option: SelectOption<T>) => React.ReactNode;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = React.useState(false);
   const [anchor, setAnchor] = React.useState<Anchor | null>(null);
@@ -289,7 +298,12 @@ export function MultiSelect<T extends string>({
     triggerRef.current?.measureInWindow((left, top, width, height) => {
       setAnchor({ left, top, width, height });
       setOpen(true);
+      onOpenChange?.(true);
     });
+  const closeDropdown = () => {
+    setOpen(false);
+    onOpenChange?.(false);
+  };
 
   return (
     <View ref={triggerRef} collapsable={false}>
@@ -311,7 +325,7 @@ export function MultiSelect<T extends string>({
           options={options}
           isActive={(v) => values.includes(v)}
           onPick={(v) => onChange(values.includes(v) ? values.filter((x) => x !== v) : [...values, v])}
-          onClose={() => setOpen(false)}
+          onClose={closeDropdown}
           onDismiss={() => setAnchor(null)}
           anchor={anchor}
           renderOption={renderOption}

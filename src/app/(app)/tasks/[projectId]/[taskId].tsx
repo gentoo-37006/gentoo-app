@@ -14,7 +14,6 @@ import {
   Tag,
   Trash2,
   Users,
-  X,
   type LucideIcon,
 } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
@@ -84,17 +83,15 @@ function AssigneeDropdown({
       placeholder="Unassigned"
       className="h-auto min-h-10 rounded-md border-transparent bg-transparent px-2 py-1.5"
       renderValue={(selectedOptions) => (
-        <View className="flex-row flex-wrap gap-1.5">
+        <View className="flex-row flex-wrap gap-2">
           {selectedOptions.map((option) => {
             const member = members.find((item) => item.id === option.value);
             return (
-              <View
-                key={option.value}
-                className="flex-row items-center gap-1.5 rounded-sm bg-muted px-1.5 py-1"
-              >
-                <Avatar name={member?.full_name} uri={member?.avatar_url} size={22} />
-                <Text className="text-sm font-medium">{option.label}</Text>
-                <Icon as={X} size={13} className="text-muted-foreground" />
+              <View key={option.value} className="max-w-full flex-row items-center gap-1.5">
+                <Avatar name={member?.full_name} uri={member?.avatar_url} size={24} />
+                <Text variant="small" className="shrink">
+                  {option.label}
+                </Text>
               </View>
             );
           })}

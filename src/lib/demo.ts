@@ -159,9 +159,9 @@ function seedWorkspace(): DemoWorkspace {
   ];
 
   const tasks: Task[] = [
-    { id: 'task-1', project_id: 'project-pit', title: 'Label battery cables', notes: '## Why\n\nInspectors flagged unlabeled leads last event.\n\n- [ ] Print labels\n- [ ] Wrap both ends\n- [ ] Photograph for the log', status: 'in_progress', assignee_ids: [DEMO_PIT_ID, DEMO_ADMIN_ID], blocked_by: null, blocked_by_project: null, due_date: daysFromNow(1), priority: 'high', tags: ['pit', 'electrical'], created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
-    { id: 'task-2', project_id: 'project-pit', title: 'Charge driver station laptop', notes: null, status: 'blocked', assignee_ids: [DEMO_ADMIN_ID], blocked_by: 'task-1', blocked_by_project: null, due_date: daysFromNow(0, 18), priority: 'urgent', tags: ['drive'], created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
-    { id: 'task-3', project_id: 'project-scouting', title: 'Import qualification schedule', notes: null, status: 'todo', assignee_ids: [DEMO_STRATEGIST_ID], blocked_by: null, blocked_by_project: null, due_date: null, priority: 'medium', tags: ['scouting'], created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'task-1', project_id: 'project-pit', title: 'Label battery cables', notes: '## Why\n\nInspectors flagged unlabeled leads last event.\n\n- [ ] Print labels\n- [ ] Wrap both ends\n- [ ] Photograph for the log', status: 'in_progress', assignee_ids: [DEMO_PIT_ID, DEMO_ADMIN_ID], blocked_by: null, blocked_by_project: null, due_date: daysFromNow(1), priority: 'high', tags: ['pit', 'electrical'], sort_order: 10, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'task-2', project_id: 'project-pit', title: 'Charge driver station laptop', notes: null, status: 'blocked', assignee_ids: [DEMO_ADMIN_ID], blocked_by: 'task-1', blocked_by_project: null, due_date: daysFromNow(0, 18), priority: 'urgent', tags: ['drive'], sort_order: 20, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'task-3', project_id: 'project-scouting', title: 'Import qualification schedule', notes: null, status: 'todo', assignee_ids: [DEMO_STRATEGIST_ID], blocked_by: null, blocked_by_project: null, due_date: null, priority: 'medium', tags: ['scouting'], sort_order: 10, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
   ];
 
   return {
@@ -572,7 +572,9 @@ export async function demoProject(projectId: string) {
   const db = await getDemoWorkspace();
   return {
     project: db.projects.find((p) => p.id === projectId) ?? null,
-    tasks: db.tasks.filter((t) => t.project_id === projectId),
+    tasks: db.tasks
+      .filter((t) => t.project_id === projectId)
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.created_at.localeCompare(b.created_at)),
   };
 }
 
@@ -625,10 +627,13 @@ export async function demoDeleteProject(idValue: string) {
   await persist();
 }
 
-export async function demoCreateTask(vars: { project_id: string; title: string; notes: string | null; status: TaskStatus; assignee_ids: string[]; blocked_by: string | null; blocked_by_project: string | null; due_date: string | null; priority: Priority; tags: string[] }) {
+export async function demoCreateTask(vars: { project_id: string; title: string; notes: string | null; status: TaskStatus; assignee_ids: string[]; blocked_by: string | null; blocked_by_project: string | null; due_date: string | null; priority: Priority; tags: string[]; sort_order?: number }) {
   const db = await getDemoWorkspace();
   const taskId = id('task');
-  db.tasks.push({ id: taskId, created_by: DEMO_USER_ID, created_at: now(), updated_at: now(), ...vars });
+  const sortOrder =
+    vars.sort_order ??
+    Math.max(0, ...db.tasks.filter((task) => task.project_id === vars.project_id).map((task) => task.sort_order ?? 0)) + 10;
+  db.tasks.push({ id: taskId, created_by: DEMO_USER_ID, created_at: now(), updated_at: now(), ...vars, sort_order: sortOrder });
   await persist();
   return taskId;
 }
@@ -636,6 +641,16 @@ export async function demoCreateTask(vars: { project_id: string; title: string; 
 export async function demoUpdateTask(idValue: string, patch: Partial<Omit<Task, 'id' | 'project_id' | 'created_at' | 'updated_at'>>) {
   const db = await getDemoWorkspace();
   db.tasks = db.tasks.map((t) => (t.id === idValue ? { ...t, ...patch, updated_at: now() } : t));
+  await persist();
+}
+
+export async function demoReorderTasks(taskIds: string[]) {
+  const db = await getDemoWorkspace();
+  const positions = new Map(taskIds.map((idValue, index) => [idValue, (index + 1) * 10]));
+  db.tasks = db.tasks.map((task) => {
+    const sortOrder = positions.get(task.id);
+    return sortOrder === undefined ? task : { ...task, sort_order: sortOrder };
+  });
   await persist();
 }
 
