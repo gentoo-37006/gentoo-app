@@ -3,6 +3,9 @@ import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import {
+  ChevronLeft,
+  CircleDot,
+  Flag,
   FolderX,
   Plus,
   Pencil,
@@ -22,6 +25,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { DeleteButton } from '@/components/ui/delete-button';
 import { Badge } from '@/components/ui/badge';
@@ -40,7 +44,7 @@ import {
   useUpdateProject,
   useTrashProject,
 } from '@/lib/queries/tasks';
-import { priorityVariant, taskStatusVariant, labelOf } from '@/lib/task-style';
+import { priorityVariant, projectStatusVariant, taskStatusVariant, labelOf } from '@/lib/task-style';
 import {
   PRIORITIES,
   PROJECT_STATUSES,
@@ -141,6 +145,7 @@ function FilterMenu({ groups }: { groups: FilterGroup[] }) {
 }
 
 /** Centered scrollable overlay; the backdrop dismisses, the sheet swallows taps. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ModalSheet({
   visible,
   onClose,
@@ -191,6 +196,7 @@ function BlockerSelect({
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function TaskEditor({
   projectId,
   projectName,
@@ -612,16 +618,25 @@ export default function ProjectDetailScreen() {
   }>();
   const { data, isLoading } = useProject(projectId);
   const { data: profiles } = useProfiles();
+  const createTask = useCreateTask();
   const updateProject = useUpdateProject();
   const trashProject = useTrashProject();
 
-  const [adding, setAdding] = React.useState(false);
-  const [addMounted, setAddMounted] = React.useState(false);
-  const openAddTask = () => {
-    setAddMounted(true);
-    setAdding(true);
+  const addTask = async () => {
+    await createTask.mutateAsync({
+      project_id: projectId,
+      projectName: data?.project?.name ?? 'Project',
+      title: 'New task',
+      notes: null,
+      status: 'todo',
+      assignee_ids: [],
+      blocked_by: null,
+      blocked_by_project: null,
+      due_date: null,
+      priority: 'medium',
+      tags: [],
+    });
   };
-  const closeAddTask = () => setAdding(false);
 
   // Deep-linked task (?task=<id> from a notification tap): highlight its row,
   // let the emphasis fade after a few seconds. Render-time adjustment keeps
@@ -640,6 +655,28 @@ export default function ProjectDetailScreen() {
   const [fAssignee, setFAssignee] = React.useState<string>('any');
   const [fPriority, setFPriority] = React.useState<string>('any');
   const [fTag, setFTag] = React.useState<string>('any');
+  const [draftProjectId, setDraftProjectId] = React.useState<string | null>(null);
+  const [nameDraft, setNameDraft] = React.useState('');
+  const [descriptionDraft, setDescriptionDraft] = React.useState('');
+  const [descriptionInputHeight, setDescriptionInputHeight] = React.useState(20);
+  const nameSaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const descriptionSaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(
+    () => () => {
+      if (nameSaveTimer.current) clearTimeout(nameSaveTimer.current);
+      if (descriptionSaveTimer.current) clearTimeout(descriptionSaveTimer.current);
+    },
+    []
+  );
+
+  const project = data?.project;
+  if (project && draftProjectId !== project.id) {
+    setDraftProjectId(project.id);
+    setNameDraft(project.name);
+    setDescriptionDraft(project.description ?? '');
+    setDescriptionInputHeight(20);
+  }
 
   if (isLoading) {
     return (
@@ -652,7 +689,6 @@ export default function ProjectDetailScreen() {
     );
   }
 
-  const project = data?.project;
   if (!project) {
     return (
       <Screen>
@@ -682,42 +718,139 @@ export default function ProjectDetailScreen() {
   ];
   const priorityFilterOptions = [{ value: 'any', label: 'Any priority' }, ...PRIORITIES];
   const tagFilterOptions = [{ value: 'any', label: 'All tags' }, ...allTags.map((t) => ({ value: t, label: t }))];
+  const commitName = (value: string) => {
+    const name = value.trim();
+    if (name && name !== project.name) updateProject.mutate({ id: project.id, name });
+  };
+  const commitDescription = (value: string) => {
+    const description = value.trim() || null;
+    if (description !== project.description) updateProject.mutate({ id: project.id, description });
+  };
+  const changeName = (value: string) => {
+    setNameDraft(value);
+    if (nameSaveTimer.current) clearTimeout(nameSaveTimer.current);
+    const name = value.trim();
+    if (!name || name === project.name) {
+      nameSaveTimer.current = null;
+      return;
+    }
+    nameSaveTimer.current = setTimeout(() => {
+      nameSaveTimer.current = null;
+      commitName(value);
+    }, 600);
+  };
+  const changeDescription = (value: string) => {
+    setDescriptionDraft(value);
+    if (descriptionSaveTimer.current) clearTimeout(descriptionSaveTimer.current);
+    const description = value.trim() || null;
+    if (description === project.description) {
+      descriptionSaveTimer.current = null;
+      return;
+    }
+    descriptionSaveTimer.current = setTimeout(() => {
+      descriptionSaveTimer.current = null;
+      commitDescription(value);
+    }, 600);
+  };
+  const finishNameEditing = () => {
+    if (nameSaveTimer.current) {
+      clearTimeout(nameSaveTimer.current);
+      nameSaveTimer.current = null;
+      commitName(nameDraft);
+    }
+    if (!nameDraft.trim()) setNameDraft(project.name);
+  };
+  const finishDescriptionEditing = () => {
+    if (descriptionSaveTimer.current) {
+      clearTimeout(descriptionSaveTimer.current);
+      descriptionSaveTimer.current = null;
+      commitDescription(descriptionDraft);
+    }
+  };
 
   return (
-    <Screen>
-      <ScreenHeader title={project.name} description={project.description ?? undefined} backHref="/tasks">
-        <DeleteButton
-          variant="outline"
-          size="icon"
-          icon={Trash2}
-          accessibilityLabel="Move project to trash"
-          onPress={() => {
-            trashProject.mutate(project.id);
-            router.replace('/tasks' as any);
-          }}
-        />
-      </ScreenHeader>
+    <Screen contentClassName="gap-7">
+      <View className="gap-2">
+        <Pressable
+          className="-ml-1 flex-row items-center gap-1 self-start py-1 active:opacity-70"
+          onPress={() => router.back()}
+        >
+          <Icon as={ChevronLeft} size={18} className="text-muted-foreground" />
+          <Text variant="muted">Back</Text>
+        </Pressable>
 
-      <Card>
-        <CardContent className="flex-row gap-2 p-4">
-          <View className="flex-1 gap-1.5">
-            <Text variant="label">Status</Text>
-            <Select
-              options={PROJECT_STATUSES}
-              value={project.status}
-              onChange={(s) => updateProject.mutate({ id: project.id, status: s })}
+        <View className="flex-row items-start justify-between gap-4">
+          <View className="flex-1 gap-2">
+            <Input
+              value={nameDraft}
+              onChangeText={changeName}
+              onBlur={finishNameEditing}
+              onSubmitEditing={finishNameEditing}
+              className="h-auto min-h-8 rounded-none border-0 bg-transparent px-0 py-0 text-2xl font-bold tracking-tight outline-none focus:border-transparent"
             />
+
+            <View className="min-h-8 justify-center">
+              <Textarea
+                value={descriptionDraft}
+                onChangeText={changeDescription}
+                onBlur={finishDescriptionEditing}
+                onContentSizeChange={(event) =>
+                  setDescriptionInputHeight(Math.max(20, event.nativeEvent.contentSize.height))
+                }
+                scrollEnabled={false}
+                placeholder="Add a description"
+                className="min-h-5 resize-none rounded-none border-0 bg-transparent p-0 text-sm outline-none focus:border-transparent"
+                style={{ height: descriptionInputHeight }}
+              />
+            </View>
           </View>
-          <View className="flex-1 gap-1.5">
-            <Text variant="label">Priority</Text>
-            <Select
-              options={PRIORITIES}
-              value={project.priority}
-              onChange={(p) => updateProject.mutate({ id: project.id, priority: p })}
-            />
+
+          <DeleteButton
+            variant="outline"
+            size="icon"
+            icon={Trash2}
+            accessibilityLabel="Move project to trash"
+            onPress={() => {
+              trashProject.mutate(project.id);
+              router.replace('/tasks' as any);
+            }}
+          />
+        </View>
+      </View>
+
+      <View className="flex-row flex-wrap gap-x-10 gap-y-6">
+        <View className="w-full flex-none gap-2 sm:w-52">
+          <View className="flex-row items-center gap-2">
+            <Icon as={CircleDot} size={16} className="text-muted-foreground" />
+            <Text variant="muted">Status</Text>
           </View>
-        </CardContent>
-      </Card>
+          <Select
+            options={PROJECT_STATUSES}
+            value={project.status}
+            onChange={(status) => updateProject.mutate({ id: project.id, status })}
+            renderValue={(option) => (
+              <Badge variant={projectStatusVariant(option.value)} label={option.label} />
+            )}
+            className="h-10 rounded-md"
+          />
+        </View>
+
+        <View className="w-full flex-none gap-2 sm:w-52">
+          <View className="flex-row items-center gap-2">
+            <Icon as={Flag} size={16} className="text-muted-foreground" />
+            <Text variant="muted">Priority</Text>
+          </View>
+          <Select
+            options={PRIORITIES}
+            value={project.priority}
+            onChange={(priority) => updateProject.mutate({ id: project.id, priority })}
+            renderValue={(option) => (
+              <Badge variant={priorityVariant(option.value)} label={option.label} />
+            )}
+            className="h-10 rounded-md"
+          />
+        </View>
+      </View>
 
       <View className="flex-row items-center justify-between">
         <Text variant="title">Tasks ({tasks.length})</Text>
@@ -733,28 +866,16 @@ export default function ProjectDetailScreen() {
               ]}
             />
           ) : null}
-          <Button size="sm" label="Add task" icon={Plus} onPress={openAddTask} />
+          <Button
+            size="sm"
+            label="Add task"
+            icon={Plus}
+            loading={createTask.isPending}
+            disabled={createTask.isPending}
+            onPress={addTask}
+          />
         </View>
       </View>
-
-      {addMounted ? (
-        <ModalSheet
-          visible={adding}
-          onClose={closeAddTask}
-          onDismiss={() => setAddMounted(false)}
-        >
-          <TaskEditor
-            projectId={project.id}
-            projectName={project.name}
-            members={members}
-            siblings={tasks}
-            onDone={(createdId) => {
-              closeAddTask();
-              if (createdId) router.push(`/tasks/${project.id}/${createdId}` as any);
-            }}
-          />
-        </ModalSheet>
-      ) : null}
 
       {tasks.length === 0 ? (
         <EmptyState icon={Plus} title="No tasks yet" description="Add the first task to get this project moving." />

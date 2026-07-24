@@ -14,6 +14,7 @@ import {
   FolderKanban,
   Pencil,
   Tag,
+  Trash2,
   Users,
   X,
   type LucideIcon,
@@ -24,6 +25,7 @@ import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { DeleteButton } from '@/components/ui/delete-button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { Icon } from '@/components/ui/icon';
@@ -31,7 +33,13 @@ import { Markdown } from '@/components/ui/markdown';
 import { Select } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FadeModal } from '@/components/ui/fade-modal';
-import { useAllTasks, useProject, useProjects, useUpdateTask } from '@/lib/queries/tasks';
+import {
+  useAllTasks,
+  useDeleteTask,
+  useProject,
+  useProjects,
+  useUpdateTask,
+} from '@/lib/queries/tasks';
 import { useProfiles } from '@/lib/queries/profiles';
 import { PRIORITIES, TASK_STATUSES, type Profile, type TaskStatus } from '@/lib/types';
 import { priorityVariant, taskStatusVariant } from '@/lib/task-style';
@@ -47,7 +55,7 @@ function TaskField({
   children: React.ReactNode;
 }) {
   return (
-    <View className="min-w-40 flex-1 gap-2">
+    <View className="w-full flex-none gap-2 sm:w-52">
       <View className="flex-row items-center gap-2">
         <Icon as={icon} size={16} className="text-muted-foreground" />
         <Text variant="muted">{label}</Text>
@@ -168,6 +176,7 @@ export default function TaskNotesScreen() {
   const { data: allTasks } = useAllTasks();
   const { data: projects } = useProjects();
   const update = useUpdateTask();
+  const deleteTask = useDeleteTask();
   const task = data?.tasks.find((t) => t.id === taskId);
 
   // Seed the draft once the task arrives; the page always opens in preview.
@@ -178,6 +187,16 @@ export default function TaskNotesScreen() {
   const [titleDraft, setTitleDraft] = React.useState('');
   const [tagsDraft, setTagsDraft] = React.useState('');
   const [blockerError, setBlockerError] = React.useState<string | null>(null);
+  const titleSaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notesSaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(
+    () => () => {
+      if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
+      if (notesSaveTimer.current) clearTimeout(notesSaveTimer.current);
+    },
+    []
+  );
   if (task && loadedId !== task.id) {
     setLoadedId(task.id);
     setDraft(task.notes ?? '');
@@ -209,8 +228,6 @@ export default function TaskNotesScreen() {
     );
   }
 
-  const dirty = draft !== (task.notes ?? '');
-  const save = () => update.mutate({ id: task.id, notes: draft.trim() || null });
   const project = data?.project;
   const members = (profiles ?? []).filter((profile) => profile.status === 'approved');
   const taskBlockerOptions = (allTasks ?? [])
@@ -233,10 +250,57 @@ export default function TaskNotesScreen() {
       ? `project:${task.blocked_by_project}`
       : 'none';
 
-  const saveTitle = () => {
-    const title = titleDraft.trim();
+  const commitTitle = (value: string) => {
+    const title = value.trim();
     if (title && title !== task.title) update.mutate({ id: task.id, title });
-    setEditingField(null);
+  };
+  const changeTitle = (value: string) => {
+    setTitleDraft(value);
+    if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
+    const title = value.trim();
+    if (!title || title === task.title) {
+      titleSaveTimer.current = null;
+      return;
+    }
+    titleSaveTimer.current = setTimeout(() => {
+      titleSaveTimer.current = null;
+      commitTitle(value);
+    }, 600);
+  };
+  const finishTitleEditing = () => {
+    if (titleSaveTimer.current) {
+      clearTimeout(titleSaveTimer.current);
+      titleSaveTimer.current = null;
+      commitTitle(titleDraft);
+    }
+    if (!titleDraft.trim()) setTitleDraft(task.title);
+  };
+  const commitNotes = (value: string) => {
+    const notes = value.trim() || null;
+    if (notes !== task.notes) update.mutate({ id: task.id, notes });
+  };
+  const changeNotes = (value: string) => {
+    setDraft(value);
+    if (notesSaveTimer.current) clearTimeout(notesSaveTimer.current);
+    const notes = value.trim() || null;
+    if (notes === task.notes) {
+      notesSaveTimer.current = null;
+      return;
+    }
+    notesSaveTimer.current = setTimeout(() => {
+      notesSaveTimer.current = null;
+      commitNotes(value);
+    }, 600);
+  };
+  const flushNotes = () => {
+    if (!notesSaveTimer.current) return;
+    clearTimeout(notesSaveTimer.current);
+    notesSaveTimer.current = null;
+    commitNotes(draft);
+  };
+  const toggleNotesMode = () => {
+    if (editing) flushNotes();
+    setEditing((value) => !value);
   };
   const saveTags = () => {
     const tags = Array.from(
@@ -252,7 +316,7 @@ export default function TaskNotesScreen() {
   };
 
   return (
-    <Screen maxWidth="max-w-5xl" contentClassName="gap-7">
+    <Screen maxWidth="max-w-6xl" contentClassName="gap-7">
       <View className="gap-2">
         <Pressable
           className="-ml-1 flex-row items-center gap-1 self-start py-1 active:opacity-70"
@@ -263,45 +327,25 @@ export default function TaskNotesScreen() {
         </Pressable>
         <View className="flex-row items-start justify-between gap-4">
           <View className="flex-1">
-            {editingField === 'title' ? (
-              <Input
-                autoFocus
-                value={titleDraft}
-                onChangeText={setTitleDraft}
-                onBlur={saveTitle}
-                onSubmitEditing={saveTitle}
-                className="h-12 px-0 text-2xl font-bold"
-              />
-            ) : (
-              <Pressable
-                className="self-start active:opacity-70"
-                onPress={() => {
-                  setTitleDraft(task.title);
-                  setEditingField('title');
-                }}
-              >
-                <Text variant="h2">{task.title}</Text>
-              </Pressable>
-            )}
-          </View>
-          <View className="flex-row items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              label={editing ? 'Preview' : 'Edit notes'}
-              icon={editing ? Eye : Pencil}
-              onPress={() => setEditing((value) => !value)}
+            <Input
+              value={titleDraft}
+              onChangeText={changeTitle}
+              onBlur={finishTitleEditing}
+              onSubmitEditing={finishTitleEditing}
+              className="h-auto min-h-8 rounded-none border-0 bg-transparent px-0 py-0 text-2xl font-bold tracking-tight outline-none focus:border-transparent"
             />
-            {editing ? (
-              <Button
-                size="sm"
-                label="Save"
-                loading={update.isPending}
-                disabled={!dirty || update.isPending}
-                onPress={save}
-              />
-            ) : null}
           </View>
+          <DeleteButton
+            variant="outline"
+            size="icon"
+            icon={Trash2}
+            accessibilityLabel="Delete task"
+            disabled={deleteTask.isPending}
+            onPress={() => {
+              deleteTask.mutate(task.id);
+              router.replace(backHref as any);
+            }}
+          />
         </View>
       </View>
 
@@ -407,82 +451,82 @@ export default function TaskNotesScreen() {
             <Text className="text-sm font-medium underline">{project?.name ?? 'Project'}</Text>
           </Pressable>
         </TaskField>
-      </View>
 
-      <View className="gap-4">
-        <Text variant="muted">Properties</Text>
-        <View className="flex-row flex-wrap gap-x-10 gap-y-6">
-          <TaskField icon={Flag} label="Priority">
-            <Select
-              options={PRIORITIES}
-              value={task.priority}
-              onChange={(priority) => update.mutate({ id: task.id, priority })}
-              renderValue={(option) => (
-                <Badge variant={priorityVariant(option.value)} label={option.label} />
-              )}
-              className="h-10 rounded-md"
-            />
-          </TaskField>
-
-          <TaskField icon={Tag} label="Tags">
-            {editingField === 'tags' ? (
-              <Input
-                autoFocus
-                value={tagsDraft}
-                onChangeText={setTagsDraft}
-                onBlur={saveTags}
-                onSubmitEditing={saveTags}
-                placeholder="Comma-separated tags"
-                autoCapitalize="none"
-                className="h-9 rounded-md"
-              />
-            ) : (
-              <Pressable
-                className="self-start active:opacity-70"
-                onPress={() => {
-                  setTagsDraft(task.tags.join(', '));
-                  setEditingField('tags');
-                }}
-              >
-                {task.tags.length > 0 ? (
-                  <View className="flex-row flex-wrap gap-2">
-                    {task.tags.map((tag) => <Badge key={tag} variant="secondary" label={tag} />)}
-                  </View>
-                ) : (
-                  <Text variant="muted">No tags</Text>
-                )}
-              </Pressable>
+        <TaskField icon={Flag} label="Priority">
+          <Select
+            options={PRIORITIES}
+            value={task.priority}
+            onChange={(priority) => update.mutate({ id: task.id, priority })}
+            renderValue={(option) => (
+              <Badge variant={priorityVariant(option.value)} label={option.label} />
             )}
-          </TaskField>
-        </View>
+            className="h-10 rounded-md"
+          />
+        </TaskField>
+
+        <TaskField icon={Tag} label="Tags">
+          {editingField === 'tags' ? (
+            <Input
+              autoFocus
+              value={tagsDraft}
+              onChangeText={setTagsDraft}
+              onBlur={saveTags}
+              onSubmitEditing={saveTags}
+              placeholder="Comma-separated tags"
+              autoCapitalize="none"
+              className="h-9 rounded-md"
+            />
+          ) : (
+            <Pressable
+              className="self-start active:opacity-70"
+              onPress={() => {
+                setTagsDraft(task.tags.join(', '));
+                setEditingField('tags');
+              }}
+            >
+              {task.tags.length > 0 ? (
+                <View className="flex-row flex-wrap gap-2">
+                  {task.tags.map((tag) => <Badge key={tag} variant="secondary" label={tag} />)}
+                </View>
+              ) : (
+                <Text variant="muted">No tags</Text>
+              )}
+            </Pressable>
+          )}
+        </TaskField>
       </View>
 
-      <View className="min-h-[420px] gap-4 border-t border-border pt-5">
-        <View className="flex-row items-center justify-between gap-4">
-          <Text variant="title">Notes</Text>
-          <Text variant="small">Markdown supported</Text>
+      <View className="gap-2">
+        <View className="flex-row justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            label={editing ? 'Preview' : 'Edit'}
+            icon={editing ? Eye : Pencil}
+            onPress={toggleNotesMode}
+          />
         </View>
-
-        {editing ? (
-          <Textarea
-          value={draft}
-          onChangeText={setDraft}
-          placeholder={'# Heading\n\nWrite anything — **bold**, lists, `code`, [links](https://example.com).'}
-          className="min-h-[380px] rounded-none border-0 bg-transparent px-0 text-base focus:border-transparent"
-        />
-      ) : draft ? (
-        <View className="min-h-[320px] py-1">
-            <Markdown value={draft} />
+        <View className="min-h-[420px] border-t border-border pt-4">
+          {editing ? (
+            <Textarea
+              autoFocus
+              value={draft}
+              onChangeText={changeNotes}
+              onBlur={flushNotes}
+              placeholder={'# Heading\n\nWrite anything - **bold**, lists, `code`, [links](https://example.com).'}
+              className="min-h-[380px] resize-none rounded-none border-0 bg-transparent p-0 text-base outline-none focus:border-transparent"
+            />
+          ) : draft ? (
+            <View className="min-h-[320px]">
+              <Markdown value={draft} />
+            </View>
+          ) : (
+            <View className="min-h-[280px]">
+              <Text variant="muted">No notes yet. Switch to Edit to add them.</Text>
+            </View>
+          )}
         </View>
-      ) : (
-        <View className="min-h-[280px] items-start gap-3 py-2">
-          <Text variant="muted">No notes yet. Write down the plan, links, or anything worth keeping.</Text>
-          <Button variant="outline" label="Write notes" icon={Pencil} onPress={() => setEditing(true)} />
-        </View>
-      )}
       </View>
-
-      {dirty && !editing ? <Text variant="small">Unsaved changes — switch to Edit to save them.</Text> : null}
     </Screen>
   );
 }
