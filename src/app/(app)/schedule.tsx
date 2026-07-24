@@ -1,16 +1,16 @@
 import * as React from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { CalendarClock, Wand2, Trash2 } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
-import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { DeleteButton } from '@/components/ui/delete-button';
 import { Avatar } from '@/components/ui/avatar';
 import { OptionChips } from '@/components/ui/option-chips';
-import { cn } from '@/lib/utils';
+import { MultiSelect, Select, type SelectOption } from '@/components/ui/select';
 import { formatTime, formatDayLabel } from '@/lib/format';
 import { generateSchedule } from '@/lib/scheduler';
 import { useProfiles } from '@/lib/queries/profiles';
@@ -22,7 +22,6 @@ import {
   useDeleteShift,
   type ShiftWithAssignee,
 } from '@/lib/queries/schedule';
-import type { Profile } from '@/lib/types';
 
 const SHIFT_LENGTHS = [
   { value: '30', label: '30 min' },
@@ -40,23 +39,17 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function Generator({ members, onClose }: { members: Profile[]; onClose: () => void }) {
+function Generator({ options, onClose }: { options: SelectOption<string>[]; onClose: () => void }) {
   const replace = useReplaceSchedule();
   const [date, setDate] = React.useState(todayISO());
   const [startT, setStartT] = React.useState('08:00');
   const [endT, setEndT] = React.useState('17:00');
   const [len, setLen] = React.useState('60');
   const [per, setPer] = React.useState('1');
-  const [selected, setSelected] = React.useState<Set<string> | null>(null);
+  const [selected, setSelected] = React.useState<string[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
-  const effective = selected ?? new Set(members.map((m) => m.id));
-  const toggle = (id: string) => {
-    const next = new Set(effective);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelected(next);
-  };
+  const effective = selected ?? options.map((o) => o.value);
 
   const onGenerate = async () => {
     setError(null);
@@ -70,8 +63,7 @@ function Generator({ members, onClose }: { members: Profile[]; onClose: () => vo
       setError('End time must be after start time.');
       return;
     }
-    const memberIds = [...effective];
-    if (memberIds.length === 0) {
+    if (effective.length === 0) {
       setError('Select at least one person.');
       return;
     }
@@ -80,7 +72,7 @@ function Generator({ members, onClose }: { members: Profile[]; onClose: () => vo
       end,
       shiftMinutes: parseInt(len, 10),
       peoplePerShift: parseInt(per, 10),
-      memberIds,
+      memberIds: effective,
     });
     if (shifts.length === 0) {
       setError('That window is shorter than one shift.');
@@ -117,26 +109,8 @@ function Generator({ members, onClose }: { members: Profile[]; onClose: () => vo
           <OptionChips options={PER_SHIFT} value={per} onChange={setPer} />
         </View>
         <View className="gap-1.5">
-          <Text variant="label">Who’s available ({effective.size})</Text>
-          <View className="flex-row flex-wrap gap-2">
-            {members.map((m) => {
-              const active = effective.has(m.id);
-              return (
-                <Pressable
-                  key={m.id}
-                  onPress={() => toggle(m.id)}
-                  className={cn(
-                    'rounded-sm border px-3 py-1.5',
-                    active ? 'border-primary bg-primary' : 'border-border bg-background active:bg-accent'
-                  )}
-                >
-                  <Text className={cn('text-xs font-semibold', active ? 'text-primary-foreground' : 'text-foreground')}>
-                    {m.full_name ?? 'Member'}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <Text variant="label">Who’s available ({effective.length})</Text>
+          <MultiSelect options={options} values={effective} onChange={setSelected} placeholder="No one selected" />
         </View>
 
         {error ? <Text className="text-destructive">{error}</Text> : null}
@@ -150,61 +124,33 @@ function Generator({ members, onClose }: { members: Profile[]; onClose: () => vo
   );
 }
 
-function ShiftRow({ shift, members }: { shift: ShiftWithAssignee; members: Profile[] }) {
+function ShiftRow({ shift, options }: { shift: ShiftWithAssignee; options: SelectOption<string>[] }) {
   const reassign = useReassignShift();
   const del = useDeleteShift();
-  const [editing, setEditing] = React.useState(false);
 
   return (
     <Card>
-      <CardContent className="gap-2 p-3">
+      <CardContent className="p-3">
         <View className="flex-row items-center gap-3">
           <View className="w-28">
             <Text className="text-sm font-semibold">{formatTime(shift.start_time)}</Text>
             <Text variant="small">to {formatTime(shift.end_time)}</Text>
           </View>
-          <Pressable className="flex-1 flex-row items-center gap-2" onPress={() => setEditing((e) => !e)}>
-            {shift.assignee ? (
-              <>
-                <Avatar name={shift.assignee.full_name} uri={shift.assignee.avatar_url} size={24} />
-                <Text className="text-sm font-medium">{shift.assignee.full_name ?? 'Member'}</Text>
-              </>
-            ) : (
-              <Text variant="muted">Unassigned — tap to set</Text>
-            )}
-          </Pressable>
-          <Pressable
+          {shift.assignee ? <Avatar name={shift.assignee.full_name} uri={shift.assignee.avatar_url} size={24} /> : null}
+          <Select
+            className="flex-1"
+            options={options}
+            value={shift.assignee_id ?? 'none'}
+            onChange={(v) => reassign.mutate({ id: shift.id, assigneeId: v === 'none' ? null : v })}
+          />
+          <DeleteButton
+            variant="ghost"
+            size="icon"
             onPress={() => del.mutate(shift.id)}
-            className="h-8 w-8 items-center justify-center rounded-sm active:bg-accent"
-          >
-            <Icon as={Trash2} size={16} className="text-muted-foreground" />
-          </Pressable>
+            className="h-8 w-8 rounded-sm"
+            accessibilityLabel="Delete shift"
+          />
         </View>
-
-        {editing ? (
-          <View className="flex-row flex-wrap gap-2 border-t border-border pt-2">
-            {members.map((m) => {
-              const active = shift.assignee_id === m.id;
-              return (
-                <Pressable
-                  key={m.id}
-                  onPress={() => {
-                    reassign.mutate({ id: shift.id, assigneeId: active ? null : m.id });
-                    setEditing(false);
-                  }}
-                  className={cn(
-                    'rounded-sm border px-3 py-1.5',
-                    active ? 'border-primary bg-primary' : 'border-border bg-background active:bg-accent'
-                  )}
-                >
-                  <Text className={cn('text-xs font-semibold', active ? 'text-primary-foreground' : 'text-foreground')}>
-                    {m.full_name ?? 'Member'}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : null}
       </CardContent>
     </Card>
   );
@@ -216,7 +162,10 @@ export default function ScheduleScreen() {
   const clear = useClearSchedule();
   const [showGen, setShowGen] = React.useState(false);
 
-  const members = (profiles ?? []).filter((p) => p.status === 'approved');
+  const memberOptions = (profiles ?? [])
+    .filter((p) => p.status === 'approved')
+    .map((p) => ({ value: p.id, label: p.full_name ?? 'Member' }));
+  const shiftAssigneeOptions = [{ value: 'none', label: 'Unassigned' }, ...memberOptions];
   const list = shifts ?? [];
 
   // Group shifts by day.
@@ -235,7 +184,7 @@ export default function ScheduleScreen() {
     <Screen>
       <ScreenHeader title="Pit schedule" description="Fair rotations for who staffs the pit.">
         {list.length > 0 ? (
-          <Button
+          <DeleteButton
             variant="outline"
             size="icon"
             icon={Trash2}
@@ -247,7 +196,7 @@ export default function ScheduleScreen() {
         {!showGen ? <Button label="Generate" icon={Wand2} onPress={() => setShowGen(true)} /> : null}
       </ScreenHeader>
 
-      {showGen ? <Generator members={members} onClose={() => setShowGen(false)} /> : null}
+      {showGen ? <Generator options={memberOptions} onClose={() => setShowGen(false)} /> : null}
 
       {isLoading ? (
         <View className="py-12">
@@ -266,7 +215,7 @@ export default function ScheduleScreen() {
           <View key={d.label} className="gap-2">
             <Text variant="title">{d.label}</Text>
             {d.shifts.map((s) => (
-              <ShiftRow key={s.id} shift={s} members={members} />
+              <ShiftRow key={s.id} shift={s} options={shiftAssigneeOptions} />
             ))}
           </View>
         ))

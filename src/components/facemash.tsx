@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Check, ChevronRight, Search, Swords, X } from 'lucide-react-native';
 import { Text } from '@/components/ui/text';
@@ -7,6 +7,7 @@ import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { FadeModal } from '@/components/ui/fade-modal';
 import { cn } from '@/lib/utils';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useEventTeamStats, useTeamMatchReports, type EventTeamStats } from '@/lib/queries/facemash';
@@ -521,7 +522,7 @@ export function FacemashModal({
     ) : null;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
+    <FadeModal visible={visible} onRequestClose={close}>
       <View className="flex-1 items-center justify-center bg-black/60 p-2 md:p-5">
         <View className="w-full max-w-[1400px] flex-1 rounded-md border border-border bg-card">
           <View className="flex-row items-center gap-2 border-b border-border px-4 py-3">
@@ -604,6 +605,6 @@ export function FacemashModal({
           )}
         </View>
       </View>
-    </Modal>
+    </FadeModal>
   );
 }

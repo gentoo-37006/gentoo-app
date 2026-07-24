@@ -23,7 +23,7 @@ import type {
 import type { ParsedMatch } from '@/lib/csv';
 import type { GeneratedShift } from '@/lib/scheduler';
 
-const STORAGE_KEY = 'gentoo.demo.workspace.v1';
+const STORAGE_KEY = 'gentoo.demo.workspace.v2';
 const AUTH_KEY = 'gentoo.demo.enabled.v1';
 
 export const DEMO_USER_ID = 'demo-user';
@@ -159,9 +159,9 @@ function seedWorkspace(): DemoWorkspace {
   ];
 
   const tasks: Task[] = [
-    { id: 'task-1', project_id: 'project-pit', title: 'Label battery cables', status: 'in_progress', assignee_id: DEMO_PIT_ID, due_date: daysFromNow(1), priority: 'high', tags: ['pit', 'electrical'], created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
-    { id: 'task-2', project_id: 'project-pit', title: 'Charge driver station laptop', status: 'todo', assignee_id: DEMO_ADMIN_ID, due_date: daysFromNow(0, 18), priority: 'urgent', tags: ['drive'], created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
-    { id: 'task-3', project_id: 'project-scouting', title: 'Import qualification schedule', status: 'done', assignee_id: DEMO_STRATEGIST_ID, due_date: null, priority: 'medium', tags: ['scouting'], created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'task-1', project_id: 'project-pit', title: 'Label battery cables', notes: '## Why\n\nInspectors flagged unlabeled leads last event.\n\n- [ ] Print labels\n- [ ] Wrap both ends\n- [ ] Photograph for the log', status: 'in_progress', assignee_ids: [DEMO_PIT_ID, DEMO_ADMIN_ID], blocked_by: null, blocked_by_project: null, due_date: daysFromNow(1), priority: 'high', tags: ['pit', 'electrical'], created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'task-2', project_id: 'project-pit', title: 'Charge driver station laptop', notes: null, status: 'blocked', assignee_ids: [DEMO_ADMIN_ID], blocked_by: 'task-1', blocked_by_project: null, due_date: daysFromNow(0, 18), priority: 'urgent', tags: ['drive'], created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'task-3', project_id: 'project-scouting', title: 'Import qualification schedule', notes: null, status: 'todo', assignee_ids: [DEMO_STRATEGIST_ID], blocked_by: null, blocked_by_project: null, due_date: null, priority: 'medium', tags: ['scouting'], created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
   ];
 
   return {
@@ -554,7 +554,7 @@ export async function demoProjects() {
     .filter((p) => !p.deleted_at)
     .map((p) => ({
       ...p,
-      tasks: db.tasks.filter((t) => t.project_id === p.id).map(({ id, status }) => ({ id, status })),
+      tasks: db.tasks.filter((t) => t.project_id === p.id).map(({ id }) => ({ id })),
     }));
 }
 
@@ -564,7 +564,7 @@ export async function demoTrashedProjects() {
     .filter((p) => !!p.deleted_at)
     .map((p) => ({
       ...p,
-      tasks: db.tasks.filter((t) => t.project_id === p.id).map(({ id, status }) => ({ id, status })),
+      tasks: db.tasks.filter((t) => t.project_id === p.id).map(({ id }) => ({ id })),
     }));
 }
 
@@ -572,28 +572,21 @@ export async function demoProject(projectId: string) {
   const db = await getDemoWorkspace();
   return {
     project: db.projects.find((p) => p.id === projectId) ?? null,
-    tasks: db.tasks
-      .filter((t) => t.project_id === projectId)
-      .map((t) => {
-        const assignee = db.profiles.find((p) => p.id === t.assignee_id);
-        return { ...t, assignee: assignee ? { full_name: assignee.full_name, avatar_url: assignee.avatar_url } : null };
-      }),
+    tasks: db.tasks.filter((t) => t.project_id === projectId),
   };
 }
 
 export async function demoMyOpenTaskCount(uid = DEMO_USER_ID) {
   const db = await getDemoWorkspace();
   const activeProjects = new Set(db.projects.filter((p) => !p.deleted_at).map((p) => p.id));
-  return db.tasks.filter(
-    (t) => t.assignee_id === uid && t.status !== 'done' && activeProjects.has(t.project_id)
-  ).length;
+  return db.tasks.filter((t) => t.assignee_ids.includes(uid) && activeProjects.has(t.project_id)).length;
 }
 
 export async function demoMyTasks(uid = DEMO_USER_ID, limit = 6) {
   const db = await getDemoWorkspace();
   const active = new Map(db.projects.filter((p) => !p.deleted_at).map((p) => [p.id, p]));
   return db.tasks
-    .filter((t) => t.assignee_id === uid && t.status !== 'done' && active.has(t.project_id))
+    .filter((t) => t.assignee_ids.includes(uid) && active.has(t.project_id))
     .sort((a, b) => (a.due_date ?? '￿').localeCompare(b.due_date ?? '￿'))
     .slice(0, limit)
     .map((t) => ({ ...t, project: { id: t.project_id, name: active.get(t.project_id)!.name } }));
@@ -626,14 +619,18 @@ export async function demoRestoreProject(idValue: string) {
 export async function demoDeleteProject(idValue: string) {
   const db = await getDemoWorkspace();
   db.projects = db.projects.filter((p) => p.id !== idValue);
-  db.tasks = db.tasks.filter((t) => t.project_id !== idValue);
+  db.tasks = db.tasks
+    .filter((t) => t.project_id !== idValue)
+    .map((t) => (t.blocked_by_project === idValue ? { ...t, blocked_by_project: null } : t));
   await persist();
 }
 
-export async function demoCreateTask(vars: { project_id: string; title: string; status: TaskStatus; assignee_id: string | null; due_date: string | null; priority: Priority; tags: string[] }) {
+export async function demoCreateTask(vars: { project_id: string; title: string; notes: string | null; status: TaskStatus; assignee_ids: string[]; blocked_by: string | null; blocked_by_project: string | null; due_date: string | null; priority: Priority; tags: string[] }) {
   const db = await getDemoWorkspace();
-  db.tasks.push({ id: id('task'), created_by: DEMO_USER_ID, created_at: now(), updated_at: now(), ...vars });
+  const taskId = id('task');
+  db.tasks.push({ id: taskId, created_by: DEMO_USER_ID, created_at: now(), updated_at: now(), ...vars });
   await persist();
+  return taskId;
 }
 
 export async function demoUpdateTask(idValue: string, patch: Partial<Omit<Task, 'id' | 'project_id' | 'created_at' | 'updated_at'>>) {
@@ -644,7 +641,9 @@ export async function demoUpdateTask(idValue: string, patch: Partial<Omit<Task, 
 
 export async function demoDeleteTask(idValue: string) {
   const db = await getDemoWorkspace();
-  db.tasks = db.tasks.filter((t) => t.id !== idValue);
+  db.tasks = db.tasks
+    .filter((t) => t.id !== idValue)
+    .map((t) => (t.blocked_by === idValue ? { ...t, blocked_by: null } : t));
   await persist();
 }
 

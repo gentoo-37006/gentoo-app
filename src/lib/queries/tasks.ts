@@ -24,6 +24,7 @@ export const taskKeys = {
   projects: ['projects'] as const,
   trashed: ['projects', 'trashed'] as const,
   project: (id: string) => ['project', id] as const,
+  allTasks: ['tasks', 'all'] as const,
 };
 
 async function currentUserId(): Promise<string | undefined> {
@@ -32,7 +33,8 @@ async function currentUserId(): Promise<string | undefined> {
   return data.session?.user?.id;
 }
 
-export type ProjectWithTasks = Project & { tasks: { id: string; status: TaskStatus }[] };
+/** Tasks are deleted once done, so the list is exactly the open ones. */
+export type ProjectWithTasks = Project & { tasks: { id: string }[] };
 
 export function useProjects() {
   return useQuery({
@@ -41,7 +43,7 @@ export function useProjects() {
       if (isDemoMode()) return demoProjects();
       const { data, error } = await supabase
         .from('projects')
-        .select('*, tasks:tasks(id, status)')
+        .select('*, tasks:tasks!tasks_project_id_fkey(id)')
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -58,7 +60,7 @@ export function useTrashedProjects() {
       if (isDemoMode()) return demoTrashedProjects();
       const { data, error } = await supabase
         .from('projects')
-        .select('*, tasks:tasks(id, status)')
+        .select('*, tasks:tasks!tasks_project_id_fkey(id)')
         .not('deleted_at', 'is', null)
         .order('deleted_at', { ascending: false });
       if (error) throw error;
@@ -67,11 +69,7 @@ export function useTrashedProjects() {
   });
 }
 
-export type TaskWithAssignee = Task & {
-  assignee: { full_name: string | null; avatar_url: string | null } | null;
-};
-
-/** Count of unfinished tasks assigned to the given user (for the dashboard). */
+/** Count of open tasks assigned to the given user (for the dashboard). */
 export function useMyOpenTaskCount(uid?: string) {
   return useQuery({
     queryKey: ['my_open_tasks', uid],
@@ -81,9 +79,8 @@ export function useMyOpenTaskCount(uid?: string) {
       // !inner join + filter so tasks in trashed projects don't count.
       const { count, error } = await supabase
         .from('tasks')
-        .select('id, projects!inner(deleted_at)', { count: 'exact', head: true })
-        .eq('assignee_id', uid!)
-        .neq('status', 'done')
+        .select('id, projects!tasks_project_id_fkey!inner(deleted_at)', { count: 'exact', head: true })
+        .contains('assignee_ids', [uid!])
         .is('projects.deleted_at', null);
       if (error) throw error;
       return count ?? 0;
@@ -93,7 +90,7 @@ export function useMyOpenTaskCount(uid?: string) {
 
 export type MyTask = Task & { project: { id: string; name: string } | null };
 
-/** Unfinished tasks assigned to the given user, soonest due first (dashboard). */
+/** Open tasks assigned to the given user, soonest due first (dashboard). */
 export function useMyTasks(uid?: string, limit = 6) {
   return useQuery({
     queryKey: ['my_tasks', uid, limit],
@@ -102,9 +99,8 @@ export function useMyTasks(uid?: string, limit = 6) {
       if (isDemoMode()) return demoMyTasks(uid, limit);
       const { data, error } = await supabase
         .from('tasks')
-        .select('*, project:projects!inner(id, name, deleted_at)')
-        .eq('assignee_id', uid!)
-        .neq('status', 'done')
+        .select('*, project:projects!tasks_project_id_fkey!inner(id, name, deleted_at)')
+        .contains('assignee_ids', [uid!])
         .is('project.deleted_at', null)
         .order('due_date', { ascending: true, nullsFirst: false })
         .limit(limit);
@@ -124,7 +120,7 @@ export function useProject(projectId: string) {
         supabase.from('projects').select('*').eq('id', projectId).maybeSingle(),
         supabase
           .from('tasks')
-          .select('*, assignee:assignee_id(full_name, avatar_url)')
+          .select('*')
           .eq('project_id', projectId)
           .order('created_at', { ascending: true }),
       ]);
@@ -132,8 +128,35 @@ export function useProject(projectId: string) {
       if (tErr) throw tErr;
       return {
         project: (project ?? null) as Project | null,
-        tasks: (tasks ?? []) as unknown as TaskWithAssignee[],
+        tasks: (tasks ?? []) as unknown as Task[],
       };
+    },
+  });
+}
+
+export type TaskWithProject = Task & { project: { id: string; name: string } | null };
+
+export function useAllTasks() {
+  return useQuery({
+    queryKey: taskKeys.allTasks,
+    queryFn: async (): Promise<TaskWithProject[]> => {
+      if (isDemoMode()) {
+        const projects = await demoProjects();
+        const projectData = await Promise.all(projects.map((project) => demoProject(project.id)));
+        return projectData.flatMap(({ project, tasks }) =>
+          tasks.map((task) => ({
+            ...task,
+            project: project ? { id: project.id, name: project.name } : null,
+          }))
+        );
+      }
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*, project:projects!tasks_project_id_fkey!inner(id, name, deleted_at)')
+        .is('project.deleted_at', null)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as TaskWithProject[];
     },
   });
 }
@@ -146,6 +169,7 @@ function useProjectsMutation<TVars, TData = unknown>(fn: (vars: TVars) => Promis
       // Prefix match also covers taskKeys.trashed (['projects', 'trashed']).
       qc.invalidateQueries({ queryKey: taskKeys.projects });
       qc.invalidateQueries({ queryKey: ['project'] });
+      qc.invalidateQueries({ queryKey: taskKeys.allTasks });
       qc.invalidateQueries({ queryKey: ['my_open_tasks'] });
       qc.invalidateQueries({ queryKey: ['my_tasks'] });
     },
@@ -216,15 +240,19 @@ export function useDeleteProject() {
 export type TaskInput = {
   project_id: string;
   title: string;
+  notes: string | null;
   status: TaskStatus;
-  assignee_id: string | null;
+  assignee_ids: string[];
+  blocked_by: string | null;
+  blocked_by_project: string | null;
   due_date: string | null;
   priority: Priority;
   tags: string[];
 };
 
+/** Resolves to the new task's id so callers can open its notes page. */
 export function useCreateTask() {
-  return useProjectsMutation<TaskInput & { projectName: string }>(async ({ projectName, ...vars }) => {
+  return useProjectsMutation<TaskInput & { projectName: string }, string>(async ({ projectName, ...vars }) => {
     if (isDemoMode()) return demoCreateTask(vars);
     const uid = await currentUserId();
     const { data: created, error } = await supabase
@@ -233,14 +261,16 @@ export function useCreateTask() {
       .select('id')
       .single();
     if (error) throw error;
-    if (vars.assignee_id && vars.assignee_id !== uid) {
-      await notifyUsers([vars.assignee_id], {
+    await notifyUsers(
+      vars.assignee_ids.filter((a) => a !== uid),
+      {
         type: 'task',
         title: 'New task assigned',
         body: `${vars.title} · ${projectName}`,
-        data: { projectId: vars.project_id, taskId: created?.id },
-      });
-    }
+        data: { projectId: vars.project_id, taskId: created.id },
+      }
+    );
+    return created.id as string;
   });
 }
 
@@ -248,12 +278,12 @@ export function useUpdateTask() {
   return useProjectsMutation<{ id: string } & Partial<Omit<TaskInput, 'project_id'>>>(
     async ({ id, ...patch }) => {
       if (isDemoMode()) return demoUpdateTask(id, patch);
-      type PrevTask = { assignee_id: string | null; title: string; project_id: string; project: { name: string } | null };
+      type PrevTask = { assignee_ids: string[]; title: string; project_id: string; project: { name: string } | null };
       let prev: PrevTask | null = null;
-      if (patch.assignee_id) {
+      if (patch.assignee_ids?.length) {
         const { data } = await supabase
           .from('tasks')
-          .select('assignee_id, title, project_id, project:project_id(name)')
+          .select('assignee_ids, title, project_id, project:projects!tasks_project_id_fkey(name)')
           .eq('id', id)
           .single();
         prev = data as unknown as PrevTask | null;
@@ -263,16 +293,15 @@ export function useUpdateTask() {
         .update({ ...patch, updated_at: new Date().toISOString() })
         .eq('id', id);
       if (error) throw error;
-      if (patch.assignee_id && prev && patch.assignee_id !== prev.assignee_id) {
+      if (patch.assignee_ids && prev) {
         const uid = await currentUserId();
-        if (patch.assignee_id !== uid) {
-          await notifyUsers([patch.assignee_id], {
-            type: 'task',
-            title: 'New task assigned',
-            body: `${patch.title ?? prev.title} · ${prev.project?.name ?? 'Project'}`,
-            data: { projectId: prev.project_id, taskId: id },
-          });
-        }
+        const added = patch.assignee_ids.filter((a) => a !== uid && !prev!.assignee_ids.includes(a));
+        await notifyUsers(added, {
+          type: 'task',
+          title: 'New task assigned',
+          body: `${patch.title ?? prev.title} · ${prev.project?.name ?? 'Project'}`,
+          data: { projectId: prev.project_id, taskId: id },
+        });
       }
     }
   );

@@ -86,10 +86,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
         setSession(data.session);
         setAuthResolved(true);
+        setProfileResolved(!data.session?.user?.id);
       });
       const { data } = supabase.auth.onAuthStateChange((_event, next) => {
         setSession(next);
         setAuthResolved(true);
+        if (!next?.user?.id) setProfileResolved(true);
       });
       sub = data;
     });
@@ -113,7 +115,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Fetch the profile for the (non-demo) signed-in user.
+  // Fetch the profile for the (non-demo) signed-in user. Sync state resets
+  // (sign-out, user switch) live in the render-time adjustment above — no
+  // synchronous setState in this effect (react-hooks/set-state-in-effect).
   React.useEffect(() => {
     let active = true;
     if (!isSupabaseConfigured) return;

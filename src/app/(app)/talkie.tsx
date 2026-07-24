@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { Radio, Plus, Hand, Check, X, MessageSquare } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -9,6 +9,7 @@ import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { DeleteButton } from '@/components/ui/delete-button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { timeAgo } from '@/lib/format';
@@ -90,12 +91,14 @@ function TalkieCard({ request }: { request: TalkieWithPeople }) {
               <Text className="flex-1 font-semibold">Team {request.team_number}</Text>
               {statusBadge}
               {canDelete ? (
-                <Pressable
+                <DeleteButton
+                  variant="ghost"
+                  size="icon"
+                  icon={X}
                   onPress={() => del.mutate(request.id)}
-                  className="h-7 w-7 items-center justify-center rounded-sm active:bg-accent"
-                >
-                  <Icon as={X} size={16} className="text-muted-foreground" />
-                </Pressable>
+                  className="h-7 w-7 rounded-sm"
+                  accessibilityLabel="Delete talkie"
+                />
               ) : null}
             </View>
             <Text variant="muted">{request.reason}</Text>

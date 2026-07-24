@@ -47,6 +47,7 @@ export type ButtonProps = Omit<React.ComponentProps<typeof Pressable>, 'children
   VariantProps<typeof buttonVariants> & {
     label?: string;
     icon?: LucideIcon;
+    iconClassName?: string;
     loading?: boolean;
     className?: string;
     children?: React.ReactNode;
@@ -58,6 +59,7 @@ export function Button({
   size,
   label,
   icon,
+  iconClassName,
   loading,
   disabled,
   children,
@@ -80,7 +82,7 @@ export function Button({
         {loading ? (
           <ActivityIndicator size="small" className={textClass} />
         ) : (
-          icon && <Icon as={icon} size={18} className={textClass} />
+          icon && <Icon as={icon} size={18} className={cn(textClass, iconClassName)} />
         )}
         {label ? <Text className={textClass}>{label}</Text> : children}
       </Pressable>

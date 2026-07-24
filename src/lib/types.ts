@@ -249,8 +249,14 @@ export type Task = {
   id: string;
   project_id: string;
   title: string;
+  /** Markdown body, edited on the task's own page. */
+  notes: string | null;
   status: TaskStatus;
-  assignee_id: string | null;
+  assignee_ids: string[];
+  /** Task this one waits on, set while status = 'blocked'. */
+  blocked_by: string | null;
+  /** Project this one waits on instead of an individual task. */
+  blocked_by_project: string | null;
   due_date: string | null;
   priority: Priority;
   tags: string[];
