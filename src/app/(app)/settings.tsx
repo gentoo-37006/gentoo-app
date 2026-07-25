@@ -139,7 +139,7 @@ function FTCScoutSyncCard() {
         <View>
           <Text className="mb-2 font-medium">Event Code</Text>
           <Input 
-            placeholder="e.g. USAZCMPGC1"
+            placeholder="e.g. CAONCMP"
             value={eventCode}
             onChangeText={setEventCode}
             editable={!syncFTC.isPending}
