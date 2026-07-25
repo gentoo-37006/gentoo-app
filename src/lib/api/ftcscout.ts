@@ -1,6 +1,9 @@
+import { TeamInfo } from "../types";
+
 const API_BASE = 'https://api.ftcscout.org/rest/v1';
 const SEASON = 2025;
-
+const GRAPHQL_ENDPOINT = 'https://api.ftcscout.org/graphql'
+const CHUNK_SIZE = 15
 /**
  * Fetches the match schedule for a given FTC event.
  * @param eventCode e.g CAONCMP
@@ -45,4 +48,53 @@ export async function getEventTeams(eventCode: string): Promise<any> {
     if (err.name === 'AbortError') throw new Error('Request to FTC Scout API timed out (Teams).');
     throw err;
   }
+}
+
+function generateBatchQuery(teamsChunk: TeamInfo[]) {
+  const aliasFields = teamsChunk.map((team) => `
+    team_${team.team_number}: teamByNumber(number: ${team.team_number}) {
+      name
+    }
+  `).join('\n');
+
+  return `query GetMultipleTeams { ${aliasFields} }`;
+}
+
+export async function populateTeamNames( teams: TeamInfo[]): Promise<TeamInfo[]> {
+  const results: TeamInfo[] = [];
+
+  for (let i = 0; i < teams.length; i += CHUNK_SIZE) {
+    const chunk = teams.slice(i, i + CHUNK_SIZE);
+    const query = generateBatchQuery(chunk);
+
+    try {
+      const response = await fetch(GRAPHQL_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+
+      const json = await response.json();
+      if (json.errors) {
+        console.error(`GraphQL Errors for chunk starting at index ${i}:`, json.errors);
+      }
+
+      const data = json.data || {};
+
+      const updatedChunk: TeamInfo[] = chunk.map((team) => {
+        const fetchedTeam = data[`team_${team.team_number}`];
+        return {
+          ...team,
+          team_name: fetchedTeam?.name ?? team.team_name,
+        };
+      });
+
+      results.push(...updatedChunk);
+    } catch (error) {
+      console.error(`Network error for chunk starting at index ${i}:`, error);
+      results.push(...chunk);
+    }
+  }
+
+  return results;
 }

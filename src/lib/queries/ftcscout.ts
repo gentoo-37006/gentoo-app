@@ -1,4 +1,4 @@
-import { getEventMatches, getEventTeams } from '@/lib/api/ftcscout';
+import { getEventMatches, getEventTeams, populateTeamNames } from '@/lib/api/ftcscout';
 import { isDemoMode } from '@/lib/demo';
 import { supabase } from '@/lib/supabase';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -6,6 +6,7 @@ import { matchKeys } from './matches';
 import { picklistKey } from './picklist';
 import { scoutingKeys } from './scouting';
 import { useUpdateEventData } from './settings';
+import { MatchInfo, TeamInfo } from '../types';
 
 interface FTCScoutTeamInput {
   teamNumber: number;
@@ -48,28 +49,6 @@ interface FTCScoutMatchInput {
   }[];
 }
 
-interface ScoutedTeam {
-  team_number: number;
-  team_name: string | null;
-}
-
-interface ScoutedMatch {
-  match_number: number;
-  red1: number | null;
-  red2: number | null;
-  blue1: number | null;
-  blue2: number | null;
-  red_score?: number | null;
-  red_auto?: number | null;
-  red_dc?: number | null;
-  blue_score?: number | null;
-  blue_auto?: number | null;
-  blue_dc?: number | null;
-  has_been_played?: boolean;
-  tournament_level?: string | null;
-  scheduled_time?: string | null;
-}
-
 export function useSyncFTCScout() {
   const qc = useQueryClient();
   const updateEventData = useUpdateEventData();
@@ -86,17 +65,20 @@ export function useSyncFTCScout() {
       const teamsData = (await getEventTeams(eventCode)) as FTCScoutTeamInput[] | null;
 
       // 2. Parse into clean array
-      let teamsArray: ScoutedTeam[] = [];
+      let teamsArray: TeamInfo[] = [];
       if (teamsData && Array.isArray(teamsData)) {
-        teamsArray = teamsData.map((t: FTCScoutTeamInput): ScoutedTeam => ({
+        teamsArray = teamsData.map((t: FTCScoutTeamInput): TeamInfo => ({
           team_number: t.teamNumber,
           team_name: null,
         }));
+        if (teamsArray.length > 0) {
+          teamsArray = await populateTeamNames(teamsArray);
+        }
       }
 
-      let matchesArray: ScoutedMatch[] = [];
+      let matchesArray: MatchInfo[] = [];
       if (matchesData && Array.isArray(matchesData)) {
-        matchesArray = matchesData.map((m: FTCScoutMatchInput): ScoutedMatch => {
+        matchesArray = matchesData.map((m: FTCScoutMatchInput): MatchInfo => {
           
           const matchNum = m.id || 0;
           const redTeams: number[] = [];
