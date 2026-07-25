@@ -11,6 +11,7 @@ import {
   demoUpdateQuestion,
   isDemoMode,
 } from '@/lib/demo';
+import { activeEventCode } from '@/lib/queries/settings';
 import type {
   AnswerValue,
   CapabilityQuestion,
@@ -18,8 +19,6 @@ import type {
   ScoutedTeam,
   TeamScore,
 } from '@/lib/types';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const scoutingKeys = {
   questions: (activeOnly: boolean) => ['capability_questions', activeOnly] as const,
@@ -59,37 +58,13 @@ export function useTeamScores() {
     queryFn: async (): Promise<TeamScore[]> => {
       if (isDemoMode()) return demoTeamScores();
 
-      // The roster comes from the active event, but the ids/scores come from the
-      // team_scores view — the detail route resolves teams by scouted_teams.id.
-      const [{ data: activeEventPointer }, { data: scores, error }] = await Promise.all([
-        supabase.from('event_data').select('data').eq('event_code', 'active_event').maybeSingle(),
-        supabase.from('team_scores').select('*'),
-      ]);
+      const eventCode = await activeEventCode();
+      let query = supabase.from('team_scores').select('*').order('team_number');
+      if (eventCode) query = query.eq('event_code', eventCode);
+
+      const { data, error } = await query;
       if (error) throw error;
-
-      const scored = (scores ?? []) as TeamScore[];
-      if (!activeEventPointer?.data?.eventCode) return scored;
-
-      const { data: eventData } = await supabase
-        .from('event_data')
-        .select('data')
-        .eq('event_code', activeEventPointer.data.eventCode)
-        .maybeSingle();
-
-      const teams = eventData?.data?.teams || [];
-      if (teams.length === 0) return scored;
-
-      const byNumber = new Map(scored.map((s) => [s.team_number, s]));
-      return teams.map(
-        (t: any): TeamScore =>
-          byNumber.get(t.team_number) ?? {
-            team_id: String(t.team_number),
-            team_number: t.team_number,
-            team_name: t.team_name ?? null,
-            score: 0,
-            entry_count: 0,
-          }
-      );
+      return (data ?? []) as TeamScore[];
     },
   });
 }
@@ -109,13 +84,11 @@ export function useTeamDetail(teamId: string) {
     queryFn: async () => {
       if (isDemoMode()) return demoTeamDetail(teamId);
 
-      // Teams sourced from event_data are keyed by team number rather than by
-      // scouted_teams.id, so accept either shape.
-      const base = supabase.from('scouted_teams').select('*');
-      const { data: team, error: teamErr } = await (UUID_RE.test(teamId)
-        ? base.eq('id', teamId)
-        : base.eq('team_number', Number(teamId))
-      ).maybeSingle();
+      const { data: team, error: teamErr } = await supabase
+        .from('scouted_teams')
+        .select('*')
+        .eq('id', teamId)
+        .maybeSingle();
       if (teamErr) throw teamErr;
       if (!team) return { team: null, entries: [] as EntryWithDetails[] };
 
@@ -167,9 +140,16 @@ export function useSubmitPitEntry() {
           await supabase.from('scouted_teams').update({ team_name: input.teamName }).eq('id', teamId);
         }
       } else {
+        // Scouting a team that isn't on the synced roster still adds it to the
+        // event currently being scouted.
         const { data: created, error: createErr } = await supabase
           .from('scouted_teams')
-          .insert({ team_number: input.teamNumber, team_name: input.teamName ?? null, created_by: uid })
+          .insert({
+            team_number: input.teamNumber,
+            team_name: input.teamName ?? null,
+            event_code: await activeEventCode(),
+            created_by: uid,
+          })
           .select('id')
           .single();
         if (createErr) throw createErr;

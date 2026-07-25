@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { matchKeys } from './matches';
 import { picklistKey } from './picklist';
 import { scoutingKeys } from './scouting';
-import { useUpdateEventData } from './settings';
+import { ACTIVE_EVENT_KEY, useSetAppSetting } from './settings';
 import { MatchInfo, TeamInfo } from '../types';
 
 interface FTCScoutTeamInput {
@@ -51,7 +51,7 @@ interface FTCScoutMatchInput {
 
 export function useSyncFTCScout() {
   const qc = useQueryClient();
-  const updateEventData = useUpdateEventData();
+  const setSetting = useSetAppSetting();
 
   return useMutation({
     mutationFn: async (eventCode: string) => {
@@ -64,110 +64,72 @@ export function useSyncFTCScout() {
       const matchesData = (await getEventMatches(eventCode)) as FTCScoutMatchInput[] | null;
       const teamsData = (await getEventTeams(eventCode)) as FTCScoutTeamInput[] | null;
 
-      // 2. Parse into clean array
-      let teamsArray: TeamInfo[] = [];
-      if (teamsData && Array.isArray(teamsData)) {
-        teamsArray = teamsData.map((t: FTCScoutTeamInput): TeamInfo => ({
-          team_number: t.teamNumber,
-          team_name: null,
-        }));
-        if (teamsArray.length > 0) {
-          teamsArray = await populateTeamNames(teamsArray);
-        }
-      }
+      // 2. Parse into clean arrays. The event endpoint only returns numbers, so
+      // names come from the GraphQL endpoint.
+      const teams: TeamInfo[] = await populateTeamNames(
+        (teamsData ?? []).map((t) => ({ team_number: t.teamNumber, team_name: null }))
+      );
 
-      let matchesArray: MatchInfo[] = [];
-      if (matchesData && Array.isArray(matchesData)) {
-        matchesArray = matchesData.map((m: FTCScoutMatchInput): MatchInfo => {
-          
-          const matchNum = m.id || 0;
-          const redTeams: number[] = [];
-          const blueTeams: number[] = [];
-          for(const team of m.teams || []) {
-            if(team.alliance.toLowerCase() === "red") {
-              redTeams.push(team.teamNumber);
-            } else {
-              blueTeams.push(team.teamNumber);
-            }
-          }
-          
-          return {
-            match_number: matchNum,
-            red1: redTeams[0] || null,
-            red2: redTeams[1] || null,
-            blue1: blueTeams[0] || null,
-            blue2: blueTeams[1] || null,
-            has_been_played: m.hasBeenPlayed || false,
-            tournament_level: m.tournamentLevel || null,
-            scheduled_time: m.scheduledStartTime || null,
-            red_score: m.scores?.red?.totalPoints ?? null,
-            red_auto: m.scores?.red?.autoPoints ?? null,
-            red_dc: m.scores?.red?.dcPoints ?? null,
-            blue_score: m.scores?.blue?.totalPoints ?? null,
-            blue_auto: m.scores?.blue?.autoPoints ?? null,
-            blue_dc: m.scores?.blue?.dcPoints ?? null,
-          };
-        });
-      }
-      
-      // 4. Upsert entire event payload into event_data
-      const { error: syncError } = await supabase
-        .from('event_data') 
-        .upsert({
-          event_code: eventCode,
-          data: {
-            teams: teamsArray,
-            matches: matchesArray,
-          },
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'event_code' });
+      const matches: MatchInfo[] = (matchesData ?? []).map((m) => {
+        const alliance = (side: string) =>
+          (m.teams ?? []).filter((t) => t.alliance.toLowerCase() === side).map((t) => t.teamNumber);
+        const [red1 = null, red2 = null] = alliance('red');
+        const [blue1 = null, blue2 = null] = alliance('blue');
 
-      if (syncError) {
-        console.warn("Failed to sync event payload (maybe the event_data table doesn't exist yet?):", syncError.message);
-        // We do NOT throw here! We want to gracefully continue so that the relational
-        // tables still get populated even if the user doesn't have privileges to 
-        // create the event_data table yet.
-      }
+        return {
+          match_number: m.id || 0,
+          red1,
+          red2,
+          blue1,
+          blue2,
+          has_been_played: m.hasBeenPlayed || false,
+          tournament_level: m.tournamentLevel || null,
+          scheduled_time: m.scheduledStartTime || null,
+          red_score: m.scores?.red?.totalPoints ?? null,
+          red_auto: m.scores?.red?.autoPoints ?? null,
+          red_dc: m.scores?.red?.dcPoints ?? null,
+          blue_score: m.scores?.blue?.totalPoints ?? null,
+          blue_auto: m.scores?.blue?.autoPoints ?? null,
+          blue_dc: m.scores?.blue?.dcPoints ?? null,
+        };
+      });
 
-      // 5. Update the 'active_event' pointer in event_data (gracefully handle failure)
-      try {
-        await updateEventData.mutateAsync({
-          event_code: 'active_event',
-          data: { eventCode, last_synced: new Date().toISOString() },
-        });
-      } catch (err: any) {
-        console.warn("Failed to update active_event pointer (table likely missing):", err.message);
-      }
-
-      // 6. Push the array data into the relational tables for relations.
-      // team_name is omitted — the FTC Scout event endpoint doesn't return names,
-      // so writing it would blank out any name already stored.
-      if (teamsArray.length > 0) {
-        const { error: teamError } = await supabase
+      // 3. Upsert the roster. Teams whose name lookup failed are written without
+      // the column so a bad lookup can't blank a name that's already stored.
+      const upsertTeams = async (rows: Record<string, unknown>[]) => {
+        if (rows.length === 0) return;
+        const { error } = await supabase
           .from('scouted_teams')
-          .upsert(teamsArray.map(({ team_number }) => ({ team_number })), { onConflict: 'team_number' });
-        if (teamError) throw teamError;
+          .upsert(rows, { onConflict: 'team_number' });
+        if (error) throw error;
+      };
+      await upsertTeams(
+        teams.filter((t) => t.team_name).map((t) => ({ ...t, event_code: eventCode }))
+      );
+      await upsertTeams(
+        teams
+          .filter((t) => !t.team_name)
+          .map((t) => ({ team_number: t.team_number, event_code: eventCode }))
+      );
+
+      // 4. Upsert the schedule.
+      if (matches.length > 0) {
+        const { error } = await supabase
+          .from('matches')
+          .upsert(
+            matches.map((m) => ({ ...m, event_code: eventCode })),
+            { onConflict: 'event_code,match_number' }
+          );
+        if (error) throw error;
       }
-      // Only the columns `matches` actually has — scores live in event_data. Sending the
-      // score fields makes PostgREST reject the whole batch, which leaves every match
-      // without a row (and therefore unassignable).
-      if (matchesArray.length > 0) {
-        const { error: matchError } = await supabase.from('matches').upsert(
-          matchesArray.map((m) => ({
-            match_number: m.match_number,
-            scheduled_time: m.scheduled_time,
-            red1: m.red1,
-            red2: m.red2,
-            blue1: m.blue1,
-            blue2: m.blue2,
-          })),
-          { onConflict: 'match_number' }
-        );
-        if (matchError) throw matchError;
-      }
+
+      // 5. Point the app at this event.
+      await setSetting.mutateAsync({
+        key: ACTIVE_EVENT_KEY,
+        value: { eventCode, last_synced: new Date().toISOString() },
+      });
     },
     onSuccess: () => {
-      // Invalidate your queries so the UI pulls the fresh nested data
       qc.invalidateQueries({ queryKey: matchKeys.all });
       qc.invalidateQueries({ queryKey: scoutingKeys.teamScores });
       qc.invalidateQueries({ queryKey: picklistKey });

@@ -6,11 +6,10 @@
 export type UserRole = 'admin' | 'member';
 export type UserStatus = 'pending' | 'approved' | 'rejected';
 
-export type EventData = {
-  event_code: string;
-  data: Record<string, unknown>;
+export type AppSetting = {
+  key: string;
+  value: Record<string, unknown>;
   updated_at: string;
-  updated_by: string | null;
 };
 
 /** Non-gating roles used for routing assignments and notifications. */

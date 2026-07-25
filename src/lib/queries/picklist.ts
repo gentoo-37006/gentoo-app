@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { demoPicklist, demoSetPicklist, isDemoMode } from '@/lib/demo';
 import type { PicklistTier, TeamScore } from '@/lib/types';
 import { scoutingKeys } from '@/lib/queries/scouting';
+import { activeEventCode } from '@/lib/queries/settings';
 
 export const picklistKey = ['picklist'] as const;
 
@@ -32,11 +33,15 @@ export function usePicklist() {
     queryKey: picklistKey,
     queryFn: async (): Promise<PicklistTeam[]> => {
       if (isDemoMode()) return demoPicklist();
-      const [scores, teams, caps, activeEventPointer] = await Promise.all([
-        supabase.from('team_scores').select('*'),
-        supabase.from('scouted_teams').select('id, picklist_tier, picklist_rank, picklist_notes, team_number'),
+
+      const eventCode = await activeEventCode();
+      let scoresQuery = supabase.from('team_scores').select('*');
+      if (eventCode) scoresQuery = scoresQuery.eq('event_code', eventCode);
+
+      const [scores, teams, caps] = await Promise.all([
+        scoresQuery,
+        supabase.from('scouted_teams').select('id, picklist_tier, picklist_rank, picklist_notes'),
         supabase.from('team_capability_scores').select('team_id, question_id, percent'),
-        supabase.from('event_data').select('data').eq('event_code', 'active_event').maybeSingle(),
       ]);
       if (scores.error) throw scores.error;
       if (teams.error) throw teams.error;
@@ -61,29 +66,16 @@ export function usePicklist() {
         capsByTeam.set(c.team_id as string, map);
       }
 
-      let activeTeamNumbers = new Set<number>();
-      if (activeEventPointer.data?.data?.eventCode) {
-        const { data: eventData } = await supabase
-          .from('event_data')
-          .select('data')
-          .eq('event_code', activeEventPointer.data.data.eventCode)
-          .maybeSingle();
-        const eventTeams = eventData?.data?.teams || [];
-        activeTeamNumbers = new Set(eventTeams.map((t: any) => t.team_number));
-      }
-
-      return (scores.data as TeamScore[])
-        .filter((s) => activeTeamNumbers.size === 0 || activeTeamNumbers.has(s.team_number))
-        .map((s) => ({
-          id: s.team_id,
-          team_number: s.team_number,
-          team_name: s.team_name,
-          entry_count: s.entry_count,
-          tier: metaById.get(s.team_id)?.tier ?? null,
-          rank: metaById.get(s.team_id)?.rank ?? null,
-          notes: metaById.get(s.team_id)?.notes ?? null,
-          capabilities: capsByTeam.get(s.team_id) ?? {},
-        }));
+      return (scores.data as TeamScore[]).map((s) => ({
+        id: s.team_id,
+        team_number: s.team_number,
+        team_name: s.team_name,
+        entry_count: s.entry_count,
+        tier: metaById.get(s.team_id)?.tier ?? null,
+        rank: metaById.get(s.team_id)?.rank ?? null,
+        notes: metaById.get(s.team_id)?.notes ?? null,
+        capabilities: capsByTeam.get(s.team_id) ?? {},
+      }));
     },
   });
 }

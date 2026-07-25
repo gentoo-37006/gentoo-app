@@ -1,40 +1,53 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { isDemoMode } from '@/lib/demo';
-import type { EventData } from '@/lib/types';
+import type { AppSetting } from '@/lib/types';
 
-export function eventDataKey(eventCode: string) {
-  return ['event_data', eventCode] as const;
+export const ACTIVE_EVENT_KEY = 'active_event';
+
+export function appSettingKey(key: string) {
+  return ['app_settings', key] as const;
 }
 
-export function useEventData(eventCode: string) {
+/** Event the app is scoped to; '' until an event has been synced. */
+export async function activeEventCode(): Promise<string> {
+  if (isDemoMode()) return '';
+  const { data } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', ACTIVE_EVENT_KEY)
+    .maybeSingle();
+  return (data?.value?.eventCode as string) ?? '';
+}
+
+export function useAppSetting(key: string) {
   return useQuery({
-    queryKey: eventDataKey(eventCode),
-    queryFn: async (): Promise<EventData | null> => {
-      if (isDemoMode()) return null; // Mock if necessary
+    queryKey: appSettingKey(key),
+    queryFn: async (): Promise<AppSetting | null> => {
+      if (isDemoMode()) return null;
       const { data, error } = await supabase
-        .from('event_data')
+        .from('app_settings')
         .select('*')
-        .eq('event_code', eventCode)
+        .eq('key', key)
         .maybeSingle();
       if (error) throw error;
-      return data as EventData | null;
+      return data as AppSetting | null;
     },
   });
 }
 
-export function useUpdateEventData() {
+export function useSetAppSetting() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ event_code, data }: { event_code: string; data: Record<string, unknown> }) => {
+    mutationFn: async ({ key, value }: { key: string; value: Record<string, unknown> }) => {
       if (isDemoMode()) return;
       const { error } = await supabase
-        .from('event_data')
-        .upsert({ event_code, data, updated_at: new Date().toISOString() });
+        .from('app_settings')
+        .upsert({ key, value, updated_at: new Date().toISOString() });
       if (error) throw error;
     },
-    onSuccess: (_, { event_code }) => {
-      qc.invalidateQueries({ queryKey: eventDataKey(event_code) });
+    onSuccess: (_, { key }) => {
+      qc.invalidateQueries({ queryKey: appSettingKey(key) });
     },
   });
 }

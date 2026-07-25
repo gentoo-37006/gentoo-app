@@ -21,7 +21,6 @@ import {
   useAssignScouter,
   useRemoveAssignment,
   useSubmitMatchReport,
-  isMatchRowId,
 } from '@/lib/queries/matches';
 import { matchTitle, matchTeamNumbers, type Match } from '@/lib/types';
 
@@ -268,7 +267,7 @@ function ReportForm({
 
 export default function MatchDetailScreen() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
-  const { session, isAdmin, isDemo } = useAuth();
+  const { session, isAdmin } = useAuth();
   const uid = session?.user?.id;
   const { data, isLoading } = useMatchDetail(matchId);
   const { data: profiles } = useProfiles();
@@ -303,7 +302,6 @@ export default function MatchDetailScreen() {
   const scouterOptions = (profiles ?? [])
     .filter((p) => p.status === 'approved')
     .map((p) => ({ value: p.id, label: p.full_name ?? 'Member' }));
-  const canAssign = isDemo || isMatchRowId(match.id);
 
   // Toggling an option assigns or unassigns; removals the member isn't allowed to
   // make are skipped, matching the per-row remove button.
@@ -356,11 +354,7 @@ export default function MatchDetailScreen() {
             })
           )}
 
-          {!canAssign ? (
-            <Text variant="small" className="border-t border-border pt-3 text-muted-foreground">
-              This match isn’t in the database yet. Re-sync the event in Settings to assign scouters.
-            </Text>
-          ) : scouterOptions.length > 0 ? (
+          {scouterOptions.length > 0 ? (
             <View className="gap-2 border-t border-border pt-3">
               <View className="flex-row items-center gap-1.5">
                 <Icon as={UserPlus} size={16} className="text-muted-foreground" />

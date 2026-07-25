@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getEventTeams } from '@/lib/api/ftcscout';
 import { isDemoMode } from '@/lib/demo';
 import { supabase } from '@/lib/supabase';
+import { activeEventCode } from '@/lib/queries/settings';
 import type { MatchReport } from '@/lib/types';
 
 /** Subset of the FTC Scout event-participation stats used for head-to-head. */
@@ -18,7 +19,7 @@ export type EventTeamStats = {
 
 /**
  * Live per-team stats for the active event. The sync only persists team numbers
- * into event_data, so the numbers are pulled straight from FTC Scout here.
+ * and names, so ranking/OPR numbers are pulled straight from FTC Scout here.
  */
 export function useEventTeamStats(enabled = true) {
   return useQuery({
@@ -27,12 +28,7 @@ export function useEventTeamStats(enabled = true) {
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<Record<number, EventTeamStats>> => {
       if (isDemoMode()) return {};
-      const { data: pointer } = await supabase
-        .from('event_data')
-        .select('data')
-        .eq('event_code', 'active_event')
-        .maybeSingle();
-      const eventCode = pointer?.data?.eventCode;
+      const eventCode = await activeEventCode();
       if (!eventCode) return {};
 
       const participations = (await getEventTeams(eventCode)) as

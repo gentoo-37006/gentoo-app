@@ -12,7 +12,7 @@ import { useAuth } from '@/lib/auth';
 import { useDesktopUpdates } from '@/lib/desktop-updates';
 import { timeAgo } from '@/lib/format';
 import { useSyncFTCScout } from '@/lib/queries/ftcscout';
-import { useEventData } from '@/lib/queries/settings';
+import { ACTIVE_EVENT_KEY, useAppSetting } from '@/lib/queries/settings';
 import { supabase } from '@/lib/supabase';
 import { useThemeMode } from '@/lib/theme-mode';
 import { cn } from '@/lib/utils';
@@ -99,9 +99,9 @@ function AccountCard() {
 
 function FTCScoutSyncCard() {
   const syncFTC = useSyncFTCScout();
-  const { data: settingData } = useEventData('active_event');
+  const { data: setting } = useAppSetting(ACTIVE_EVENT_KEY);
 
-  const savedEventCode = (settingData?.data?.eventCode as string) ?? '';
+  const savedEventCode = (setting?.value?.eventCode as string) ?? '';
 
   // Initialize state from the already-loaded setting value when this component first mounts.
   // Using a function initializer avoids any effect or ref.
@@ -109,8 +109,8 @@ function FTCScoutSyncCard() {
 
   // if (profile?.role !== 'admin') return null;
 
-  const lastSynced = settingData?.data?.last_synced
-    ? timeAgo(settingData.data.last_synced as string)
+  const lastSynced = setting?.value?.last_synced
+    ? timeAgo(setting.value.last_synced as string)
     : 'Never';
 
   const handleSync = () => {
