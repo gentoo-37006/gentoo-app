@@ -265,6 +265,8 @@ export type Task = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  /** Set when the task is moved to trash; null while active. */
+  deleted_at: string | null;
 };
 
 // ---- Pit-duty schedule ------------------------------------------------------

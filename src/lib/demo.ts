@@ -159,9 +159,9 @@ function seedWorkspace(): DemoWorkspace {
   ];
 
   const tasks: Task[] = [
-    { id: 'task-1', project_id: 'project-pit', title: 'Label battery cables', notes: '## Why\n\nInspectors flagged unlabeled leads last event.\n\n- [ ] Print labels\n- [ ] Wrap both ends\n- [ ] Photograph for the log', status: 'in_progress', assignee_ids: [DEMO_PIT_ID, DEMO_ADMIN_ID], blocked_by: null, blocked_by_project: null, due_date: daysFromNow(1), priority: 'high', tags: ['pit', 'electrical'], sort_order: 10, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
-    { id: 'task-2', project_id: 'project-pit', title: 'Charge driver station laptop', notes: null, status: 'blocked', assignee_ids: [DEMO_ADMIN_ID], blocked_by: 'task-1', blocked_by_project: null, due_date: daysFromNow(0, 18), priority: 'urgent', tags: ['drive'], sort_order: 20, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
-    { id: 'task-3', project_id: 'project-scouting', title: 'Import qualification schedule', notes: null, status: 'todo', assignee_ids: [DEMO_STRATEGIST_ID], blocked_by: null, blocked_by_project: null, due_date: null, priority: 'medium', tags: ['scouting'], sort_order: 10, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'task-1', project_id: 'project-pit', title: 'Label battery cables', notes: '## Why\n\nInspectors flagged unlabeled leads last event.\n\n- [ ] Print labels\n- [ ] Wrap both ends\n- [ ] Photograph for the log', status: 'in_progress', assignee_ids: [DEMO_PIT_ID, DEMO_ADMIN_ID], blocked_by: null, blocked_by_project: null, due_date: daysFromNow(1), priority: 'high', tags: ['pit', 'electrical'], sort_order: 10, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
+    { id: 'task-2', project_id: 'project-pit', title: 'Charge driver station laptop', notes: null, status: 'blocked', assignee_ids: [DEMO_ADMIN_ID], blocked_by: 'task-1', blocked_by_project: null, due_date: daysFromNow(0, 18), priority: 'urgent', tags: ['drive'], sort_order: 20, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
+    { id: 'task-3', project_id: 'project-scouting', title: 'Import qualification schedule', notes: null, status: 'todo', assignee_ids: [DEMO_STRATEGIST_ID], blocked_by: null, blocked_by_project: null, due_date: null, priority: 'medium', tags: ['scouting'], sort_order: 10, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
   ];
 
   return {
@@ -554,7 +554,9 @@ export async function demoProjects() {
     .filter((p) => !p.deleted_at)
     .map((p) => ({
       ...p,
-      tasks: db.tasks.filter((t) => t.project_id === p.id).map(({ id }) => ({ id })),
+      tasks: db.tasks
+        .filter((t) => t.project_id === p.id && !t.deleted_at)
+        .map(({ id }) => ({ id })),
     }));
 }
 
@@ -573,22 +575,31 @@ export async function demoProject(projectId: string) {
   return {
     project: db.projects.find((p) => p.id === projectId) ?? null,
     tasks: db.tasks
-      .filter((t) => t.project_id === projectId)
+      .filter((t) => t.project_id === projectId && !t.deleted_at)
       .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.created_at.localeCompare(b.created_at)),
   };
+}
+
+export async function demoTrashedTasks(projectId: string) {
+  const db = await getDemoWorkspace();
+  return db.tasks
+    .filter((task) => task.project_id === projectId && !!task.deleted_at)
+    .sort((a, b) => (b.deleted_at ?? '').localeCompare(a.deleted_at ?? ''));
 }
 
 export async function demoMyOpenTaskCount(uid = DEMO_USER_ID) {
   const db = await getDemoWorkspace();
   const activeProjects = new Set(db.projects.filter((p) => !p.deleted_at).map((p) => p.id));
-  return db.tasks.filter((t) => t.assignee_ids.includes(uid) && activeProjects.has(t.project_id)).length;
+  return db.tasks.filter(
+    (t) => !t.deleted_at && t.assignee_ids.includes(uid) && activeProjects.has(t.project_id)
+  ).length;
 }
 
 export async function demoMyTasks(uid = DEMO_USER_ID, limit = 6) {
   const db = await getDemoWorkspace();
   const active = new Map(db.projects.filter((p) => !p.deleted_at).map((p) => [p.id, p]));
   return db.tasks
-    .filter((t) => t.assignee_ids.includes(uid) && active.has(t.project_id))
+    .filter((t) => !t.deleted_at && t.assignee_ids.includes(uid) && active.has(t.project_id))
     .sort((a, b) => (a.due_date ?? '￿').localeCompare(b.due_date ?? '￿'))
     .slice(0, limit)
     .map((t) => ({ ...t, project: { id: t.project_id, name: active.get(t.project_id)!.name } }));
@@ -632,8 +643,13 @@ export async function demoCreateTask(vars: { project_id: string; title: string; 
   const taskId = id('task');
   const sortOrder =
     vars.sort_order ??
-    Math.max(0, ...db.tasks.filter((task) => task.project_id === vars.project_id).map((task) => task.sort_order ?? 0)) + 10;
-  db.tasks.push({ id: taskId, created_by: DEMO_USER_ID, created_at: now(), updated_at: now(), ...vars, sort_order: sortOrder });
+    Math.max(
+      0,
+      ...db.tasks
+        .filter((task) => task.project_id === vars.project_id && !task.deleted_at)
+        .map((task) => task.sort_order ?? 0)
+    ) + 10;
+  db.tasks.push({ id: taskId, created_by: DEMO_USER_ID, created_at: now(), updated_at: now(), deleted_at: null, ...vars, sort_order: sortOrder });
   await persist();
   return taskId;
 }
@@ -655,6 +671,22 @@ export async function demoReorderTasks(taskIds: string[]) {
 }
 
 export async function demoDeleteTask(idValue: string) {
+  const db = await getDemoWorkspace();
+  db.tasks = db.tasks.map((task) =>
+    task.id === idValue ? { ...task, deleted_at: now(), updated_at: now() } : task
+  );
+  await persist();
+}
+
+export async function demoRestoreTask(idValue: string) {
+  const db = await getDemoWorkspace();
+  db.tasks = db.tasks.map((task) =>
+    task.id === idValue ? { ...task, deleted_at: null, updated_at: now() } : task
+  );
+  await persist();
+}
+
+export async function demoDeleteTaskForever(idValue: string) {
   const db = await getDemoWorkspace();
   db.tasks = db.tasks
     .filter((t) => t.id !== idValue)

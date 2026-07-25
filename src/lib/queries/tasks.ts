@@ -6,12 +6,15 @@ import {
   demoCurrentUserId,
   demoDeleteProject,
   demoDeleteTask,
+  demoDeleteTaskForever,
   demoMyOpenTaskCount,
   demoMyTasks,
   demoProject,
   demoProjects,
   demoReorderTasks,
   demoRestoreProject,
+  demoRestoreTask,
+  demoTrashedTasks,
   demoTrashedProjects,
   demoTrashProject,
   demoUpdateProject,
@@ -25,6 +28,7 @@ export const taskKeys = {
   projects: ['projects'] as const,
   trashed: ['projects', 'trashed'] as const,
   project: (id: string) => ['project', id] as const,
+  trashedTasks: (projectId: string) => ['project', projectId, 'trashed-tasks'] as const,
   allTasks: ['tasks', 'all'] as const,
 };
 
@@ -34,7 +38,7 @@ async function currentUserId(): Promise<string | undefined> {
   return data.session?.user?.id;
 }
 
-/** Tasks are deleted once done, so the list is exactly the open ones. */
+/** Project summary with active (non-trashed) task references. */
 export type ProjectWithTasks = Project & { tasks: { id: string }[] };
 
 export function useProjects() {
@@ -46,6 +50,7 @@ export function useProjects() {
         .from('projects')
         .select('*, tasks:tasks!tasks_project_id_fkey(id)')
         .is('deleted_at', null)
+        .is('tasks.deleted_at', null)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as ProjectWithTasks[];
@@ -82,6 +87,7 @@ export function useMyOpenTaskCount(uid?: string) {
         .from('tasks')
         .select('id, projects!tasks_project_id_fkey!inner(deleted_at)', { count: 'exact', head: true })
         .contains('assignee_ids', [uid!])
+        .is('deleted_at', null)
         .is('projects.deleted_at', null);
       if (error) throw error;
       return count ?? 0;
@@ -102,6 +108,7 @@ export function useMyTasks(uid?: string, limit = 6) {
         .from('tasks')
         .select('*, project:projects!tasks_project_id_fkey!inner(id, name, deleted_at)')
         .contains('assignee_ids', [uid!])
+        .is('deleted_at', null)
         .is('project.deleted_at', null)
         .order('due_date', { ascending: true, nullsFirst: false })
         .limit(limit);
@@ -123,6 +130,7 @@ export function useProject(projectId: string) {
           .from('tasks')
           .select('*')
           .eq('project_id', projectId)
+          .is('deleted_at', null)
           .order('sort_order', { ascending: true })
           .order('created_at', { ascending: true }),
       ]);
@@ -132,6 +140,24 @@ export function useProject(projectId: string) {
         project: (project ?? null) as Project | null,
         tasks: (tasks ?? []) as unknown as Task[],
       };
+    },
+  });
+}
+
+export function useTrashedTasks(projectId: string) {
+  return useQuery({
+    queryKey: taskKeys.trashedTasks(projectId),
+    enabled: !!projectId,
+    queryFn: async (): Promise<Task[]> => {
+      if (isDemoMode()) return demoTrashedTasks(projectId);
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('project_id', projectId)
+        .not('deleted_at', 'is', null)
+        .order('deleted_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as Task[];
     },
   });
 }
@@ -155,6 +181,7 @@ export function useAllTasks() {
       const { data, error } = await supabase
         .from('tasks')
         .select('*, project:projects!tasks_project_id_fkey!inner(id, name, deleted_at)')
+        .is('deleted_at', null)
         .is('project.deleted_at', null)
         .order('created_at', { ascending: true });
       if (error) throw error;
@@ -359,9 +386,34 @@ export function useReorderTasks() {
   });
 }
 
+/** Move a task to its project's trash. */
 export function useDeleteTask() {
   return useProjectsMutation<string>(async (id) => {
     if (isDemoMode()) return demoDeleteTask(id);
+    const { error } = await supabase
+      .from('tasks')
+      .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw error;
+  });
+}
+
+/** Restore a trashed task to its project. */
+export function useRestoreTask() {
+  return useProjectsMutation<string>(async (id) => {
+    if (isDemoMode()) return demoRestoreTask(id);
+    const { error } = await supabase
+      .from('tasks')
+      .update({ deleted_at: null, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw error;
+  });
+}
+
+/** Permanently delete a trashed task. */
+export function useDeleteTaskForever() {
+  return useProjectsMutation<string>(async (id) => {
+    if (isDemoMode()) return demoDeleteTaskForever(id);
     const { error } = await supabase.from('tasks').delete().eq('id', id);
     if (error) throw error;
   });

@@ -1260,16 +1260,25 @@ export default function ProjectDetailScreen() {
             </View>
           </View>
 
-          <DeleteButton
-            variant="outline"
-            size="icon"
-            icon={Trash2}
-            accessibilityLabel="Move project to trash"
-            onPress={() => {
-              trashProject.mutate(project.id);
-              router.replace('/tasks' as any);
-            }}
-          />
+          <View className="flex-row items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              label="Trash"
+              accessibilityLabel="View recently deleted tasks"
+              onPress={() => router.push(`/tasks/${project.id}/trash` as any)}
+            />
+            <DeleteButton
+              variant="outline"
+              size="icon"
+              icon={Trash2}
+              accessibilityLabel="Move project to trash"
+              onPress={() => {
+                trashProject.mutate(project.id);
+                router.replace('/tasks' as any);
+              }}
+            />
+          </View>
         </View>
       </View>
 
