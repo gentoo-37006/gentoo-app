@@ -151,7 +151,7 @@ function MatchRow({
       onPress={onOpen}
       className="flex-row items-center gap-2 rounded-sm border border-border bg-background px-2 py-1.5 active:bg-accent"
     >
-      <View className={cn('h-2 w-2', red ? 'bg-destructive' : 'bg-primary')} />
+      <View className={cn('h-2 w-2', red ? 'bg-destructive' : 'bg-alliance-blue')} />
       <Text className="flex-1 text-xs font-bold" numberOfLines={1}>
         {matchLabel(match)}
       </Text>

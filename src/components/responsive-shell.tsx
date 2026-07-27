@@ -172,7 +172,7 @@ function NavBarLink({ item, active }: { item: NavItem; active: boolean }) {
       <Pressable
         className={cn(
           'flex-row items-center gap-2 rounded-sm px-3 py-2',
-          active ? 'bg-primary' : 'active:bg-accent'
+          active ? 'bg-primary' : 'hover:bg-accent active:bg-accent'
         )}
       >
         <Icon
@@ -198,7 +198,7 @@ function NavBarIcon({ item, badgeCount = 0 }: { item: NavItem; badgeCount?: numb
     <Link href={item.href as any} asChild>
       <Pressable
         accessibilityLabel={item.label}
-        className="h-9 w-9 items-center justify-center rounded-sm active:bg-accent"
+        className="h-9 w-9 items-center justify-center rounded-sm hover:bg-accent active:bg-accent"
       >
         <Icon as={item.icon} size={18} className="text-muted-foreground" />
         {badgeCount > 0 ? (
@@ -258,7 +258,7 @@ function TopNav({
             onPress={() => setScoutingOpen(!scoutingOpen)}
             className={cn(
               'flex-row items-center gap-2 rounded-sm px-3 py-2',
-              scoutingActive ? 'bg-primary' : scoutingOpen ? 'bg-accent' : 'active:bg-accent'
+              scoutingActive ? 'bg-primary' : scoutingOpen ? 'bg-accent' : 'hover:bg-accent active:bg-accent'
             )}
           >
             <Icon
@@ -289,7 +289,7 @@ function TopNav({
                     <Pressable
                       className={cn(
                         'flex-row items-center gap-2.5 rounded-sm px-3 py-2',
-                        active ? 'bg-primary' : 'active:bg-accent'
+                        active ? 'bg-primary' : 'hover:bg-accent active:bg-accent'
                       )}
                     >
                       <Icon
@@ -326,7 +326,10 @@ function TopNav({
             />
           ))}
           <Link href={'/settings' as any} asChild>
-            <Pressable className="ml-2" accessibilityLabel="Profile settings">
+            <Pressable
+              className="ml-2 h-9 w-9 items-center justify-center rounded-full hover:bg-accent active:bg-accent"
+              accessibilityLabel="Profile settings"
+            >
               <Avatar name={name} uri={avatarUrl} size={30} />
             </Pressable>
           </Link>
@@ -430,7 +433,7 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
         {scoutingOpen ? (
           <Pressable
             accessibilityLabel="Close menu"
-            className="absolute bottom-0 left-0 right-0 top-0 z-10"
+            className="absolute bottom-0 left-0 right-0 top-0 z-10 cursor-default"
             onPress={() => setScoutingOpen(false)}
           />
         ) : null}

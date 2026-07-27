@@ -41,15 +41,15 @@ function ScoreColumn({ label, auto, dc, penalty, total, isWinner }: {
   isWinner?: boolean;
 }) {
   const isRed = label === 'RED';
-  const teamColor = isRed ? 'text-destructive' : 'text-primary';
+  const teamColor = isRed ? 'text-destructive' : 'text-alliance-blue';
   const bgColor = isRed
     ? isWinner ? 'bg-destructive/15 border-destructive' : 'border-border'
-    : isWinner ? 'bg-primary/15 border-primary' : 'border-border';
+    : isWinner ? 'bg-alliance-blue/15 border-alliance-blue' : 'border-border';
   return (
     <View className={cn('flex-1 rounded-lg border p-3 gap-1.5', bgColor)}>
       <View className="flex-row items-center justify-between">
         <Text className={cn('text-sm font-bold', teamColor)}>{label}</Text>
-        {isWinner && <Badge variant={isRed ? 'destructive' : 'default'} label="WIN" />}
+        {isWinner && <Badge variant={isRed ? 'destructive' : 'allianceBlue'} label="WIN" />}
       </View>
       {auto != null && (
         <View className="flex-row justify-between">
@@ -123,8 +123,8 @@ function Alliances({ match }: { match: Match }) {
           </View>
           <View className="flex-1 gap-2">
             <View className="flex-row gap-2">
-              <TeamChip n={match.blue1} color="text-primary" /> 
-              <TeamChip n={match.blue2} color="text-primary" />
+              <TeamChip n={match.blue1} color="text-alliance-blue" />
+              <TeamChip n={match.blue2} color="text-alliance-blue" />
             </View>
             <ScoreColumn
               label="BLUE"

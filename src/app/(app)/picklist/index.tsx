@@ -7,9 +7,7 @@ import {
   ListOrdered,
   Search,
   ListFilter,
-  NotebookPen,
   ChevronRight,
-  GripVertical,
   Swords,
   X,
 } from 'lucide-react-native';
@@ -21,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useColorScheme } from '@/lib/theme';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useCapabilityQuestions } from '@/lib/queries/scouting';
 import { FacemashModal } from '@/components/facemash';
@@ -48,8 +47,8 @@ const NARROW_COL_WIDTH = 288; // w-72
 const COL_GAP = 12; // gap-3
 const BOARD_PAD = 16; // px-4
 const COL_HEADER_HEIGHT = 42;
-
-const grabCursor = Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : undefined;
+const NOTES_MIN_HEIGHT = 28;
+const NOTES_MAX_HEIGHT = 60;
 
 /** Per-question filter: absent = any. */
 type FilterChoice = 'yes' | 'no';
@@ -192,6 +191,28 @@ function FilterPopup({
 }
 
 type CardLayout = { y: number; h: number };
+type DropTarget = {
+  tierKey: TierKey;
+  markerIndex: number;
+  insertBeforeTeamId: string | null;
+  dimContents?: boolean;
+};
+type WebPointerDrag = {
+  team: PicklistTeam;
+  pointerId: number;
+  startX: number;
+  startY: number;
+  offsetX: number;
+  offsetY: number;
+  sourceElement: HTMLElement;
+  ghost: HTMLElement | null;
+  line: HTMLElement | null;
+  dimmedList: HTMLElement | null;
+  target: DropTarget | null;
+  moveListener: ((event: PointerEvent) => void) | null;
+  endListener: ((event: PointerEvent) => void) | null;
+  cancelListener: ((event: PointerEvent) => void) | null;
+};
 
 function TeamCard({
   team,
@@ -202,36 +223,67 @@ function TeamCard({
   onDragEnd,
   onLayoutCard,
   dragging,
+  indicatorBefore,
+  indicatorAfter,
 }: {
   team: PicklistTeam;
   index: number;
   /** null = no filters active; true = matches; false = doesn't match. */
   highlight: boolean | null;
   onDragStart: (team: PicklistTeam, absX: number, absY: number) => void;
-  onDragMove: (absX: number, absY: number) => void;
+  onDragMove: (team: PicklistTeam, absX: number, absY: number) => void;
   onDragEnd: (team: PicklistTeam, absX: number, absY: number) => void;
   onLayoutCard: (teamId: string, layout: CardLayout) => void;
   dragging: boolean;
+  indicatorBefore?: boolean;
+  indicatorAfter?: boolean;
 }) {
   const router = useRouter();
+  const { colorScheme } = useColorScheme();
   const setNotes = useSetPicklistNotes();
-  const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(team.notes ?? '');
+  const [notesContentHeight, setNotesContentHeight] = React.useState(NOTES_MIN_HEIGHT);
+  const notesSaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const onSave = async () => {
-    await setNotes.mutateAsync({ teamId: team.id, notes: draft.trim() });
-    setEditing(false);
+  React.useEffect(
+    () => () => {
+      if (notesSaveTimer.current) clearTimeout(notesSaveTimer.current);
+    },
+    []
+  );
+
+  const commitNotes = (value: string) => {
+    const notes = value.trim();
+    if (notes !== (team.notes ?? '')) setNotes.mutate({ teamId: team.id, notes });
   };
-
+  const changeNotes = (value: string) => {
+    setDraft(value);
+    if (notesSaveTimer.current) clearTimeout(notesSaveTimer.current);
+    if (value.trim() === (team.notes ?? '')) {
+      notesSaveTimer.current = null;
+      return;
+    }
+    notesSaveTimer.current = setTimeout(() => {
+      notesSaveTimer.current = null;
+      commitNotes(value);
+    }, 600);
+  };
+  const flushNotes = () => {
+    if (!notesSaveTimer.current) return;
+    clearTimeout(notesSaveTimer.current);
+    notesSaveTimer.current = null;
+    commitNotes(draft);
+  };
   const pan = React.useMemo(
     () =>
       Gesture.Pan()
+        .enabled(Platform.OS !== 'web')
         .activateAfterLongPress(150)
         .onStart((e) => {
           runOnJS(onDragStart)(team, e.absoluteX, e.absoluteY);
         })
         .onUpdate((e) => {
-          runOnJS(onDragMove)(e.absoluteX, e.absoluteY);
+          runOnJS(onDragMove)(team, e.absoluteX, e.absoluteY);
         })
         .onEnd((e) => {
           runOnJS(onDragEnd)(team, e.absoluteX, e.absoluteY);
@@ -243,7 +295,13 @@ function TeamCard({
   );
 
   return (
-    <View onLayout={(e) => onLayoutCard(team.id, { y: e.nativeEvent.layout.y, h: e.nativeEvent.layout.height })}>
+    <View
+      className="relative"
+      onLayout={(e) => onLayoutCard(team.id, { y: e.nativeEvent.layout.y, h: e.nativeEvent.layout.height })}
+    >
+      {indicatorBefore ? (
+        <View className="absolute -top-[5px] left-0 right-0 z-10 h-0.5 bg-primary" />
+      ) : null}
       <GestureDetector gesture={pan}>
         <View
           className={cn(
@@ -254,9 +312,6 @@ function TeamCard({
           )}
         >
           <View className="flex-row items-start gap-2">
-            <View style={grabCursor} className="pt-0.5">
-              <Icon as={GripVertical} size={14} className="text-muted-foreground" />
-            </View>
             <Pressable
               className="flex-1 active:opacity-75"
               onPress={() => router.push(`/scouting/pit/${team.id}` as any)}
@@ -269,40 +324,30 @@ function TeamCard({
                 idx: {index + 1} | reports: {team.entry_count}
               </Text>
             </Pressable>
-            <Pressable
-              accessibilityLabel="Edit notes"
-              onPress={() => {
-                setDraft(team.notes ?? '');
-                setEditing((s) => !s);
-              }}
-              className="h-6 w-6 items-center justify-center rounded-sm active:bg-accent"
-            >
-              <Icon as={NotebookPen} size={13} className="text-muted-foreground" />
-            </Pressable>
           </View>
 
-          {editing ? (
-            <View className="gap-2">
-              <Textarea
-                value={draft}
-                onChangeText={setDraft}
-                placeholder="Picklist notes…"
-                className="min-h-[56px] p-2 text-sm"
-              />
-              <View className="flex-row gap-2">
-                <Button variant="ghost" size="sm" label="Cancel" onPress={() => setEditing(false)} className="flex-1" />
-                <Button size="sm" label="Save" loading={setNotes.isPending} onPress={onSave} className="flex-1" />
-              </View>
-            </View>
-          ) : team.notes ? (
-            <Pressable onPress={() => setEditing(true)} className="rounded-sm bg-muted px-2 py-1.5 active:opacity-80">
-              <Text className="text-xs" numberOfLines={2}>
-                {team.notes}
-              </Text>
-            </Pressable>
-          ) : null}
+          <Textarea
+            value={draft}
+            onChangeText={changeNotes}
+            onBlur={flushNotes}
+            numberOfLines={1}
+            scrollEnabled={notesContentHeight > NOTES_MAX_HEIGHT}
+            onContentSizeChange={(event) => setNotesContentHeight(event.nativeEvent.contentSize.height)}
+            placeholder="Picklist notes…"
+            placeholderTextColor={colorScheme === 'dark' ? 'hsl(0 0% 48%)' : 'hsl(0 0% 78%)'}
+            className="min-h-[28px] max-h-[60px] resize-none rounded-sm border-0 bg-muted px-2 py-1.5 text-xs leading-4 outline-none focus:border-transparent"
+            style={{
+              height: Math.min(
+                Math.max(notesContentHeight, NOTES_MIN_HEIGHT),
+                NOTES_MAX_HEIGHT
+              ),
+            }}
+          />
         </View>
       </GestureDetector>
+      {indicatorAfter ? (
+        <View className="absolute -bottom-[5px] left-0 right-0 z-10 h-0.5 bg-primary" />
+      ) : null}
     </View>
   );
 }
@@ -380,8 +425,12 @@ export default function PicklistScreen() {
   // ---- Drag & drop ------------------------------------------------------------
 
   const [dragTeam, setDragTeam] = React.useState<PicklistTeam | null>(null);
+  const [draggingId, setDraggingId] = React.useState<string | null>(null);
+  const [dropTarget, setDropTarget] = React.useState<DropTarget | null>(null);
   const dragX = useSharedValue(0);
   const dragY = useSharedValue(0);
+  const pointerDrag = React.useRef<WebPointerDrag | null>(null);
+  const suppressNextClick = React.useRef(false);
 
   const boardRef = React.useRef<View>(null);
   const boardRect = React.useRef({ x: 0, y: 0, w: 0, h: 0 });
@@ -399,6 +448,79 @@ export default function PicklistScreen() {
     cardLayouts.current.set(teamId, layout);
   }, []);
 
+  const resolveDropPoint = React.useCallback(
+    (team: PicklistTeam, absX: number, absY: number): DropTarget | null => {
+      const board = boardRect.current;
+      if (board.w === 0 || absY < board.y || absY > board.y + board.h) return null;
+
+      const relX = absX - board.x;
+      const colIndex = isWide
+        ? Math.floor(relX / (board.w / TIER_ORDER.length))
+        : Math.floor((relX + hScroll.current - BOARD_PAD) / (NARROW_COL_WIDTH + COL_GAP));
+      if (colIndex < 0 || colIndex >= TIER_ORDER.length) return null;
+
+      const column = columns[colIndex];
+      if (column.key === 'untiered') {
+        if (team.tier === null) return null;
+        return {
+          tierKey: column.key,
+          markerIndex: 0,
+          insertBeforeTeamId: null,
+          dimContents: true,
+        };
+      }
+      const shownTeams = column.shown.map(({ team: shownTeam }) => shownTeam);
+      const contentY = absY - board.y - COL_HEADER_HEIGHT + (vScroll.current[column.key] ?? 0);
+      let markerIndex = shownTeams.length;
+      for (let index = 0; index < shownTeams.length; index += 1) {
+        const layout = cardLayouts.current.get(shownTeams[index].id);
+        if (layout && contentY < layout.y + layout.h / 2) {
+          markerIndex = index;
+          break;
+        }
+      }
+
+      const insertBeforeTeam =
+        shownTeams.slice(markerIndex).find((shownTeam) => shownTeam.id !== team.id) ?? null;
+      return {
+        tierKey: column.key,
+        markerIndex,
+        insertBeforeTeamId: insertBeforeTeam?.id ?? null,
+      };
+    },
+    [columns, isWide]
+  );
+
+  const commitDrop = React.useCallback(
+    (team: PicklistTeam, target: DropTarget | null) => {
+      if (!target) return;
+      const targetTier: PicklistTier | null =
+        target.tierKey === 'untiered' ? null : target.tierKey;
+      if (target.tierKey === 'untiered') {
+        moveTeam.mutate({ teamId: team.id, tier: null, orderedIds: [] });
+        return;
+      }
+      const fullList = tierLists.get(target.tierKey)!.filter((candidate) => candidate.id !== team.id);
+      const orderedIds = fullList.map((candidate) => candidate.id);
+      const insertAt = target.insertBeforeTeamId
+        ? orderedIds.indexOf(target.insertBeforeTeamId)
+        : orderedIds.length;
+      orderedIds.splice(insertAt < 0 ? orderedIds.length : insertAt, 0, team.id);
+
+      const currentIds = tierLists.get(target.tierKey)!.map((candidate) => candidate.id);
+      const sameTier = (team.tier ?? 'untiered') === target.tierKey;
+      if (
+        sameTier &&
+        orderedIds.length === currentIds.length &&
+        orderedIds.every((id, index) => id === currentIds[index])
+      ) {
+        return;
+      }
+      moveTeam.mutate({ teamId: team.id, tier: targetTier, orderedIds });
+    },
+    [moveTeam, tierLists]
+  );
+
   // Reanimated shared values are mutable containers written from gesture
   // callbacks; the compiler's immutability/deps rules don't model that, so
   // the writes and depless callbacks below carry targeted disables.
@@ -409,65 +531,244 @@ export default function PicklistScreen() {
       dragX.value = absX;
       dragY.value = absY;
       setDragTeam(team);
+      setDraggingId(team.id);
+      setDropTarget(resolveDropPoint(team, absX, absY));
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [measureRoot, measureBoard]
+    [measureRoot, measureBoard, resolveDropPoint]
   );
 
-  const onDragMove = React.useCallback((absX: number, absY: number) => {
-    // eslint-disable-next-line react-hooks/immutability
-    dragX.value = absX;
-    // eslint-disable-next-line react-hooks/immutability
-    dragY.value = absY;
+  const onDragMove = React.useCallback(
+    (team: PicklistTeam, absX: number, absY: number) => {
+      // eslint-disable-next-line react-hooks/immutability
+      dragX.value = absX;
+      // eslint-disable-next-line react-hooks/immutability
+      dragY.value = absY;
+      setDropTarget(resolveDropPoint(team, absX, absY));
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    [resolveDropPoint]
+  );
 
-  /** Map a drop point to a tier column + insertion index, then persist. */
   const onDragEnd = React.useCallback(
     (team: PicklistTeam, absX: number, absY: number) => {
       setDragTeam(null);
-      if (absX < 0) return; // cancelled
-      const board = boardRect.current;
-      if (board.w === 0 || absY < board.y || absY > board.y + board.h) return;
+      setDraggingId(null);
+      const target = absX < 0 ? null : resolveDropPoint(team, absX, absY);
+      setDropTarget(null);
+      commitDrop(team, target);
+    },
+    [commitDrop, resolveDropPoint]
+  );
 
-      const relX = absX - board.x;
-      let colIndex: number;
-      if (isWide) {
-        const colWidth = board.w / TIER_ORDER.length;
-        colIndex = Math.floor(relX / colWidth);
-      } else {
-        const scrolled = relX + hScroll.current - BOARD_PAD;
-        colIndex = Math.floor(scrolled / (NARROW_COL_WIDTH + COL_GAP));
+  React.useEffect(() => {
+    if (!draggingId || typeof document === 'undefined') return;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.userSelect = 'none';
+    document.getSelection()?.removeAllRanges();
+    return () => {
+      document.body.style.userSelect = previousUserSelect;
+    };
+  }, [draggingId]);
+
+  const clearPointerDrag = React.useCallback(() => {
+    const drag = pointerDrag.current;
+    drag?.ghost?.remove();
+    drag?.line?.remove();
+    drag?.dimmedList?.style.removeProperty('opacity');
+    if (drag?.moveListener) window.removeEventListener('pointermove', drag.moveListener);
+    if (drag?.endListener) window.removeEventListener('pointerup', drag.endListener);
+    if (drag?.cancelListener) window.removeEventListener('pointercancel', drag.cancelListener);
+    pointerDrag.current = null;
+    setDraggingId(null);
+  }, []);
+
+  const movePointerDrag = React.useCallback(
+    (event: {
+      pointerId: number;
+      clientX: number;
+      clientY: number;
+      preventDefault: () => void;
+    }) => {
+      const drag = pointerDrag.current;
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
+      if (!drag.ghost && distance < 5) return;
+
+      if (!drag.ghost) {
+        const bounds = drag.sourceElement.getBoundingClientRect();
+        const ghost = drag.sourceElement.cloneNode(true) as HTMLElement;
+        ghost.removeAttribute('data-picklist-team');
+        Object.assign(ghost.style, {
+          position: 'fixed',
+          left: `${event.clientX - drag.offsetX}px`,
+          top: `${event.clientY - drag.offsetY}px`,
+          width: `${bounds.width}px`,
+          opacity: '0.65',
+          pointerEvents: 'none',
+          zIndex: '9999',
+          boxShadow: '0 10px 28px rgba(0, 0, 0, 0.28)',
+        });
+        document.body.appendChild(ghost);
+        drag.ghost = ghost;
+        drag.sourceElement.setPointerCapture(event.pointerId);
+        setDraggingId(drag.team.id);
       }
-      if (colIndex < 0 || colIndex >= TIER_ORDER.length) return;
 
-      const targetKey = TIER_ORDER[colIndex];
-      const targetTier: PicklistTier | null = targetKey === 'untiered' ? null : targetKey;
-      const fullList = tierLists.get(targetKey)!.filter((t) => t.id !== team.id);
-      const shownList = fullList.filter(searchVisible);
+      event.preventDefault();
+      drag.ghost.style.left = `${event.clientX - drag.offsetX}px`;
+      drag.ghost.style.top = `${event.clientY - drag.offsetY}px`;
+      drag.dimmedList?.style.removeProperty('opacity');
+      drag.dimmedList = null;
 
-      // Insertion point from the drop Y against the visible cards' layouts.
-      const contentY = absY - board.y - COL_HEADER_HEIGHT + (vScroll.current[targetKey] ?? 0);
-      let insertBefore: PicklistTeam | undefined;
-      for (const t of shownList) {
-        const layout = cardLayouts.current.get(t.id);
-        if (layout && contentY < layout.y + layout.h / 2) {
-          insertBefore = t;
+      const board = drag.sourceElement.closest<HTMLElement>('[data-picklist-board="true"]');
+      const tierColumns = Array.from(
+        board?.querySelectorAll<HTMLElement>('[data-picklist-tier]') ?? []
+      );
+      const targetColumn = tierColumns.find((column) => {
+        const bounds = column.getBoundingClientRect();
+        return (
+          event.clientX >= bounds.left &&
+          event.clientX <= bounds.right &&
+          event.clientY >= bounds.top &&
+          event.clientY <= bounds.bottom
+        );
+      });
+
+      if (!targetColumn) {
+        drag.target = null;
+        drag.line?.remove();
+        return;
+      }
+
+      const tierKey = targetColumn.dataset.picklistTier as TierKey;
+      const targetList =
+        targetColumn.querySelector<HTMLElement>('[data-picklist-list="true"]') ??
+        targetColumn;
+      if (tierKey === 'untiered') {
+        drag.line?.remove();
+        if (drag.team.tier === null) {
+          drag.target = null;
+          return;
+        }
+        targetList.style.opacity = '0.6';
+        drag.dimmedList = targetList;
+        drag.target = {
+          tierKey,
+          markerIndex: 0,
+          insertBeforeTeamId: null,
+          dimContents: true,
+        };
+        return;
+      }
+
+      const rows = Array.from(
+        targetColumn.querySelectorAll<HTMLElement>('[data-picklist-team]')
+      );
+      let markerIndex = rows.length;
+      for (let index = 0; index < rows.length; index += 1) {
+        const bounds = rows[index].getBoundingClientRect();
+        if (event.clientY < bounds.top + bounds.height / 2) {
+          markerIndex = index;
           break;
         }
       }
 
-      const orderedIds = fullList.map((t) => t.id);
-      const at = insertBefore ? orderedIds.indexOf(insertBefore.id) : orderedIds.length;
-      orderedIds.splice(at, 0, team.id);
+      const insertBeforeRow =
+        rows.slice(markerIndex).find((row) => row.dataset.picklistTeam !== drag.team.id) ?? null;
+      drag.target = {
+        tierKey,
+        markerIndex,
+        insertBeforeTeamId: insertBeforeRow?.dataset.picklistTeam ?? null,
+      };
 
-      const sameTier = (team.tier ?? 'untiered') === targetKey;
-      const oldIndex = tierLists.get(targetKey)!.findIndex((t) => t.id === team.id);
-      if (sameTier && oldIndex === at) return; // no-op drop
+      const line = drag.line ?? document.createElement('div');
+      // eslint-disable-next-line react-hooks/immutability -- drag visuals are mutable DOM refs
+      line.className = 'pointer-events-none fixed z-[9998] h-0.5 bg-primary';
+      drag.line = line;
 
-      moveTeam.mutate({ teamId: team.id, tier: targetTier, orderedIds });
+      if (rows.length > 0) {
+        const firstBounds = rows[0].getBoundingClientRect();
+        const lastBounds = rows[rows.length - 1].getBoundingClientRect();
+        const lineY =
+          markerIndex === 0
+            ? firstBounds.top
+            : markerIndex === rows.length
+              ? lastBounds.bottom
+              : (rows[markerIndex - 1].getBoundingClientRect().bottom +
+                  rows[markerIndex].getBoundingClientRect().top) /
+                2;
+        Object.assign(line.style, {
+          left: `${firstBounds.left}px`,
+          top: `${lineY - 1}px`,
+          width: `${firstBounds.width}px`,
+        });
+      } else {
+        const bounds = targetList.getBoundingClientRect();
+        Object.assign(line.style, {
+          left: `${bounds.left + 8}px`,
+          top: `${bounds.top + 8}px`,
+          width: `${Math.max(0, bounds.width - 16)}px`,
+        });
+      }
+      if (!line.isConnected) document.body.appendChild(line);
     },
-    [isWide, tierLists, searchVisible, moveTeam]
+    []
+  );
+
+  const endPointerDrag = React.useCallback(
+    (event: { pointerId: number; preventDefault: () => void }) => {
+      const drag = pointerDrag.current;
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      if (drag.sourceElement.hasPointerCapture(event.pointerId)) {
+        drag.sourceElement.releasePointerCapture(event.pointerId);
+      }
+      if (drag.ghost) {
+        event.preventDefault();
+        suppressNextClick.current = true;
+        setTimeout(() => {
+          suppressNextClick.current = false;
+        }, 0);
+        commitDrop(drag.team, drag.target);
+      }
+      clearPointerDrag();
+    },
+    [clearPointerDrag, commitDrop]
+  );
+
+  const startPointerDrag = React.useCallback(
+    (event: React.PointerEvent<HTMLElement>, team: PicklistTeam) => {
+      if (event.button !== 0) return;
+      const target = event.target as HTMLElement;
+      if (target.closest('input, textarea')) return;
+      const bounds = event.currentTarget.getBoundingClientRect();
+      const drag: WebPointerDrag = {
+        team,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        offsetX: event.clientX - bounds.left,
+        offsetY: event.clientY - bounds.top,
+        sourceElement: event.currentTarget,
+        ghost: null,
+        line: null,
+        dimmedList: null,
+        target: null,
+        moveListener: null,
+        endListener: null,
+        cancelListener: null,
+      };
+      drag.moveListener = (pointerEvent) => movePointerDrag(pointerEvent);
+      drag.endListener = (pointerEvent) => endPointerDrag(pointerEvent);
+      drag.cancelListener = (pointerEvent) => {
+        if (pointerDrag.current?.pointerId === pointerEvent.pointerId) clearPointerDrag();
+      };
+      pointerDrag.current = drag;
+      window.addEventListener('pointermove', drag.moveListener, { passive: false });
+      window.addEventListener('pointerup', drag.endListener);
+      window.addEventListener('pointercancel', drag.cancelListener);
+    },
+    [clearPointerDrag, endPointerDrag, movePointerDrag]
   );
 
   const ghostStyle = useAnimatedStyle(() => ({
@@ -480,6 +781,9 @@ export default function PicklistScreen() {
   const renderColumn = (col: (typeof columns)[number]) => (
     <View
       key={col.key}
+      {...(Platform.OS === 'web'
+        ? ({ dataSet: { picklistTier: col.key } } as any)
+        : {})}
       className={cn('h-full rounded-md border border-border bg-card', isWide ? 'flex-1' : 'w-72')}
     >
       <View className="flex-row items-center gap-2 border-b border-border px-3 py-2.5">
@@ -488,32 +792,81 @@ export default function PicklistScreen() {
         <Badge variant="muted" label={String(col.shown.length)} />
       </View>
       <ScrollView
+        {...(Platform.OS === 'web'
+          ? ({ dataSet: { picklistList: 'true' } } as any)
+          : {})}
         className="flex-1"
-        contentContainerClassName="gap-2 p-2"
-        scrollEnabled={!dragTeam}
+        contentContainerClassName={cn(
+          'gap-2 p-2',
+          Platform.OS !== 'web' &&
+            dropTarget?.tierKey === col.key &&
+            dropTarget.dimContents &&
+            'opacity-60'
+        )}
+        scrollEnabled={!dragTeam && !draggingId}
         onScroll={(e) => {
           vScroll.current[col.key] = e.nativeEvent.contentOffset.y;
         }}
         scrollEventThrottle={32}
       >
         {col.shown.length === 0 ? (
-          <View className="items-center py-8">
+          <View className="relative items-center py-8">
+            {dropTarget?.tierKey === col.key && !dropTarget.dimContents ? (
+              <View className="absolute left-0 right-0 top-0 h-0.5 bg-primary" />
+            ) : null}
             <Text variant="small">No teams</Text>
           </View>
         ) : (
-          col.shown.map(({ team, index }) => (
-            <TeamCard
-              key={team.id}
-              team={team}
-              index={index}
-              highlight={filterCount > 0 ? matchesFilters(team, filters) : null}
-              onDragStart={onDragStart}
-              onDragMove={onDragMove}
-              onDragEnd={onDragEnd}
-              onLayoutCard={onLayoutCard}
-              dragging={dragTeam?.id === team.id}
-            />
-          ))
+          col.shown.map(({ team, index }, shownIndex) => {
+            const card = (
+              <TeamCard
+                team={team}
+                index={index}
+                highlight={filterCount > 0 ? matchesFilters(team, filters) : null}
+                onDragStart={onDragStart}
+                onDragMove={onDragMove}
+                onDragEnd={onDragEnd}
+                onLayoutCard={onLayoutCard}
+                dragging={draggingId === team.id}
+                indicatorBefore={
+                  Platform.OS !== 'web' &&
+                  dropTarget?.tierKey === col.key &&
+                  !dropTarget.dimContents &&
+                  dropTarget.markerIndex === shownIndex
+                }
+                indicatorAfter={
+                  Platform.OS !== 'web' &&
+                  dropTarget?.tierKey === col.key &&
+                  !dropTarget.dimContents &&
+                  dropTarget.markerIndex === col.shown.length &&
+                  shownIndex === col.shown.length - 1
+                }
+              />
+            );
+
+            return Platform.OS === 'web'
+              ? React.createElement(
+                  'div',
+                  {
+                    key: team.id,
+                    'data-picklist-team': team.id,
+                    onPointerDown: (event: React.PointerEvent<HTMLElement>) =>
+                      startPointerDrag(event, team),
+                    onClickCapture: (event: React.MouseEvent<HTMLElement>) => {
+                      if (!suppressNextClick.current) return;
+                      suppressNextClick.current = false;
+                      event.preventDefault();
+                      event.stopPropagation();
+                    },
+                    className: cn(
+                      'relative',
+                      draggingId === team.id && 'cursor-grabbing opacity-30'
+                    ),
+                  },
+                  card
+                )
+              : React.cloneElement(card, { key: team.id });
+          })
         )}
       </ScrollView>
     </View>
@@ -600,17 +953,31 @@ export default function PicklistScreen() {
           description="Scout some teams first, then drag them into tiers here."
         />
       ) : isWide ? (
-        <View ref={boardRef} onLayout={measureBoard} className="flex-1 flex-row gap-3 px-6 pb-4">
+        <View
+          ref={boardRef}
+          onLayout={measureBoard}
+          {...(Platform.OS === 'web'
+            ? ({ dataSet: { picklistBoard: 'true' } } as any)
+            : {})}
+          className="flex-1 flex-row gap-3 px-6 pb-4"
+        >
           {columns.map(renderColumn)}
         </View>
       ) : (
-        <View ref={boardRef} onLayout={measureBoard} className="flex-1">
+        <View
+          ref={boardRef}
+          onLayout={measureBoard}
+          {...(Platform.OS === 'web'
+            ? ({ dataSet: { picklistBoard: 'true' } } as any)
+            : {})}
+          className="flex-1"
+        >
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             className="flex-1"
             contentContainerClassName="gap-3 px-4 pb-4"
-            scrollEnabled={!dragTeam}
+            scrollEnabled={!dragTeam && !draggingId}
             onScroll={(e) => {
               hScroll.current = e.nativeEvent.contentOffset.x;
             }}
@@ -646,14 +1013,13 @@ export default function PicklistScreen() {
       />
 
       {/* Ghost card that follows the pointer while dragging. */}
-      {dragTeam ? (
+      {Platform.OS !== 'web' && dragTeam ? (
         <Animated.View
           pointerEvents="none"
           style={ghostStyle}
           className="absolute z-50 w-[240px] gap-1 rounded-md border border-primary bg-card p-2.5 opacity-95"
         >
           <View className="flex-row items-center gap-2">
-            <Icon as={GripVertical} size={14} className="text-muted-foreground" />
             <Text className="text-base font-extrabold">#{dragTeam.team_number}</Text>
           </View>
           <Text variant="small" numberOfLines={1}>

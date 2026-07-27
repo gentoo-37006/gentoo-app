@@ -20,7 +20,7 @@ function TeamCard({ team }: { team: TeamScore }) {
   const official = officialSummary(team);
   return (
     <Pressable className="active:opacity-75" onPress={() => router.push(`/scouting/pit/${team.team_id}` as any)}>
-        <Card>
+        <Card className="hover:bg-accent/70">
           <CardContent className="flex-row items-center justify-between gap-3 p-4">
             <View className="flex-1">
               <Text className="text-base font-bold">Team {team.team_number}</Text>

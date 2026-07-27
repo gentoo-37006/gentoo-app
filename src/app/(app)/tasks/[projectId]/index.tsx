@@ -563,7 +563,7 @@ function TaskTableRow({
     <View
       className={cn(
         'min-h-14 flex-row items-stretch border-t border-border',
-        highlighted && 'bg-primary/10'
+        highlighted ? 'bg-primary/10 hover:bg-primary/12' : 'hover:bg-accent/70'
       )}
     >
       <View className="min-w-[260px] flex-1 justify-center px-3 py-2.5">

@@ -22,6 +22,7 @@ export type PicklistTeam = {
 
 /** Within a tier: manual rank first (nulls last), then team number. */
 export function tierSort(a: PicklistTeam, b: PicklistTeam): number {
+  if (a.tier === null && b.tier === null) return a.team_number - b.team_number;
   if (a.rank !== null && b.rank !== null && a.rank !== b.rank) return a.rank - b.rank;
   if (a.rank !== null && b.rank === null) return -1;
   if (a.rank === null && b.rank !== null) return 1;
@@ -96,10 +97,23 @@ function usePicklistMutation<TVars>(fn: (vars: TVars) => Promise<void>) {
  * the whole target tier (orderedIds includes the moved team at its new index).
  */
 export function useMoveTeam() {
-  return usePicklistMutation<{ teamId: string; tier: PicklistTier | null; orderedIds: string[] }>(
-    async ({ teamId, tier, orderedIds }) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      teamId,
+      tier,
+      orderedIds,
+    }: {
+      teamId: string;
+      tier: PicklistTier | null;
+      orderedIds: string[];
+    }) => {
       if (isDemoMode()) {
-        await demoSetPicklist(teamId, { picklist_tier: tier });
+        await demoSetPicklist(teamId, {
+          picklist_tier: tier,
+          ...(tier === null ? { picklist_rank: null } : {}),
+        });
+        if (tier === null) return;
         for (let i = 0; i < orderedIds.length; i++) {
           await demoSetPicklist(orderedIds[i], { picklist_rank: i + 1 });
         }
@@ -107,17 +121,43 @@ export function useMoveTeam() {
       }
       const { error } = await supabase
         .from('scouted_teams')
-        .update({ picklist_tier: tier })
+        .update({
+          picklist_tier: tier,
+          ...(tier === null ? { picklist_rank: null } : {}),
+        })
         .eq('id', teamId);
       if (error) throw error;
+      if (tier === null) return;
       const results = await Promise.all(
         orderedIds.map((id, i) =>
           supabase.from('scouted_teams').update({ picklist_rank: i + 1 }).eq('id', id)
         )
       );
       for (const r of results) if (r.error) throw r.error;
-    }
-  );
+    },
+    onMutate: async ({ teamId, tier, orderedIds }) => {
+      await qc.cancelQueries({ queryKey: picklistKey });
+      const previous = qc.getQueryData<PicklistTeam[]>(picklistKey);
+      const rankById = new Map(orderedIds.map((id, index) => [id, index + 1]));
+      qc.setQueryData<PicklistTeam[]>(picklistKey, (current) =>
+        current?.map((team) => {
+          const rank = rankById.get(team.id);
+          if (team.id === teamId) {
+            return { ...team, tier, rank: tier === null ? null : rank ?? null };
+          }
+          return rank === undefined ? team : { ...team, rank };
+        })
+      );
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) qc.setQueryData(picklistKey, context.previous);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: picklistKey });
+      qc.invalidateQueries({ queryKey: scoutingKeys.teamScores });
+    },
+  });
 }
 
 export function useSetPicklistNotes() {

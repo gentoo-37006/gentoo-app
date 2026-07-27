@@ -111,7 +111,7 @@ function TalkieRow({ talkie }: { talkie: TalkieWithPeople }) {
   return (
     <Link href={'/talkie' as any} asChild>
       <Pressable className="active:opacity-75">
-        <Card>
+        <Card className="hover:bg-accent/70">
           <CardContent className="flex-row items-center gap-3 p-4">
             <View className="flex-1 gap-0.5">
               <Text className="font-semibold">Team {talkie.team_number}</Text>
@@ -144,7 +144,7 @@ function QuickLinkCard({ link }: { link: QuickLink }) {
       className="flex-1 basis-full active:opacity-75 md:basis-[48%]"
       onPress={() => router.push(link.href as any)}
     >
-      <Card>
+      <Card className="hover:bg-accent/70">
         <CardContent className="flex-row items-center gap-4 p-4">
           <View className="h-11 w-11 items-center justify-center rounded-md bg-accent">
             <Icon as={link.icon} size={22} className="text-primary" />

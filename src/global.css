@@ -16,6 +16,7 @@
     /* Team accent — "gentoo" lilac (#CEA2FD family; darkened here for contrast on white) */
     --primary: 269 65% 63%;
     --primary-foreground: 0 0% 100%;
+    --alliance-blue: 222 89% 55%;
 
     --secondary: 0 0% 93%;
     --secondary-foreground: 0 0% 8%;
@@ -43,27 +44,28 @@
   }
 
   .dark:root {
-    --background: 0 0% 4%;
-    --foreground: 0 0% 93%;
+    --background: 0 0% 7%;
+    --foreground: 0 0% 96%;
 
-    --card: 0 0% 7%;
-    --card-foreground: 0 0% 93%;
+    --card: 0 0% 11%;
+    --card-foreground: 0 0% 96%;
 
-    --popover: 0 0% 8%;
-    --popover-foreground: 0 0% 93%;
+    --popover: 0 0% 13%;
+    --popover-foreground: 0 0% 96%;
 
     /* Light lilac (#D8B4FE) */
     --primary: 269 96% 85%;
     --primary-foreground: 0 0% 4%;
+    --alliance-blue: 217 91% 60%;
 
-    --secondary: 0 0% 12%;
-    --secondary-foreground: 0 0% 93%;
+    --secondary: 0 0% 16%;
+    --secondary-foreground: 0 0% 96%;
 
-    --muted: 0 0% 11%;
-    --muted-foreground: 0 0% 60%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 68%;
 
-    --accent: 0 0% 14%;
-    --accent-foreground: 0 0% 93%;
+    --accent: 0 0% 21%;
+    --accent-foreground: 0 0% 96%;
 
     --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 98%;
@@ -74,8 +76,8 @@
     --warning: 42 95% 55%;
     --warning-foreground: 0 0% 4%;
 
-    --border: 0 0% 15%;
-    --input: 0 0% 18%;
+    --border: 0 0% 27%;
+    --input: 0 0% 30%;
     --ring: 269 96% 85%;
   }
 }

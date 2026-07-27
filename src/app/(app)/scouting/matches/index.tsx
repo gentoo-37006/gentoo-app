@@ -29,7 +29,7 @@ function AllianceLine({ match }: { match: MatchWithAssignments | Match }) {
           {fmt(match.red1, match.red2)}
         </Text>
         <Text variant="small">vs</Text>
-        <Text className={cn("text-sm font-semibold text-primary", blueWon && "font-black underline")}>
+        <Text className={cn("text-sm font-semibold text-alliance-blue", blueWon && "font-black underline")}>
           {fmt(match.blue1, match.blue2)}
         </Text>
       </View>
@@ -37,7 +37,7 @@ function AllianceLine({ match }: { match: MatchWithAssignments | Match }) {
         <View className="flex-row gap-2 items-center">
           <Badge variant={redWon ? "destructive" : "secondary"} label={String(match.red_score ?? 0)} />
           <Text variant="small">-</Text>
-          <Badge variant={blueWon ? "default" : "secondary"} label={String(match.blue_score ?? 0)} />
+          <Badge variant={blueWon ? "allianceBlue" : "secondary"} label={String(match.blue_score ?? 0)} />
           {tie && <Text variant="small" className="text-muted-foreground ml-2">(Tie)</Text>}
         </View>
       )}
@@ -52,7 +52,13 @@ function MatchCard({ match, uid }: { match: MatchWithAssignments; uid?: string }
   const mine = match.assignments.find((a) => a.scouter_id === uid);
   return (
     <Pressable className="active:opacity-75" onPress={() => router.push(`/scouting/matches/${match.id}` as any)}>
-        <Card className={cn(mine && 'border-primary/40 bg-primary/5')}>
+        <Card
+          className={cn(
+            mine
+              ? 'border-primary/40 bg-primary/5 hover:bg-accent/70'
+              : 'hover:bg-accent/70'
+          )}
+        >
           <CardContent className="flex-row items-center gap-3 p-4">
             <View className="flex-1 gap-1">
               <Text className="font-bold">{matchTitle(match)}</Text>

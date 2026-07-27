@@ -24,7 +24,7 @@ function ProjectCard({ project }: { project: ProjectWithTasks }) {
   const open = project.tasks.length;
   return (
     <Pressable className="active:opacity-75" onPress={() => router.push(`/tasks/${project.id}` as any)}>
-        <Card>
+        <Card className="hover:bg-accent/70">
           <CardContent className="gap-3 p-4">
             <View className="flex-row items-center gap-3">
               <View className="flex-1">
