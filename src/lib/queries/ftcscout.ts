@@ -6,7 +6,7 @@ import { matchKeys } from './matches';
 import { picklistKey } from './picklist';
 import { scoutingKeys } from './scouting';
 import { ACTIVE_EVENT_KEY, useSetAppSetting } from './settings';
-import { MatchInfo, TeamInfo } from '../types';
+import { matchLabelFor, MatchInfo, TeamInfo } from '../types';
 
 interface FTCScoutTeamInput {
   teamNumber: number;
@@ -26,6 +26,8 @@ interface FTCScoutTeamInput {
 interface FTCScoutMatchInput {
   id: number;
   tournamentLevel: string;
+  /** Playoff bracket series; 0 for qualification matches. */
+  series: number | null;
   hasBeenPlayed: boolean;
 
   scheduledStartTime: string;
@@ -65,7 +67,6 @@ export function useSyncFTCScout() {
       // 1. Fetch from FTC Scout
       const matchesData = (await getEventMatches(eventCode)) as FTCScoutMatchInput[] | null;
       const teamsData = (await getEventTeams(eventCode)) as FTCScoutTeamInput[] | null;
-      console.log(matchesData)
       // 2. Parse into clean arrays. The event endpoint only returns numbers, so
       // names come from the GraphQL endpoint.
       const teams: TeamInfo[] = await populateTeamNames(
@@ -78,7 +79,10 @@ export function useSyncFTCScout() {
         const [red1 = null, red2 = null] = alliance('red');
         const [blue1 = null, blue2 = null] = alliance('blue');
         return {
+          // FTC Scout numbers quals 1..N but playoffs from 21001 up, so
+          // playoff matches need a label or they read as "Match 21001".
           match_number: m.id || 0,
+          label: matchLabelFor(m.tournamentLevel, m.series),
           red1,
           red2,
           blue1,

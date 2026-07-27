@@ -19,6 +19,21 @@ describe('hrefForNotification', () => {
     expect(hrefForNotification({ type: 'task', data: null })).toBeNull();
   });
 
+  it('routes assignment and report pings to the match they name', () => {
+    expect(
+      hrefForNotification({ type: 'assignment', data: { matchId: 'm1' } })
+    ).toBe('/scouting/matches/m1');
+    expect(
+      hrefForNotification({ type: 'match_report', data: { matchId: 'm1', teamNumber: 7244 } })
+    ).toBe('/scouting/matches/m1');
+  });
+
+  it('falls back to the match list when the ping names no match', () => {
+    expect(hrefForNotification({ type: 'assignment', data: { matchId: 42 } })).toBe(
+      '/scouting/matches'
+    );
+  });
+
   it('routes talkie, scouting, and approval types to their screens', () => {
     expect(hrefForNotification({ type: 'talkie_request' })).toBe('/talkie');
     expect(hrefForNotification({ type: 'talkie_claimed' })).toBe('/talkie');

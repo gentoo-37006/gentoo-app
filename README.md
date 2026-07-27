@@ -36,6 +36,13 @@ npm start              # then press w (web), i (iOS), a (Android)
 | `npm run web` / `ios` / `android` | Start on a specific platform |
 | `npm run typecheck` | Run `tsc --noEmit` |
 | `npm run lint` | Run Expo lint |
+| `npm run mac:preview` | Build the web bundle and open it in the desktop shell |
+
+> **Desktop builds bake in the environment.** `EXPO_PUBLIC_*` values are inlined
+> when the web bundle is exported, so a desktop build made without `.env` (or
+> without those vars on the build host) installs fine but shows "Backend not
+> configured" on launch. Every export runs `scripts/check-public-env.js` first
+> and fails with a fix-it message rather than shipping a dead app.
 
 ## Render deploys
 

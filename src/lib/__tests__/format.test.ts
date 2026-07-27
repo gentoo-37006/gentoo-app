@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { formatDate, formatDayLabel, formatTime, teamRecord, timeAgo } from '@/lib/format';
+import { formatDate, formatDayLabel, formatTime, isPastDue, teamRecord, timeAgo } from '@/lib/format';
 
 describe('timeAgo', () => {
   const NOW = new Date('2026-07-25T12:00:00Z');
@@ -71,5 +71,40 @@ describe('teamRecord', () => {
   it('returns null when the team has no synced record at all', () => {
     expect(teamRecord(null, null, null)).toBeNull();
     expect(teamRecord(undefined, undefined, undefined)).toBeNull();
+  });
+});
+
+describe('date-only due dates', () => {
+  // `new Date('2026-08-14')` is UTC midnight, so anywhere west of Greenwich it
+  // formats as the 13th — the dashboard showed a different day than the task
+  // view and the date picker, which both parse date-only strings locally.
+  it('formats a due date on the day it was picked', () => {
+    expect(formatDate('2026-08-14')).toContain('14');
+  });
+
+  it('still formats full timestamps', () => {
+    expect(formatDate('2026-06-22T15:00:00Z')).not.toBe('');
+  });
+
+  const at = (year: number, month: number, day: number, hour = 12) =>
+    new Date(year, month - 1, day, hour).getTime();
+
+  it('is not overdue on the due day, even late in the evening', () => {
+    expect(isPastDue('2026-07-27', at(2026, 7, 27))).toBe(false);
+    expect(isPastDue('2026-07-27', at(2026, 7, 27, 23))).toBe(false);
+  });
+
+  it('is overdue the next day', () => {
+    expect(isPastDue('2026-07-27', at(2026, 7, 28, 0))).toBe(true);
+  });
+
+  it('is not overdue before the due day', () => {
+    expect(isPastDue('2026-07-27', at(2026, 7, 26))).toBe(false);
+  });
+
+  it('treats a missing or unparseable due date as not overdue', () => {
+    expect(isPastDue(null)).toBe(false);
+    expect(isPastDue(undefined)).toBe(false);
+    expect(isPastDue('garbage')).toBe(false);
   });
 });

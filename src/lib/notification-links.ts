@@ -17,6 +17,9 @@ export function hrefForNotification(n: {
       ? `/projects/${projectId}?task=${taskId}`
       : `/projects/${projectId}`
     : null;
+  // Assignment and report pings carry the match they're about; land on it
+  // rather than making the scouter find it in the list.
+  const matchId = typeof data.matchId === 'string' && data.matchId ? data.matchId : null;
   const type = n.type ?? (typeof data.type === 'string' ? data.type : null);
 
   switch (type) {
@@ -28,7 +31,7 @@ export function hrefForNotification(n: {
       return '/talkie';
     case 'assignment':
     case 'match_report':
-      return '/scouting/matches';
+      return matchId ? `/scouting/matches/${matchId}` : '/scouting/matches';
     case 'approval':
       return '/admin';
     default:

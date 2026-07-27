@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { summarizeAnswers, summarizeEntry } from '@/lib/scoring';
+import { officialSummary, summarizeAnswers, summarizeEntry } from '@/lib/scoring';
 import type { AnswerValue, CapabilityQuestion } from '@/lib/types';
 
 const question = (id: string, category = 'auto'): CapabilityQuestion => ({
@@ -128,5 +128,46 @@ describe('summarizeEntry', () => {
       no: 0,
       didNotSee: 0,
     });
+  });
+});
+
+describe('officialSummary', () => {
+  const stats = (over: Partial<Parameters<typeof officialSummary>[0]> = {}) => ({
+    official_rank: null,
+    official_wins: null,
+    official_losses: null,
+    official_ties: null,
+    official_avg_points: null,
+    ...over,
+  });
+
+  it('joins rank, record, and average score', () => {
+    expect(
+      officialSummary(
+        stats({
+          official_rank: 3,
+          official_wins: 8,
+          official_losses: 2,
+          official_ties: 0,
+          official_avg_points: 142.5,
+        })
+      )
+    ).toBe('Rank 3 · 8-2-0 · 142.5 avg');
+  });
+
+  it('leaves out the parts that are missing', () => {
+    expect(officialSummary(stats({ official_rank: 4 }))).toBe('Rank 4');
+    expect(officialSummary(stats({ official_avg_points: 90 }))).toBe('90.0 avg');
+  });
+
+  it('is empty when nothing has been synced, so callers can hide the line', () => {
+    expect(officialSummary(stats())).toBe('');
+  });
+
+  it('handles a numeric column arriving as a string', () => {
+    // PostgREST can serialize `numeric` as a string depending on the driver.
+    expect(officialSummary(stats({ official_avg_points: '128.25' as unknown as number }))).toBe(
+      '128.3 avg'
+    );
   });
 });

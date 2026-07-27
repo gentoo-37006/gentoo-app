@@ -60,6 +60,19 @@ function hoursFromNow(hours: number) {
   return new Date(Date.now() + hours * 3_600_000).toISOString();
 }
 
+/**
+ * Local calendar date N days out, e.g. "2026-07-28" — matching the `date`
+ * columns Postgres returns for task due dates (daysFromNow gives a full
+ * timestamp, which those columns never contain).
+ */
+function dateFromNow(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${month}-${day}`;
+}
+
 function daysFromNow(days: number, hour = 10) {
   const d = new Date();
   d.setDate(d.getDate() + days);
@@ -178,8 +191,8 @@ function seedWorkspace(): DemoWorkspace {
   ];
 
   const tasks: Task[] = [
-    { id: 'task-1', project_id: 'project-pit', title: 'Label battery cables', notes: '## Why\n\nInspectors flagged unlabeled leads last event.\n\n- [ ] Print labels\n- [ ] Wrap both ends\n- [ ] Photograph for the log', status: 'in_progress', assignee_ids: [DEMO_PIT_ID, DEMO_ADMIN_ID], blocked_by: null, blocked_by_project: null, due_date: daysFromNow(1), priority: 'high', tags: ['pit', 'electrical'], sort_order: 10, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
-    { id: 'task-2', project_id: 'project-pit', title: 'Charge driver station laptop', notes: null, status: 'blocked', assignee_ids: [DEMO_ADMIN_ID], blocked_by: 'task-1', blocked_by_project: null, due_date: daysFromNow(0, 18), priority: 'urgent', tags: ['drive'], sort_order: 20, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
+    { id: 'task-1', project_id: 'project-pit', title: 'Label battery cables', notes: '## Why\n\nInspectors flagged unlabeled leads last event.\n\n- [ ] Print labels\n- [ ] Wrap both ends\n- [ ] Photograph for the log', status: 'in_progress', assignee_ids: [DEMO_PIT_ID, DEMO_ADMIN_ID], blocked_by: null, blocked_by_project: null, due_date: dateFromNow(1), priority: 'high', tags: ['pit', 'electrical'], sort_order: 10, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
+    { id: 'task-2', project_id: 'project-pit', title: 'Charge driver station laptop', notes: null, status: 'blocked', assignee_ids: [DEMO_ADMIN_ID], blocked_by: 'task-1', blocked_by_project: null, due_date: dateFromNow(0), priority: 'urgent', tags: ['drive'], sort_order: 20, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
     { id: 'task-3', project_id: 'project-scouting', title: 'Import qualification schedule', notes: null, status: 'todo', assignee_ids: [DEMO_STRATEGIST_ID], blocked_by: null, blocked_by_project: null, due_date: null, priority: 'medium', tags: ['scouting'], sort_order: 10, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
   ];
 

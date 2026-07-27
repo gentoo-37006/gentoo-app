@@ -19,7 +19,7 @@ import { isDesktopApp } from '@/lib/desktop-updates';
 import { useProjects, useMyTasks, useMyOpenTaskCount, type MyTask } from '@/lib/queries/tasks';
 import { priorityVariant, taskStatusVariant, labelOf } from '@/lib/task-style';
 import { PRIORITIES, TASK_STATUSES } from '@/lib/types';
-import { formatDate } from '@/lib/format';
+import { formatDate, isPastDue } from '@/lib/format';
 import { useNow } from '@/lib/use-now';
 
 type Stat = { label: string; value: string; icon: LucideIcon; tint: string };
@@ -37,7 +37,7 @@ function StatCard({ stat }: { stat: Stat }) {
 }
 
 function MyTaskRow({ task, now }: { task: MyTask; now: number }) {
-  const overdue = task.due_date ? new Date(task.due_date).getTime() < now : false;
+  const overdue = isPastDue(task.due_date, now);
   return (
     <Link href={`/projects/${task.project_id}` as any} asChild>
       <Pressable className="active:opacity-75">

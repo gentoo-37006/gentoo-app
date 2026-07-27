@@ -23,6 +23,27 @@ import { cn } from '@/lib/utils';
 const MOBILE_TOOLTIP_WIDTH = 152;
 const TOOLTIP_VIEWPORT_MARGIN = 8;
 
+/**
+ * Whether the pointer is coarse (touch). `Platform.OS === 'web'` is also true
+ * for the web app on a phone or tablet, where there is no Shift key to hold —
+ * those users get the same press-again confirmation the native app uses.
+ */
+function useCoarsePointer() {
+  const [coarse, setCoarse] = React.useState(false);
+
+  React.useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined' || !window.matchMedia) return;
+
+    const query = window.matchMedia('(pointer: coarse)');
+    const update = () => setCoarse(query.matches);
+    update();
+    query.addEventListener?.('change', update);
+    return () => query.removeEventListener?.('change', update);
+  }, []);
+
+  return coarse;
+}
+
 function useShiftPressed() {
   const [pressed, setPressed] = React.useState(false);
 
@@ -62,6 +83,7 @@ export function DeleteButton({
 }: ButtonProps) {
   const { width: viewportWidth } = useWindowDimensions();
   const shiftPressed = useShiftPressed();
+  const coarsePointer = useCoarsePointer();
   const [hovered, setHovered] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
   const [tooltipAnchor, setTooltipAnchor] = React.useState<DeleteTooltipAnchor | null>(null);
@@ -69,13 +91,16 @@ export function DeleteButton({
   const buttonRef = React.useRef<View>(null);
   const isDisabled = disabled || loading;
   const isWeb = Platform.OS === 'web';
-  const webDeleteEnabled = isWeb && shiftPressed;
+  // Hold-Shift only where a keyboard is a safe assumption; touch web falls back
+  // to press-again, or deleting would be impossible there.
+  const shiftGate = isWeb && !coarsePointer;
+  const webDeleteEnabled = shiftGate && shiftPressed;
   const textClass = buttonTextVariants({ variant });
   const showTooltip =
-    !isDisabled && ((isWeb && hovered && !shiftPressed) || (!isWeb && confirming));
+    !isDisabled && ((shiftGate && hovered && !shiftPressed) || (!shiftGate && confirming));
   const showDangerIcon =
-    !isDisabled && ((isWeb && hovered && shiftPressed) || (!isWeb && confirming));
-  const tooltipText = isWeb ? 'Hold Shift to delete' : 'Press again to delete';
+    !isDisabled && ((shiftGate && hovered && shiftPressed) || (!shiftGate && confirming));
+  const tooltipText = shiftGate ? 'Hold Shift to delete' : 'Press again to delete';
   const confirmationTextClass = cn(textClass, showDangerIcon && 'text-destructive');
   const mobileTooltipLeft = tooltipAnchor
     ? Math.min(
@@ -112,17 +137,17 @@ export function DeleteButton({
       {...pressableProps}
       className={cn(
         'relative',
-        isWeb && (webDeleteEnabled ? 'cursor-pointer' : 'cursor-default'),
+        isWeb && (!shiftGate || webDeleteEnabled ? 'cursor-pointer' : 'cursor-default'),
         className
       )}
       disabled={isDisabled}
       accessibilityRole="button"
       accessibilityState={{
         ...pressableProps.accessibilityState,
-        disabled: isDisabled || (isWeb && !webDeleteEnabled),
+        disabled: isDisabled || (shiftGate && !webDeleteEnabled),
       }}
       onPress={
-        isWeb
+        shiftGate
           ? webDeleteEnabled
             ? onPress
             : undefined
@@ -181,7 +206,7 @@ export function DeleteButton({
             className
           )}
           style={
-            isWeb && !webDeleteEnabled && (variant === 'outline' || variant === 'ghost')
+            shiftGate && !webDeleteEnabled && (variant === 'outline' || variant === 'ghost')
               ? { backgroundColor: 'transparent', opacity: isDisabled ? 0.5 : 1 }
               : undefined
           }

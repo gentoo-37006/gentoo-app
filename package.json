@@ -69,7 +69,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios --device",
     "web": "expo start --web",
-    "export:web": "expo export --platform web --clear",
+    "export:web": "node scripts/check-public-env.js && expo export --platform web --clear",
     "mac:preview": "npm run export:web && electron electron/main.cjs",
     "mac:icons": "bash scripts/build-mac-appearance-icons.sh",
     "mac:installer": "npm run export:web && npm run mac:icons && electron-builder --mac dmg --arm64 --config electron-builder.js",

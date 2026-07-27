@@ -199,6 +199,31 @@ export function matchTitle(m: { label: string | null; match_number: number }): s
   return m.label || `Match ${m.match_number}`;
 }
 
+/** FTC Scout tournament levels we give a friendlier name to. */
+const TOURNAMENT_LEVEL_NAMES: Record<string, string> = {
+  DoubleElim: 'Playoff',
+  Finals: 'Final',
+  Final: 'Final',
+  Semifinal: 'Semi',
+  Semis: 'Semi',
+};
+
+/**
+ * Display label for a synced match, or null to fall back to "Match N".
+ *
+ * Qualification matches are numbered 1..N and read fine as-is, but FTC Scout
+ * numbers playoff matches from 21001 up, so without a label they show as
+ * "Match 21001" everywhere — including the Discord scouting pings.
+ */
+export function matchLabelFor(
+  tournamentLevel: string | null | undefined,
+  series: number | null | undefined
+): string | null {
+  if (!tournamentLevel || tournamentLevel === 'Quals') return null;
+  const name = TOURNAMENT_LEVEL_NAMES[tournamentLevel] ?? tournamentLevel;
+  return series ? `${name} ${series}` : name;
+}
+
 // ---- Talkie -----------------------------------------------------------------
 
 export type TalkieStatus = 'open' | 'claimed' | 'resolved';
@@ -302,6 +327,8 @@ export interface TeamInfo {
 
 export interface MatchInfo {
   match_number: number;
+  /** Display name for non-qualification matches; null falls back to "Match N". */
+  label?: string | null;
   red1: number | null;
   red2: number | null;
   blue1: number | null;

@@ -1,9 +1,19 @@
 import { TeamInfo } from "../types";
 
 const API_BASE = 'https://api.ftcscout.org/rest/v1';
-const SEASON = 2025;
 const GRAPHQL_ENDPOINT = 'https://api.ftcscout.org/graphql'
 const CHUNK_SIZE = 15
+/**
+ * The FTC season an event belongs to. Seasons are labelled by the year they
+ * start and roll over in September — the 2025 season runs Sept 2025 to Apr
+ * 2026 — so this has to be derived, not pinned, or every sync breaks the
+ * moment kickoff moves the season on.
+ */
+export function currentSeason(now: Date = new Date()): number {
+  // getMonth() is zero-based: 8 is September.
+  return now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+}
+
 /**
  * Fetches the match schedule for a given FTC event.
  * @param eventCode e.g CAONCMP
@@ -12,7 +22,7 @@ export async function getEventMatches(eventCode: string): Promise<any> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), 10000);
   try {
-    const res = await fetch(`${API_BASE}/events/${SEASON}/${eventCode}/matches`, {
+    const res = await fetch(`${API_BASE}/events/${currentSeason()}/${eventCode}/matches`, {
       signal: controller.signal
     });
     clearTimeout(id);
@@ -35,7 +45,7 @@ export async function getEventTeams(eventCode: string): Promise<any> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), 10000);
   try {
-    const res = await fetch(`${API_BASE}/events/${SEASON}/${eventCode}/teams`, {
+    const res = await fetch(`${API_BASE}/events/${currentSeason()}/${eventCode}/teams`, {
       signal: controller.signal
     });
     clearTimeout(id);
