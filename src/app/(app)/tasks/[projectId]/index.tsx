@@ -830,8 +830,9 @@ function TaskTable({
     drag.ghost.style.left = `${event.clientX - drag.offsetX}px`;
     drag.ghost.style.top = `${event.clientY - drag.offsetY}px`;
 
+    const tableElement = drag.sourceElement.parentElement;
     const allRows = Array.from(
-      document.querySelectorAll<HTMLElement>('[data-task-row="true"]')
+      tableElement?.querySelectorAll<HTMLElement>('[data-task-row="true"]') ?? []
     );
     const sourceRow = allRows.find((row) => row.dataset.taskId === drag.taskId);
     const rows = allRows.filter((row) => row.dataset.taskId !== drag.taskId);

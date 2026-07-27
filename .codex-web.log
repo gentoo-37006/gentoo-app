@@ -1,0 +1,9 @@
+
+> gentoo-app@1.3.0-beta.4 web
+> expo start --web --port 8081
+
+env: load .env
+env: export EXPO_PUBLIC_RELEASE_CHANNEL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_SUPABASE_URL
+Starting project at C:\max\robotics-workspace\gentoo-app
+› Port 8081 is being used by another process
+› Skipping dev server
