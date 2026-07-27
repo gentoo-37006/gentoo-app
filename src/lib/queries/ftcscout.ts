@@ -93,7 +93,7 @@ export function useSyncFTCScout() {
           blue_score: m.scores?.blue?.totalPoints ?? null,
           blue_auto: m.scores?.blue?.autoPoints ?? null,
           blue_dc: m.scores?.blue?.dcPoints ?? null,
-          blue_penalty: m.scores?.red?.penaltyPointsByOpp ?? null,
+          blue_penalty: m.scores?.blue?.penaltyPointsByOpp ?? null,
         };
       });
 

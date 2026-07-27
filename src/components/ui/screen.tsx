@@ -49,7 +49,7 @@ export function ScreenHeader({
 }: {
   title: string;
   description?: string;
-  /** When set, shows a back chevron linking here (for nested screens). */
+  /** When set, shows a back chevron and provides a fallback for direct visits. */
   backHref?: string;
   children?: React.ReactNode;
 }) {
@@ -57,7 +57,16 @@ export function ScreenHeader({
   return (
     <View className="gap-2">
       {backHref ? (
-        <Pressable className="-ml-1 flex-row items-center gap-1 self-start py-1 active:opacity-70" onPress={() => router.back()}>
+        <Pressable
+          className="-ml-1 flex-row items-center gap-1 self-start py-1 active:opacity-70"
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace(backHref as any);
+            }
+          }}
+        >
           <Icon as={ChevronLeft} size={18} className="text-muted-foreground" />
           <Text variant="muted">Back</Text>
         </Pressable>

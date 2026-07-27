@@ -18,9 +18,11 @@ alter table public.matches
   add column red_score  int,
   add column red_auto   int,
   add column red_dc     int,
+  add column red_penalty int,
   add column blue_score int,
   add column blue_auto  int,
-  add column blue_dc    int;
+  add column blue_dc    int,
+  add column blue_penalty int;
 
 -- Teams keep one row across events so their pit history follows them; the event
 -- code only records which event's roster they were last synced with.
@@ -44,9 +46,11 @@ update public.matches m set
   red_score  = (s.j ->> 'red_score')::int,
   red_auto   = (s.j ->> 'red_auto')::int,
   red_dc     = (s.j ->> 'red_dc')::int,
+  red_penalty = (s.j ->> 'red_penalty')::int,
   blue_score = (s.j ->> 'blue_score')::int,
   blue_auto  = (s.j ->> 'blue_auto')::int,
-  blue_dc    = (s.j ->> 'blue_dc')::int
+  blue_dc    = (s.j ->> 'blue_dc')::int,
+  blue_penalty = (s.j ->> 'blue_penalty')::int
 from synced_matches s
 where m.match_number = (s.j ->> 'match_number')::int;
 

@@ -273,7 +273,13 @@ export default function TaskNotesScreen() {
       <View className="gap-2">
         <Pressable
           className="-ml-1 flex-row items-center gap-1 self-start py-1 active:opacity-70"
-          onPress={() => router.back()}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace(backHref as any);
+            }
+          }}
         >
           <Icon as={ChevronLeft} size={18} className="text-muted-foreground" />
           <Text variant="muted">Back</Text>
