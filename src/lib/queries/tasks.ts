@@ -11,6 +11,7 @@ import {
   demoMyTasks,
   demoProject,
   demoProjects,
+  demoReorderProjects,
   demoReorderTasks,
   demoRestoreProject,
   demoRestoreTask,
@@ -51,7 +52,8 @@ export function useProjects() {
         .select('*, tasks:tasks!tasks_project_id_fkey(id)')
         .is('deleted_at', null)
         .is('tasks.deleted_at', null)
-        .order('created_at', { ascending: false });
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
       if (error) throw error;
       return (data ?? []) as unknown as ProjectWithTasks[];
     },
@@ -208,7 +210,7 @@ function useProjectsMutation<TVars, TData = unknown>(fn: (vars: TVars) => Promis
 // ---- Projects ---------------------------------------------------------------
 
 export function useCreateProject() {
-  return useProjectsMutation<{ name: string; description?: string; status: ProjectStatus; priority: Priority }>(
+  return useProjectsMutation<{ name: string; description?: string; status: ProjectStatus; priority: Priority; sort_order?: number }>(
     async (vars) => {
       if (isDemoMode()) return demoCreateProject(vars);
       const uid = await currentUserId();
@@ -216,6 +218,48 @@ export function useCreateProject() {
       if (error) throw error;
     }
   );
+}
+
+export function useReorderProjects() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ projectIds }: { projectIds: string[] }) => {
+      if (isDemoMode()) return demoReorderProjects(projectIds);
+      const results = await Promise.all(
+        projectIds.map((id, index) =>
+          supabase
+            .from('projects')
+            .update({ sort_order: (index + 1) * 10 })
+            .eq('id', id)
+        )
+      );
+      const error = results.find((result) => result.error)?.error;
+      if (error) throw error;
+    },
+    onMutate: async ({ projectIds }) => {
+      await qc.cancelQueries({ queryKey: taskKeys.projects });
+      const previous = qc.getQueryData<ProjectWithTasks[]>(taskKeys.projects);
+      if (previous) {
+        const positions = new Map(projectIds.map((id, index) => [id, index]));
+        qc.setQueryData(
+          taskKeys.projects,
+          [...previous].sort(
+            (a, b) =>
+              (positions.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+              (positions.get(b.id) ?? Number.MAX_SAFE_INTEGER)
+          )
+        );
+      }
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) qc.setQueryData(taskKeys.projects, context.previous);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: taskKeys.projects });
+    },
+  });
 }
 
 export function useUpdateProject() {

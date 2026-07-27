@@ -239,6 +239,8 @@ export type Project = {
   description: string | null;
   status: ProjectStatus;
   priority: Priority;
+  /** Manual position in the projects list; lower values appear first. */
+  sort_order: number;
   created_by: string | null;
   created_at: string;
   updated_at: string;

@@ -154,8 +154,8 @@ function seedWorkspace(): DemoWorkspace {
   ];
 
   const projects: Project[] = [
-    { id: 'project-pit', name: 'Pit readiness', description: 'Prep the pit before inspection.', status: 'active', priority: 'high', created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
-    { id: 'project-scouting', name: 'Scouting setup', description: 'Validate match schedule and roles.', status: 'planning', priority: 'medium', created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
+    { id: 'project-pit', name: 'Pit readiness', description: 'Prep the pit before inspection.', status: 'active', priority: 'high', sort_order: 10, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
+    { id: 'project-scouting', name: 'Scouting setup', description: 'Validate match schedule and roles.', status: 'planning', priority: 'medium', sort_order: 20, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
   ];
 
   const tasks: Task[] = [
@@ -552,6 +552,10 @@ export async function demoProjects() {
   const db = await getDemoWorkspace();
   return db.projects
     .filter((p) => !p.deleted_at)
+    .sort(
+      (a, b) =>
+        (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.created_at.localeCompare(b.created_at)
+    )
     .map((p) => ({
       ...p,
       tasks: db.tasks
@@ -605,9 +609,17 @@ export async function demoMyTasks(uid = DEMO_USER_ID, limit = 6) {
     .map((t) => ({ ...t, project: { id: t.project_id, name: active.get(t.project_id)!.name } }));
 }
 
-export async function demoCreateProject(vars: { name: string; description?: string; status: ProjectStatus; priority: Priority }) {
+export async function demoCreateProject(vars: { name: string; description?: string; status: ProjectStatus; priority: Priority; sort_order?: number }) {
   const db = await getDemoWorkspace();
-  db.projects.unshift({ id: id('project'), name: vars.name, description: vars.description ?? null, status: vars.status, priority: vars.priority, created_by: DEMO_USER_ID, created_at: now(), updated_at: now(), deleted_at: null });
+  const sortOrder =
+    vars.sort_order ??
+    Math.max(
+      0,
+      ...db.projects
+        .filter((project) => !project.deleted_at)
+        .map((project) => project.sort_order ?? 0)
+    ) + 10;
+  db.projects.push({ id: id('project'), name: vars.name, description: vars.description ?? null, status: vars.status, priority: vars.priority, sort_order: sortOrder, created_by: DEMO_USER_ID, created_at: now(), updated_at: now(), deleted_at: null });
   await persist();
 }
 
@@ -635,6 +647,16 @@ export async function demoDeleteProject(idValue: string) {
   db.tasks = db.tasks
     .filter((t) => t.project_id !== idValue)
     .map((t) => (t.blocked_by_project === idValue ? { ...t, blocked_by_project: null } : t));
+  await persist();
+}
+
+export async function demoReorderProjects(projectIds: string[]) {
+  const db = await getDemoWorkspace();
+  const positions = new Map(projectIds.map((idValue, index) => [idValue, (index + 1) * 10]));
+  db.projects = db.projects.map((project) => {
+    const sortOrder = positions.get(project.id);
+    return sortOrder === undefined ? project : { ...project, sort_order: sortOrder };
+  });
   await persist();
 }
 
