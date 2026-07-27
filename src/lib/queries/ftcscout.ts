@@ -34,11 +34,13 @@ interface FTCScoutMatchInput {
     blue: {
       autoPoints: number;
       dcPoints: number;
+      penaltyPointsByOpp: number;
       totalPoints: number;
     };
     red: {
       autoPoints: number;
       dcPoints: number;
+      penaltyPointsByOpp: number;
       totalPoints: number;
     };
   };
@@ -63,7 +65,7 @@ export function useSyncFTCScout() {
       // 1. Fetch from FTC Scout
       const matchesData = (await getEventMatches(eventCode)) as FTCScoutMatchInput[] | null;
       const teamsData = (await getEventTeams(eventCode)) as FTCScoutTeamInput[] | null;
-
+      console.log(matchesData)
       // 2. Parse into clean arrays. The event endpoint only returns numbers, so
       // names come from the GraphQL endpoint.
       const teams: TeamInfo[] = await populateTeamNames(
@@ -75,7 +77,6 @@ export function useSyncFTCScout() {
           (m.teams ?? []).filter((t) => t.alliance.toLowerCase() === side).map((t) => t.teamNumber);
         const [red1 = null, red2 = null] = alliance('red');
         const [blue1 = null, blue2 = null] = alliance('blue');
-
         return {
           match_number: m.id || 0,
           red1,
@@ -88,9 +89,11 @@ export function useSyncFTCScout() {
           red_score: m.scores?.red?.totalPoints ?? null,
           red_auto: m.scores?.red?.autoPoints ?? null,
           red_dc: m.scores?.red?.dcPoints ?? null,
+          red_penalty: m.scores?.red?.penaltyPointsByOpp ?? null,
           blue_score: m.scores?.blue?.totalPoints ?? null,
           blue_auto: m.scores?.blue?.autoPoints ?? null,
           blue_dc: m.scores?.blue?.dcPoints ?? null,
+          blue_penalty: m.scores?.red?.penaltyPointsByOpp ?? null,
         };
       });
 

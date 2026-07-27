@@ -32,10 +32,11 @@ function TeamChip({ n, color }: { n: number | null; color: string }) {
   );
 }
 
-function ScoreColumn({ label, auto, dc, total, isWinner }: {
+function ScoreColumn({ label, auto, dc, penalty, total, isWinner }: {
   label: string;
   auto?: number | null;
   dc?: number | null;
+  penalty?: number | null;
   total?: number | null;
   isWinner?: boolean;
 }) {
@@ -60,6 +61,12 @@ function ScoreColumn({ label, auto, dc, total, isWinner }: {
         <View className="flex-row justify-between">
           <Text variant="small" className="text-muted-foreground">Teleop</Text>
           <Text variant="small" className="font-semibold">{dc}</Text>
+        </View>
+      )}
+      {penalty != null && (
+        <View className="flex-row justify-between">
+          <Text variant="small" className="text-muted-foreground">Penalty</Text>
+          <Text variant="small" className="font-semibold">{penalty}</Text>
         </View>
       )}
       {total != null && (
@@ -109,19 +116,21 @@ function Alliances({ match }: { match: Match }) {
               label="RED"
               auto={played ? match.red_auto : undefined}
               dc={played ? match.red_dc : undefined}
+              penalty={played ? match.red_penalty : undefined}
               total={played ? redTotal : undefined}
               isWinner={redWon}
             />
           </View>
           <View className="flex-1 gap-2">
             <View className="flex-row gap-2">
-              <TeamChip n={match.blue1} color="text-primary" />
+              <TeamChip n={match.blue1} color="text-primary" /> 
               <TeamChip n={match.blue2} color="text-primary" />
             </View>
             <ScoreColumn
               label="BLUE"
               auto={played ? match.blue_auto : undefined}
               dc={played ? match.blue_dc : undefined}
+              penalty={played ? match.blue_penalty : undefined}
               total={played ? blueTotal : undefined}
               isWinner={blueWon}
             />

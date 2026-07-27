@@ -139,8 +139,10 @@ export type Match = {
   blue_score?: number | null;
   red_auto?: number | null;
   red_dc?: number | null;
+  red_penalty?: number | null;
   blue_auto?: number | null;
   blue_dc?: number | null;
+  blue_penalty?: number | null;
   has_been_played?: boolean;
   tournament_level?: string | null;
   created_at: string;
@@ -295,9 +297,11 @@ export interface MatchInfo {
   red_score?: number | null;
   red_auto?: number | null;
   red_dc?: number | null;
+  red_penalty?: number | null;
   blue_score?: number | null;
   blue_auto?: number | null;
   blue_dc?: number | null;
+  blue_penalty?: number | null;
   has_been_played?: boolean;
   tournament_level?: string | null;
   scheduled_time?: string | null;
