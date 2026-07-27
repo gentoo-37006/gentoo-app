@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
@@ -100,26 +99,4 @@ export function useClearAllNotifications() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: notificationsKey(uid) }),
   });
-}
-
-/** Subscribe to live notification changes for the signed-in user. */
-export function useNotificationsRealtime() {
-  const qc = useQueryClient();
-  const { session } = useAuth();
-  const uid = session?.user?.id;
-  useEffect(() => {
-    if (!uid) return;
-    if (isDemoMode()) return;
-    const channel = supabase
-      .channel(`notifications:${uid}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${uid}` },
-        () => qc.invalidateQueries({ queryKey: notificationsKey(uid) })
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [uid, qc]);
 }

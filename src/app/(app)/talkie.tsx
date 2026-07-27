@@ -16,7 +16,6 @@ import { timeAgo } from '@/lib/format';
 import { useAuth } from '@/lib/auth';
 import {
   useTalkieRequests,
-  useTalkieRealtime,
   useCreateTalkie,
   useClaimTalkie,
   useResolveTalkie,
@@ -166,7 +165,6 @@ function TalkieCard({ request }: { request: TalkieWithPeople }) {
 }
 
 export default function TalkieScreen() {
-  useTalkieRealtime();
   const { data, isLoading } = useTalkieRequests();
   const [creating, setCreating] = React.useState(false);
   const requests = data ?? [];

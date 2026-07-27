@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useAuth } from '@/lib/auth';
 import { isDesktopApp } from '@/lib/desktop-updates';
-import { useUnreadCount, useNotificationsRealtime } from '@/lib/queries/notifications';
+import { useUnreadCount } from '@/lib/queries/notifications';
 import { registerForPushNotifications } from '@/lib/push';
 import {
   GENERAL_NAV,
@@ -393,7 +393,6 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { profile, isAdmin, session, isDemo } = useAuth();
   const unread = useUnreadCount();
-  useNotificationsRealtime();
 
   // Mobile drawer + desktop scouting dropdown; navigation closes both.
   // Render-time adjustment (not an effect) so closing happens in the same

@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import {
@@ -41,22 +40,6 @@ export function useTalkieRequests() {
       return (data ?? []) as unknown as TalkieWithPeople[];
     },
   });
-}
-
-export function useTalkieRealtime() {
-  const qc = useQueryClient();
-  useEffect(() => {
-    if (isDemoMode()) return;
-    const channel = supabase
-      .channel('talkie_requests')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'talkie_requests' }, () =>
-        qc.invalidateQueries({ queryKey: talkieKey })
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [qc]);
 }
 
 function useTalkieMutation<TVars>(fn: (vars: TVars) => Promise<void>) {

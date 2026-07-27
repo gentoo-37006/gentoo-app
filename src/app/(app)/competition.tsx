@@ -21,7 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { useMatches, type MatchWithAssignments } from '@/lib/queries/matches';
 import { usePitShifts } from '@/lib/queries/schedule';
-import { useTalkieRequests, useTalkieRealtime, type TalkieWithPeople } from '@/lib/queries/talkie';
+import { useTalkieRequests, type TalkieWithPeople } from '@/lib/queries/talkie';
 import { useTeamScores } from '@/lib/queries/scouting';
 import { matchTitle, matchTeamNumbers, type TalkieStatus } from '@/lib/types';
 import { formatTime, formatDayLabel, timeAgo } from '@/lib/format';
@@ -167,7 +167,6 @@ export default function CompetitionScreen() {
   const shifts = usePitShifts();
   const talkies = useTalkieRequests();
   const teams = useTeamScores();
-  useTalkieRealtime();
 
   const now = useNow();
   const myShifts = (shifts.data ?? [])

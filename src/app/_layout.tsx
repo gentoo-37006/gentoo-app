@@ -27,6 +27,7 @@ import { useRestoreThemeMode } from '@/lib/theme-mode';
 import { Providers } from '@/components/providers';
 import { UpdateBanner } from '@/components/update-banner';
 import { useAuth } from '@/lib/auth';
+import { useDatabaseRealtime } from '@/lib/use-database-realtime';
 
 export default function RootLayout() {
   const { colorScheme } = useColorScheme();
@@ -83,6 +84,7 @@ function useNativeUpdates() {
 function RootNavigator() {
   const { colorScheme } = useColorScheme();
   const { initializing, isConfigured, session, profile } = useAuth();
+  useDatabaseRealtime();
   const primaryColor = NAV_THEME[colorScheme === 'dark' ? 'dark' : 'light'].colors.primary;
   const segments = useSegments() as string[];
   const pathname = usePathname();
