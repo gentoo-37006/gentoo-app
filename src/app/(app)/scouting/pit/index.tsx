@@ -12,10 +12,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { useTeamScores } from '@/lib/queries/scouting';
+import { officialSummary } from '@/lib/scoring';
 import type { TeamScore } from '@/lib/types';
 
 function TeamCard({ team }: { team: TeamScore }) {
   const router = useRouter();
+  const official = officialSummary(team);
   return (
     <Pressable className="active:opacity-75" onPress={() => router.push(`/scouting/pit/${team.team_id}` as any)}>
         <Card>
@@ -25,6 +27,7 @@ function TeamCard({ team }: { team: TeamScore }) {
               <Text variant="muted" numberOfLines={1}>
                 {team.team_name ?? 'Unknown name'}
               </Text>
+              {official ? <Text variant="small">{official}</Text> : null}
             </View>
             <Badge
               variant="muted"

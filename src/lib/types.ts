@@ -75,6 +75,15 @@ export function tierLabel(key: TierKey): string {
   return key === 'untiered' ? 'Uncategorized' : PICKLIST_TIERS.find((t) => t.value === key)!.label;
 }
 
+/** Official event standings from the FTC Scout sync; null until synced. */
+export type OfficialStats = {
+  official_rank: number | null;
+  official_wins: number | null;
+  official_losses: number | null;
+  official_ties: number | null;
+  official_avg_points: number | null;
+};
+
 export type ScoutedTeam = {
   id: string;
   team_number: number;
@@ -86,7 +95,8 @@ export type ScoutedTeam = {
   picklist_tier: PicklistTier | null;
   picklist_rank: number | null;
   picklist_notes: string | null;
-};
+  stats_synced_at: string | null;
+} & OfficialStats;
 
 export type CapabilityQuestion = {
   id: string;
@@ -105,7 +115,7 @@ export type TeamScore = {
   team_name: string | null;
   score: number;
   entry_count: number;
-};
+} & OfficialStats;
 
 export type PitEntry = {
   id: string;

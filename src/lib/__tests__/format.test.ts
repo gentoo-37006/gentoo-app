@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { formatDate, formatDayLabel, formatTime, timeAgo } from '@/lib/format';
+import { formatDate, formatDayLabel, formatTime, teamRecord, timeAgo } from '@/lib/format';
 
 describe('timeAgo', () => {
   const NOW = new Date('2026-07-25T12:00:00Z');
@@ -52,5 +52,24 @@ describe('formatDate / formatTime / formatDayLabel', () => {
   it('formats time and day labels non-emptily for valid input', () => {
     expect(formatTime(ISO).length).toBeGreaterThan(0);
     expect(formatDayLabel(ISO)).toContain('22');
+  });
+});
+
+describe('teamRecord', () => {
+  it('formats a win-loss-tie record', () => {
+    expect(teamRecord(8, 2, 1)).toBe('8-2-1');
+  });
+
+  it('shows a played-but-winless team as 0-0-0 rather than nothing', () => {
+    expect(teamRecord(0, 0, 0)).toBe('0-0-0');
+  });
+
+  it('fills in missing parts of a partial record', () => {
+    expect(teamRecord(3, null, null)).toBe('3-0-0');
+  });
+
+  it('returns null when the team has no synced record at all', () => {
+    expect(teamRecord(null, null, null)).toBeNull();
+    expect(teamRecord(undefined, undefined, undefined)).toBeNull();
   });
 });

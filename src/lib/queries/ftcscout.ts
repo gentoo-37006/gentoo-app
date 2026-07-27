@@ -97,7 +97,24 @@ export function useSyncFTCScout() {
         };
       });
 
-      // 3. Upsert the roster. Teams whose name lookup failed are written without
+      // 3. Official standings, kept alongside our own scouting. Teams with no
+      // matches played yet come back without stats, so every field is guarded.
+      const syncedAt = new Date().toISOString();
+      const statsByNumber = new Map((teamsData ?? []).map((t) => [t.teamNumber, t.stats]));
+      const officialStats = (teamNumber: number) => {
+        const s = statsByNumber.get(teamNumber);
+        if (!s) return {};
+        return {
+          official_rank: s.rank ?? null,
+          official_wins: s.wins ?? null,
+          official_losses: s.losses ?? null,
+          official_ties: s.ties ?? null,
+          official_avg_points: s.avg?.totalPoints ?? null,
+          stats_synced_at: syncedAt,
+        };
+      };
+
+      // 4. Upsert the roster. Teams whose name lookup failed are written without
       // the column so a bad lookup can't blank a name that's already stored.
       const upsertTeams = async (rows: Record<string, unknown>[]) => {
         if (rows.length === 0) return;
@@ -107,15 +124,21 @@ export function useSyncFTCScout() {
         if (error) throw error;
       };
       await upsertTeams(
-        teams.filter((t) => t.team_name).map((t) => ({ ...t, event_code: eventCode }))
+        teams
+          .filter((t) => t.team_name)
+          .map((t) => ({ ...t, event_code: eventCode, ...officialStats(t.team_number) }))
       );
       await upsertTeams(
         teams
           .filter((t) => !t.team_name)
-          .map((t) => ({ team_number: t.team_number, event_code: eventCode }))
+          .map((t) => ({
+            team_number: t.team_number,
+            event_code: eventCode,
+            ...officialStats(t.team_number),
+          }))
       );
 
-      // 4. Upsert the schedule.
+      // 5. Upsert the schedule.
       if (matches.length > 0) {
         const { error } = await supabase
           .from('matches')
@@ -126,7 +149,7 @@ export function useSyncFTCScout() {
         if (error) throw error;
       }
 
-      // 5. Point the app at this event.
+      // 6. Point the app at this event.
       await setSetting.mutateAsync({
         key: ACTIVE_EVENT_KEY,
         value: { eventCode, last_synced: new Date().toISOString() },

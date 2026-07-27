@@ -13,6 +13,7 @@ import type {
   Profile,
   Project,
   ProjectStatus,
+  OfficialStats,
   ScoutedTeam,
   ScoutingAssignment,
   TalkieRequest,
@@ -80,6 +81,20 @@ function makeProfile(
   };
 }
 
+const EMPTY_STANDINGS: OfficialStats = {
+  official_rank: null,
+  official_wins: null,
+  official_losses: null,
+  official_ties: null,
+  official_avg_points: null,
+};
+
+/** Official standings for the seeded teams, as the FTC Scout sync would store. */
+const DEMO_STANDINGS: OfficialStats[] = [
+  { official_rank: 2, official_wins: 7, official_losses: 2, official_ties: 0, official_avg_points: 148.6 },
+  { official_rank: 5, official_wins: 5, official_losses: 4, official_ties: 0, official_avg_points: 121.3 },
+];
+
 function seedWorkspace(): DemoWorkspace {
   const timestamp = now();
   const questions: CapabilityQuestion[] = [
@@ -112,6 +127,10 @@ function seedWorkspace(): DemoWorkspace {
     picklist_tier: tier as PicklistTier,
     picklist_rank: index + 1,
     picklist_notes: notes as string,
+    // The last team hasn't played yet — its standings stay empty, the same as
+    // a team added by hand before the FTC Scout sync sees it.
+    ...(DEMO_STANDINGS[index] ?? EMPTY_STANDINGS),
+    stats_synced_at: DEMO_STANDINGS[index] ? timestamp : null,
   }));
 
   const pitEntries: PitEntry[] = teams.map((team, index) => ({
@@ -303,7 +322,18 @@ export async function demoTeamScores(): Promise<TeamScore[]> {
       }).filter((v): v is { score: number; weight: number } => !!v);
       const totalWeight = weighted.reduce((sum, v) => sum + v.weight, 0) || 1;
       const score = Math.round((weighted.reduce((sum, v) => sum + v.score * v.weight, 0) / totalWeight) * 100);
-      return { team_id: team.id, team_number: team.team_number, team_name: team.team_name, score, entry_count: entries.length };
+      return {
+        team_id: team.id,
+        team_number: team.team_number,
+        team_name: team.team_name,
+        score,
+        entry_count: entries.length,
+        official_rank: team.official_rank,
+        official_wins: team.official_wins,
+        official_losses: team.official_losses,
+        official_ties: team.official_ties,
+        official_avg_points: team.official_avg_points,
+      };
     })
     .sort((a, b) => b.score - a.score || a.team_number - b.team_number);
 }
@@ -346,6 +376,9 @@ export async function demoSubmitPitEntry(input: {
       picklist_tier: null,
       picklist_rank: null,
       picklist_notes: null,
+      // Scouted by hand, so there's no official standing to show yet.
+      ...EMPTY_STANDINGS,
+      stats_synced_at: null,
     };
     db.scoutedTeams.push(team);
   } else if (input.teamName && !team.team_name) {

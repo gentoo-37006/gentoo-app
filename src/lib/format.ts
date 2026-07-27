@@ -13,6 +13,19 @@ export function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
+/**
+ * Win-loss-tie record, e.g. "8-2-0". Null when nothing has been synced yet —
+ * a team with no results is different from one that is 0-0-0.
+ */
+export function teamRecord(
+  wins: number | null | undefined,
+  losses: number | null | undefined,
+  ties: number | null | undefined
+): string | null {
+  if (wins == null && losses == null && ties == null) return null;
+  return `${wins ?? 0}-${losses ?? 0}-${ties ?? 0}`;
+}
+
 /** Localized short date, e.g. "Jun 22". */
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '';
