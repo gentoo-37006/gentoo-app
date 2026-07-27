@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Platform, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, usePathname } from 'expo-router';
 import { Menu, ChevronDown, ClipboardList } from 'lucide-react-native';
@@ -127,7 +127,10 @@ function Sidebar({
   avatarUrl?: string | null;
 }) {
   const secondary = SECONDARY_NAV.filter(
-    (i) => (!i.adminOnly || isAdmin) && !(i.hideOnDesktop && isDesktopApp)
+    (i) =>
+      (!i.adminOnly || isAdmin) &&
+      !(i.hideOnDesktop && isDesktopApp) &&
+      (!i.webOnly || Platform.OS === 'web')
   );
   return (
     <View className="h-full w-64 border-r border-border bg-card">
@@ -233,7 +236,10 @@ function TopNav({
   setScoutingOpen: (open: boolean) => void;
 }) {
   const icons = SECONDARY_NAV.filter(
-    (i) => (!i.adminOnly || isAdmin) && !(i.hideOnDesktop && isDesktopApp)
+    (i) =>
+      (!i.adminOnly || isAdmin) &&
+      !(i.hideOnDesktop && isDesktopApp) &&
+      (!i.webOnly || Platform.OS === 'web')
   );
   const scoutingActive = SCOUTING_MENU.some((i) => isActiveRoute(i.href, pathname));
 

@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { MOBILE_DRAG_HOLD_MS } from '@/components/mobile-drag-surface';
 import { cn } from '@/lib/utils';
 import { useColorScheme } from '@/lib/theme';
 import { useBreakpoint } from '@/lib/use-breakpoint';
@@ -42,10 +43,6 @@ const TIER_DOT: Record<TierKey, string> = {
   untiered: 'bg-muted-foreground',
 };
 
-/** Layout constants for drop targeting on narrow (horizontally scrolled) boards. */
-const NARROW_COL_WIDTH = 288; // w-72
-const COL_GAP = 12; // gap-3
-const BOARD_PAD = 16; // px-4
 const COL_HEADER_HEIGHT = 42;
 const NOTES_MIN_HEIGHT = 28;
 const NOTES_MAX_HEIGHT = 60;
@@ -190,7 +187,8 @@ function FilterPopup({
   );
 }
 
-type CardLayout = { y: number; h: number };
+type CardLayout = { y: number; w: number; h: number };
+type ColumnLayout = { x: number; y: number; w: number; h: number };
 type DropTarget = {
   tierKey: TierKey;
   markerIndex: number;
@@ -230,7 +228,13 @@ function TeamCard({
   index: number;
   /** null = no filters active; true = matches; false = doesn't match. */
   highlight: boolean | null;
-  onDragStart: (team: PicklistTeam, absX: number, absY: number) => void;
+  onDragStart: (
+    team: PicklistTeam,
+    absX: number,
+    absY: number,
+    localX: number,
+    localY: number
+  ) => void;
   onDragMove: (team: PicklistTeam, absX: number, absY: number) => void;
   onDragEnd: (team: PicklistTeam, absX: number, absY: number) => void;
   onLayoutCard: (teamId: string, layout: CardLayout) => void;
@@ -242,6 +246,7 @@ function TeamCard({
   const { colorScheme } = useColorScheme();
   const setNotes = useSetPicklistNotes();
   const [draft, setDraft] = React.useState(team.notes ?? '');
+  const [notesFocused, setNotesFocused] = React.useState(false);
   const [notesContentHeight, setNotesContentHeight] = React.useState(NOTES_MIN_HEIGHT);
   const notesSaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -277,10 +282,10 @@ function TeamCard({
   const pan = React.useMemo(
     () =>
       Gesture.Pan()
-        .enabled(Platform.OS !== 'web')
-        .activateAfterLongPress(150)
+        .enabled(Platform.OS !== 'web' && !notesFocused)
+        .activateAfterLongPress(MOBILE_DRAG_HOLD_MS)
         .onStart((e) => {
-          runOnJS(onDragStart)(team, e.absoluteX, e.absoluteY);
+          runOnJS(onDragStart)(team, e.absoluteX, e.absoluteY, e.x, e.y);
         })
         .onUpdate((e) => {
           runOnJS(onDragMove)(team, e.absoluteX, e.absoluteY);
@@ -291,13 +296,19 @@ function TeamCard({
         .onTouchesCancelled(() => {
           runOnJS(onDragEnd)(team, -1, -1);
         }),
-    [team, onDragStart, onDragMove, onDragEnd]
+    [team, notesFocused, onDragStart, onDragMove, onDragEnd]
   );
 
   return (
     <View
       className="relative"
-      onLayout={(e) => onLayoutCard(team.id, { y: e.nativeEvent.layout.y, h: e.nativeEvent.layout.height })}
+      onLayout={(e) =>
+        onLayoutCard(team.id, {
+          y: e.nativeEvent.layout.y,
+          w: e.nativeEvent.layout.width,
+          h: e.nativeEvent.layout.height,
+        })
+      }
     >
       {indicatorBefore ? (
         <View className="absolute -top-[5px] left-0 right-0 z-10 h-0.5 bg-primary" />
@@ -329,7 +340,11 @@ function TeamCard({
           <Textarea
             value={draft}
             onChangeText={changeNotes}
-            onBlur={flushNotes}
+            onFocus={() => setNotesFocused(true)}
+            onBlur={() => {
+              setNotesFocused(false);
+              flushNotes();
+            }}
             numberOfLines={1}
             scrollEnabled={notesContentHeight > NOTES_MAX_HEIGHT}
             onContentSizeChange={(event) => setNotesContentHeight(event.nativeEvent.contentSize.height)}
@@ -429,6 +444,9 @@ export default function PicklistScreen() {
   const [dropTarget, setDropTarget] = React.useState<DropTarget | null>(null);
   const dragX = useSharedValue(0);
   const dragY = useSharedValue(0);
+  const dragOffsetX = useSharedValue(0);
+  const dragOffsetY = useSharedValue(0);
+  const dragWidth = useSharedValue(240);
   const pointerDrag = React.useRef<WebPointerDrag | null>(null);
   const suppressNextClick = React.useRef(false);
 
@@ -437,6 +455,7 @@ export default function PicklistScreen() {
   const hScroll = React.useRef(0);
   const vScroll = React.useRef<Record<string, number>>({});
   const cardLayouts = React.useRef(new Map<string, CardLayout>());
+  const columnLayouts = React.useRef(new Map<TierKey, ColumnLayout>());
 
   const measureBoard = React.useCallback(() => {
     boardRef.current?.measureInWindow((x, y, w, h) => {
@@ -453,13 +472,20 @@ export default function PicklistScreen() {
       const board = boardRect.current;
       if (board.w === 0 || absY < board.y || absY > board.y + board.h) return null;
 
-      const relX = absX - board.x;
-      const colIndex = isWide
-        ? Math.floor(relX / (board.w / TIER_ORDER.length))
-        : Math.floor((relX + hScroll.current - BOARD_PAD) / (NARROW_COL_WIDTH + COL_GAP));
-      if (colIndex < 0 || colIndex >= TIER_ORDER.length) return null;
-
-      const column = columns[colIndex];
+      const contentX = absX - board.x + (isWide ? 0 : hScroll.current);
+      const column = columns.find(({ key }) => {
+        const layout = columnLayouts.current.get(key);
+        return layout && contentX >= layout.x && contentX <= layout.x + layout.w;
+      });
+      if (!column) return null;
+      const columnLayout = columnLayouts.current.get(column.key);
+      if (
+        !columnLayout ||
+        absY < board.y + columnLayout.y ||
+        absY > board.y + columnLayout.y + columnLayout.h
+      ) {
+        return null;
+      }
       if (column.key === 'untiered') {
         if (team.tier === null) return null;
         return {
@@ -470,7 +496,12 @@ export default function PicklistScreen() {
         };
       }
       const shownTeams = column.shown.map(({ team: shownTeam }) => shownTeam);
-      const contentY = absY - board.y - COL_HEADER_HEIGHT + (vScroll.current[column.key] ?? 0);
+      const contentY =
+        absY -
+        board.y -
+        columnLayout.y -
+        COL_HEADER_HEIGHT +
+        (vScroll.current[column.key] ?? 0);
       let markerIndex = shownTeams.length;
       for (let index = 0; index < shownTeams.length; index += 1) {
         const layout = cardLayouts.current.get(shownTeams[index].id);
@@ -525,11 +556,20 @@ export default function PicklistScreen() {
   // callbacks; the compiler's immutability/deps rules don't model that, so
   // the writes and depless callbacks below carry targeted disables.
   const onDragStart = React.useCallback(
-    (team: PicklistTeam, absX: number, absY: number) => {
+    (
+      team: PicklistTeam,
+      absX: number,
+      absY: number,
+      localX: number,
+      localY: number
+    ) => {
       measureRoot();
       measureBoard();
       dragX.value = absX;
       dragY.value = absY;
+      dragOffsetX.value = localX;
+      dragOffsetY.value = localY;
+      dragWidth.value = cardLayouts.current.get(team.id)?.w ?? 240;
       setDragTeam(team);
       setDraggingId(team.id);
       setDropTarget(resolveDropPoint(team, absX, absY));
@@ -772,8 +812,9 @@ export default function PicklistScreen() {
   );
 
   const ghostStyle = useAnimatedStyle(() => ({
-    left: dragX.value - rootOrigin.value.x - 120,
-    top: dragY.value - rootOrigin.value.y - 30,
+    left: dragX.value - rootOrigin.value.x - dragOffsetX.value,
+    top: dragY.value - rootOrigin.value.y - dragOffsetY.value,
+    width: dragWidth.value,
   }));
 
   // ---- Render -------------------------------------------------------------------
@@ -781,6 +822,10 @@ export default function PicklistScreen() {
   const renderColumn = (col: (typeof columns)[number]) => (
     <View
       key={col.key}
+      onLayout={(event) => {
+        const { x, y, width, height } = event.nativeEvent.layout;
+        columnLayouts.current.set(col.key, { x, y, w: width, h: height });
+      }}
       {...(Platform.OS === 'web'
         ? ({ dataSet: { picklistTier: col.key } } as any)
         : {})}
@@ -1017,7 +1062,7 @@ export default function PicklistScreen() {
         <Animated.View
           pointerEvents="none"
           style={ghostStyle}
-          className="absolute z-50 w-[240px] gap-1 rounded-md border border-primary bg-card p-2.5 opacity-95"
+          className="absolute z-50 gap-1 rounded-md border border-primary bg-card p-2.5 opacity-65"
         >
           <View className="flex-row items-center gap-2">
             <Text className="text-base font-extrabold">#{dragTeam.team_number}</Text>

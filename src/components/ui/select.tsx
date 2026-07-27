@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Dimensions, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Dimensions, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { Check, X } from 'lucide-react-native';
 import { cn } from '@/lib/utils';
 import { Icon } from '@/components/ui/icon';
@@ -135,7 +135,7 @@ function OptionDropdown<T extends string>({
               </View>
             ))}
             <TextInput
-              autoFocus
+              autoFocus={Platform.OS === 'web'}
               value={query}
               onChangeText={setQuery}
               onKeyPress={(event) => {

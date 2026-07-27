@@ -24,6 +24,8 @@ export type NavItem = {
   adminOnly?: boolean;
   /** Hide inside the Electron desktop app (e.g. desktop-install downloads). */
   hideOnDesktop?: boolean;
+  /** Only render in browser-based navigation. */
+  webOnly?: boolean;
 };
 
 export type NavSection = { label: string; items: NavItem[] };
@@ -61,7 +63,14 @@ export const SCOUTING_MENU: NavItem[] = [
 /** Secondary destinations — sidebar footer, below the sections. */
 export const SECONDARY_NAV: NavItem[] = [
   { name: 'notifications', label: 'Notifications', href: '/notifications', icon: Bell },
-  { name: 'downloads', label: 'Downloads', href: '/downloads', icon: Download, hideOnDesktop: true },
+  {
+    name: 'downloads',
+    label: 'Downloads',
+    href: '/downloads',
+    icon: Download,
+    hideOnDesktop: true,
+    webOnly: true,
+  },
   { name: 'admin', label: 'Admin', href: '/admin', icon: ShieldCheck, adminOnly: true },
   { name: 'settings', label: 'Settings', href: '/settings', icon: Settings },
 ];

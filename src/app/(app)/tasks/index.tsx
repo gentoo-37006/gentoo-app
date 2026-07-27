@@ -9,6 +9,7 @@ import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { MobileDragSurface } from '@/components/mobile-drag-surface';
 import { PROJECT_STATUSES, PRIORITIES } from '@/lib/types';
 import { priorityVariant, projectStatusVariant, labelOf } from '@/lib/task-style';
 import {
@@ -74,7 +75,19 @@ function ProjectList({
   };
 
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
+  const [nativeIndicator, setNativeIndicator] = React.useState<{
+    projectId: string;
+    edge: 'before' | 'after';
+  } | null>(null);
   const pointerDrag = React.useRef<PointerDrag | null>(null);
+  const nativeLayouts = React.useRef(
+    new Map<string, { y: number; height: number }>()
+  );
+  const nativeDrag = React.useRef<{
+    projectId: string;
+    listTop: number;
+    insertionIndex: number;
+  } | null>(null);
   const suppressNextClick = React.useRef(false);
 
   React.useEffect(() => {
@@ -107,6 +120,60 @@ function ProjectList({
     if (reordered.some((project, index) => project.id !== projects[index]?.id)) {
       onReorder(reordered.map((project) => project.id));
     }
+  };
+
+  const moveNativeDrag = (absoluteY: number) => {
+    const drag = nativeDrag.current;
+    if (!drag) return;
+    const contentY = absoluteY - drag.listTop;
+    const remaining = projects.filter((project) => project.id !== drag.projectId);
+    let insertionIndex = remaining.length;
+    for (let index = 0; index < remaining.length; index += 1) {
+      const layout = nativeLayouts.current.get(remaining[index].id);
+      if (layout && contentY < layout.y + layout.height / 2) {
+        insertionIndex = index;
+        break;
+      }
+    }
+    drag.insertionIndex = insertionIndex;
+    const target = remaining[insertionIndex];
+    setNativeIndicator(
+      target
+        ? { projectId: target.id, edge: 'before' }
+        : remaining.length > 0
+          ? { projectId: remaining[remaining.length - 1].id, edge: 'after' }
+          : { projectId: drag.projectId, edge: 'before' }
+    );
+  };
+
+  const startNativeDrag = (
+    projectId: string,
+    absoluteY: number,
+    localY: number
+  ) => {
+    const layout = nativeLayouts.current.get(projectId);
+    if (!layout) return;
+    nativeDrag.current = {
+      projectId,
+      listTop: absoluteY - localY - layout.y,
+      insertionIndex: projects.findIndex((project) => project.id === projectId),
+    };
+    setDraggingId(projectId);
+    moveNativeDrag(absoluteY);
+  };
+
+  const clearNativeDrag = () => {
+    nativeDrag.current = null;
+    setDraggingId(null);
+    setNativeIndicator(null);
+  };
+
+  const endNativeDrag = (absoluteY: number) => {
+    const drag = nativeDrag.current;
+    if (!drag) return;
+    moveNativeDrag(absoluteY);
+    reorderAt(drag.projectId, drag.insertionIndex);
+    clearNativeDrag();
   };
 
   const startPointerDrag = (
@@ -330,8 +397,32 @@ function ProjectList({
             <ProjectCard project={project} />
           )
         ) : (
-          <View key={project.id}>
-            <ProjectCard project={project} />
+          <View
+            key={project.id}
+            className={cn('relative', draggingId === project.id && 'opacity-40')}
+            onLayout={(event) => {
+              const { y, height } = event.nativeEvent.layout;
+              nativeLayouts.current.set(project.id, { y, height });
+            }}
+          >
+            {nativeIndicator?.projectId === project.id &&
+            nativeIndicator.edge === 'before' ? (
+              <View className="absolute -top-[7px] left-0 right-0 z-10 h-0.5 bg-primary" />
+            ) : null}
+            <MobileDragSurface
+              onStart={(absoluteY, localY) =>
+                startNativeDrag(project.id, absoluteY, localY)
+              }
+              onMove={moveNativeDrag}
+              onEnd={endNativeDrag}
+              onCancel={clearNativeDrag}
+            >
+              <ProjectCard project={project} />
+            </MobileDragSurface>
+            {nativeIndicator?.projectId === project.id &&
+            nativeIndicator.edge === 'after' ? (
+              <View className="absolute -bottom-[7px] left-0 right-0 z-10 h-0.5 bg-primary" />
+            ) : null}
           </View>
         )
       )}

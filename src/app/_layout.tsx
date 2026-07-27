@@ -15,7 +15,7 @@ if (!globalThis.crypto.subtle) {
 /* eslint-disable import/first -- the crypto polyfill above must install before
    app modules are evaluated (Metro executes requires in source order). */
 import * as React from 'react';
-import { ActivityIndicator, Platform, View } from 'react-native';
+import { Animated, Easing, Image, Platform, View } from 'react-native';
 import * as Updates from 'expo-updates';
 import { Stack, ThemeProvider, usePathname, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -28,6 +28,72 @@ import { Providers } from '@/components/providers';
 import { UpdateBanner } from '@/components/update-banner';
 import { useAuth } from '@/lib/auth';
 import { useDatabaseRealtime } from '@/lib/use-database-realtime';
+
+const LOADING_COLORS = {
+  light: { background: '#FAFAFA', spinner: '#9F63DE' },
+  dark: { background: '#0A0A0A', spinner: '#D8B4FE' },
+} as const;
+
+function LoadingSpinner({ color }: { color: string }) {
+  const [rotation] = React.useState(() => new Animated.Value(0));
+  const rotate = React.useMemo(
+    () =>
+      rotation.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['0deg', '360deg'],
+      }),
+    [rotation]
+  );
+
+  React.useEffect(() => {
+    const animation = Animated.loop(
+      Animated.timing(rotation, {
+        toValue: 1,
+        duration: 700,
+        easing: Easing.linear,
+        useNativeDriver: Platform.OS !== 'web',
+      })
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [rotation]);
+
+  return (
+    <View
+      style={{ width: 52.5, height: 52.5, alignItems: 'center', justifyContent: 'center' }}
+    >
+      <Animated.View
+        style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: 26.25,
+          borderWidth: 3.125,
+          borderColor: `${color}38`,
+          borderTopColor: color,
+          transform: [
+            {
+              rotate,
+            },
+          ],
+        }}
+      />
+      <View
+        style={{
+          width: 46.25,
+          height: 46.25,
+          borderRadius: 23.125,
+          overflow: 'hidden',
+        }}
+      >
+        <Image
+          source={require('../../assets/images/favicon.png')}
+          resizeMode="cover"
+          style={{ width: '100%', height: '100%' }}
+        />
+      </View>
+    </View>
+  );
+}
 
 export default function RootLayout() {
   const { colorScheme } = useColorScheme();
@@ -85,7 +151,7 @@ function RootNavigator() {
   const { colorScheme } = useColorScheme();
   const { initializing, isConfigured, session, profile } = useAuth();
   useDatabaseRealtime();
-  const primaryColor = NAV_THEME[colorScheme === 'dark' ? 'dark' : 'light'].colors.primary;
+  const loadingColors = LOADING_COLORS[colorScheme === 'dark' ? 'dark' : 'light'];
   const segments = useSegments() as string[];
   const pathname = usePathname();
   const router = useRouter();
@@ -126,8 +192,11 @@ function RootNavigator() {
     <>
       <Stack screenOptions={{ headerShown: false }} />
       {!settled && (
-        <View className="absolute inset-0 items-center justify-center bg-background">
-          <ActivityIndicator size="large" color={primaryColor} />
+        <View
+          className="absolute inset-0 items-center justify-center"
+          style={{ backgroundColor: loadingColors.background }}
+        >
+          <LoadingSpinner color={loadingColors.spinner} />
         </View>
       )}
     </>

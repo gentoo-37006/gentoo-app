@@ -34,6 +34,7 @@ import { OptionChips } from '@/components/ui/option-chips';
 import { MultiSelect, Select } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FadeModal, FADE_DURATION_MS } from '@/components/ui/fade-modal';
+import { MobileDragSurface } from '@/components/mobile-drag-surface';
 import { cn } from '@/lib/utils';
 import { useProfiles } from '@/lib/queries/profiles';
 import {
@@ -722,10 +723,22 @@ function TaskTable({
   };
 
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
+  const [nativeIndicator, setNativeIndicator] = React.useState<{
+    taskId: string;
+    edge: 'before' | 'after';
+  } | null>(null);
   const [openMetadataTaskIds, setOpenMetadataTaskIds] = React.useState<Set<string>>(
     () => new Set()
   );
   const pointerDrag = React.useRef<PointerDrag | null>(null);
+  const nativeLayouts = React.useRef(
+    new Map<string, { y: number; height: number }>()
+  );
+  const nativeDrag = React.useRef<{
+    taskId: string;
+    listTop: number;
+    insertionIndex: number;
+  } | null>(null);
   const suppressNextClick = React.useRef(false);
 
   React.useEffect(() => {
@@ -758,6 +771,61 @@ function TaskTable({
     if (reordered.some((task, index) => task.id !== tasks[index]?.id)) {
       onReorder(reordered.map((task) => task.id));
     }
+  };
+
+  const moveNativeDrag = (absoluteY: number) => {
+    const drag = nativeDrag.current;
+    if (!drag) return;
+    const contentY = absoluteY - drag.listTop;
+    const remaining = tasks.filter((task) => task.id !== drag.taskId);
+    let insertionIndex = remaining.length;
+    for (let index = 0; index < remaining.length; index += 1) {
+      const layout = nativeLayouts.current.get(remaining[index].id);
+      if (layout && contentY < layout.y + layout.height / 2) {
+        insertionIndex = index;
+        break;
+      }
+    }
+    drag.insertionIndex = insertionIndex;
+    const target = remaining[insertionIndex];
+    setNativeIndicator(
+      target
+        ? { taskId: target.id, edge: 'before' }
+        : remaining.length > 0
+          ? { taskId: remaining[remaining.length - 1].id, edge: 'after' }
+          : { taskId: drag.taskId, edge: 'before' }
+    );
+  };
+
+  const startNativeDrag = (
+    taskId: string,
+    absoluteY: number,
+    localY: number
+  ) => {
+    if (openMetadataTaskIds.size > 0) return;
+    const layout = nativeLayouts.current.get(taskId);
+    if (!layout) return;
+    nativeDrag.current = {
+      taskId,
+      listTop: absoluteY - localY - layout.y,
+      insertionIndex: tasks.findIndex((task) => task.id === taskId),
+    };
+    setDraggingId(taskId);
+    moveNativeDrag(absoluteY);
+  };
+
+  const clearNativeDrag = () => {
+    nativeDrag.current = null;
+    setDraggingId(null);
+    setNativeIndicator(null);
+  };
+
+  const endNativeDrag = (absoluteY: number) => {
+    const drag = nativeDrag.current;
+    if (!drag) return;
+    moveNativeDrag(absoluteY);
+    reorderAt(drag.taskId, drag.insertionIndex);
+    clearNativeDrag();
   };
 
   const startPointerDrag = (
@@ -1032,20 +1100,44 @@ function TaskTable({
                 />
                 )
               ) : (
-                <View className={cn('relative', draggingId === task.id && 'opacity-40')}>
-                  <TaskTableRow
-                    task={task}
-                    profiles={profiles}
-                    highlighted={task.id === focusTaskId}
-                    onMetadataOpenChange={(open) => {
-                      setOpenMetadataTaskIds((current) => {
-                        const next = new Set(current);
-                        if (open) next.add(task.id);
-                        else next.delete(task.id);
-                        return next;
-                      });
-                    }}
-                  />
+                <View
+                  className={cn('relative', draggingId === task.id && 'opacity-40')}
+                  onLayout={(event) => {
+                    const { y, height } = event.nativeEvent.layout;
+                    nativeLayouts.current.set(task.id, { y, height });
+                  }}
+                >
+                  {nativeIndicator?.taskId === task.id &&
+                  nativeIndicator.edge === 'before' ? (
+                    <View className="absolute -top-px left-0 right-0 z-10 h-0.5 bg-primary" />
+                  ) : null}
+                  <MobileDragSurface
+                    disabled={openMetadataTaskIds.size > 0}
+                    onStart={(absoluteY, localY) =>
+                      startNativeDrag(task.id, absoluteY, localY)
+                    }
+                    onMove={moveNativeDrag}
+                    onEnd={endNativeDrag}
+                    onCancel={clearNativeDrag}
+                  >
+                    <TaskTableRow
+                      task={task}
+                      profiles={profiles}
+                      highlighted={task.id === focusTaskId}
+                      onMetadataOpenChange={(open) => {
+                        setOpenMetadataTaskIds((current) => {
+                          const next = new Set(current);
+                          if (open) next.add(task.id);
+                          else next.delete(task.id);
+                          return next;
+                        });
+                      }}
+                    />
+                  </MobileDragSurface>
+                  {nativeIndicator?.taskId === task.id &&
+                  nativeIndicator.edge === 'after' ? (
+                    <View className="absolute -bottom-px left-0 right-0 z-10 h-0.5 bg-primary" />
+                  ) : null}
                 </View>
               )}
             </React.Fragment>
