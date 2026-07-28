@@ -1,5 +1,11 @@
 import * as React from 'react';
-import { ActivityIndicator, Platform, Pressable, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { Trash2 } from 'lucide-react-native';
 import {
   buttonTextVariants,
@@ -13,6 +19,9 @@ import {
   type DeleteTooltipAnchor,
 } from '@/components/ui/delete-tooltip-portal';
 import { cn } from '@/lib/utils';
+
+const MOBILE_TOOLTIP_WIDTH = 152;
+const TOOLTIP_VIEWPORT_MARGIN = 8;
 
 function useShiftPressed() {
   const [pressed, setPressed] = React.useState(false);
@@ -51,6 +60,7 @@ export function DeleteButton({
   onPress,
   ...pressableProps
 }: ButtonProps) {
+  const { width: viewportWidth } = useWindowDimensions();
   const shiftPressed = useShiftPressed();
   const [hovered, setHovered] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
@@ -66,6 +76,16 @@ export function DeleteButton({
   const showDangerIcon =
     !isDisabled && ((isWeb && hovered && shiftPressed) || (!isWeb && confirming));
   const tooltipText = isWeb ? 'Hold Shift to delete' : 'Press again to delete';
+  const confirmationTextClass = cn(textClass, showDangerIcon && 'text-destructive');
+  const mobileTooltipLeft = tooltipAnchor
+    ? Math.min(
+        Math.max(
+          tooltipAnchor.left + tooltipAnchor.width / 2 - MOBILE_TOOLTIP_WIDTH / 2,
+          TOOLTIP_VIEWPORT_MARGIN
+        ),
+        viewportWidth - MOBILE_TOOLTIP_WIDTH - TOOLTIP_VIEWPORT_MARGIN
+      ) - tooltipAnchor.left
+    : 0;
 
   const measureTooltipAnchor = () =>
     buttonRef.current?.measureInWindow((left, top, width, height) => {
@@ -83,6 +103,7 @@ export function DeleteButton({
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
     setConfirming(false);
+    setTooltipAnchor(null);
   };
 
   return (
@@ -112,11 +133,14 @@ export function DeleteButton({
                 return;
               }
 
+              setTooltipAnchor(null);
+              measureTooltipAnchor();
               setConfirming(true);
               if (timer.current) clearTimeout(timer.current);
               timer.current = setTimeout(() => {
                 timer.current = null;
                 setConfirming(false);
+                setTooltipAnchor(null);
               }, 1500);
             }
       }
@@ -132,23 +156,22 @@ export function DeleteButton({
       }}
     >
       <DeleteTooltipPortal visible={isWeb && showTooltip} anchor={tooltipAnchor} text={tooltipText} />
-      {showTooltip && !isWeb ? (
+      {showTooltip && !isWeb && tooltipAnchor ? (
         <View
           pointerEvents="none"
-          className="absolute bottom-full left-0 right-0 z-50 mb-2 items-center"
+          className="absolute bottom-full z-50 mb-2 items-center rounded-sm border border-border bg-popover px-2.5 py-1.5"
+          style={{ left: mobileTooltipLeft, width: MOBILE_TOOLTIP_WIDTH }}
         >
-          <View className="rounded-sm border border-border bg-popover px-2.5 py-1.5">
-            <Text
-              className="select-none text-xs font-semibold text-popover-foreground"
-              numberOfLines={1}
-              selectable={false}
-            >
-              {tooltipText}
-            </Text>
-          </View>
+          <Text
+            className="select-none text-xs font-semibold text-popover-foreground"
+            numberOfLines={1}
+            selectable={false}
+          >
+            {tooltipText}
+          </Text>
         </View>
       ) : null}
-      <TextClassContext.Provider value={textClass}>
+      <TextClassContext.Provider value={confirmationTextClass}>
         <View
           pointerEvents="none"
           className={cn(
@@ -164,17 +187,17 @@ export function DeleteButton({
           }
         >
           {loading ? (
-            <ActivityIndicator size="small" className={textClass} />
+            <ActivityIndicator size="small" className={confirmationTextClass} />
           ) : (
             icon && (
               <Icon
                 as={icon}
                 size={18}
-                className={cn(textClass, showDangerIcon && 'text-destructive', iconClassName)}
+                className={cn(confirmationTextClass, iconClassName)}
               />
             )
           )}
-          {label ? <Text className={textClass}>{label}</Text> : children}
+          {label ? <Text className={confirmationTextClass}>{label}</Text> : children}
         </View>
       </TextClassContext.Provider>
     </Pressable>

@@ -17,8 +17,8 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { isDesktopApp } from '@/lib/desktop-updates';
 import { useProjects, useMyTasks, useMyOpenTaskCount, type MyTask } from '@/lib/queries/tasks';
-import { priorityVariant, labelOf } from '@/lib/task-style';
-import { PRIORITIES } from '@/lib/types';
+import { priorityVariant, taskStatusVariant, labelOf } from '@/lib/task-style';
+import { PRIORITIES, TASK_STATUSES } from '@/lib/types';
 import { formatDate } from '@/lib/format';
 import { useNow } from '@/lib/use-now';
 
@@ -39,7 +39,7 @@ function StatCard({ stat }: { stat: Stat }) {
 function MyTaskRow({ task, now }: { task: MyTask; now: number }) {
   const overdue = task.due_date ? new Date(task.due_date).getTime() < now : false;
   return (
-    <Link href={`/tasks/${task.project_id}` as any} asChild>
+    <Link href={`/projects/${task.project_id}` as any} asChild>
       <Pressable className="active:opacity-75">
         <Card className="hover:bg-accent/70">
           <CardContent className="flex-row items-center gap-3 p-4">
@@ -52,8 +52,19 @@ function MyTaskRow({ task, now }: { task: MyTask; now: number }) {
                 {task.due_date ? ` · due ${formatDate(task.due_date)}` : ''}
               </Text>
             </View>
-            {overdue ? <Badge variant="destructive" label="Overdue" /> : null}
-            <Badge variant={priorityVariant(task.priority)} label={labelOf(PRIORITIES, task.priority)} />
+            {overdue ? (
+              <Badge className="self-center" variant="destructive" label="Overdue" />
+            ) : null}
+            <Badge
+              className="self-center"
+              variant={taskStatusVariant(task.status)}
+              label={labelOf(TASK_STATUSES, task.status)}
+            />
+            <Badge
+              className="self-center"
+              variant={priorityVariant(task.priority)}
+              label={labelOf(PRIORITIES, task.priority)}
+            />
             <Icon as={ChevronRight} size={18} className="text-muted-foreground" />
           </CardContent>
         </Card>
@@ -65,7 +76,7 @@ function MyTaskRow({ task, now }: { task: MyTask; now: number }) {
 type QuickAction = { label: string; description: string; href: string; icon: LucideIcon; hideOnDesktop?: boolean };
 
 const QUICK_ACTIONS: QuickAction[] = [
-  { label: 'View tasks', description: 'Projects and to-dos', href: '/tasks', icon: ListChecks },
+  { label: 'View projects', description: 'Projects and to-dos', href: '/projects', icon: ListChecks },
   { label: 'Count cables', description: 'AI-identify cables from a photo', href: '/cables', icon: Cable },
   { label: 'Downloads', description: 'Install the app on other devices', href: '/downloads', icon: Download, hideOnDesktop: true },
 ];
@@ -136,9 +147,9 @@ export default function DashboardScreen() {
       <View className="gap-3">
         <View className="flex-row items-center justify-between">
           <Text variant="title">My tasks</Text>
-          <Link href={'/tasks' as any} asChild>
+          <Link href={'/projects' as any} asChild>
             <Pressable className="flex-row items-center gap-1 active:opacity-70">
-              <Text variant="muted">All tasks</Text>
+              <Text variant="muted">All projects</Text>
               <Icon as={ChevronRight} size={16} className="text-muted-foreground" />
             </Pressable>
           </Link>

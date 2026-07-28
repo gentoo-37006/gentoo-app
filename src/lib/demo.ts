@@ -592,7 +592,7 @@ export async function demoProjects() {
     .map((p) => ({
       ...p,
       tasks: db.tasks
-        .filter((t) => t.project_id === p.id && !t.deleted_at)
+        .filter((t) => t.project_id === p.id && !t.deleted_at && t.status !== 'done')
         .map(({ id }) => ({ id })),
     }));
 }
@@ -628,7 +628,11 @@ export async function demoMyOpenTaskCount(uid = DEMO_USER_ID) {
   const db = await getDemoWorkspace();
   const activeProjects = new Set(db.projects.filter((p) => !p.deleted_at).map((p) => p.id));
   return db.tasks.filter(
-    (t) => !t.deleted_at && t.assignee_ids.includes(uid) && activeProjects.has(t.project_id)
+    (t) =>
+      !t.deleted_at &&
+      (t.status === 'todo' || t.status === 'in_progress') &&
+      t.assignee_ids.includes(uid) &&
+      activeProjects.has(t.project_id)
   ).length;
 }
 
@@ -636,10 +640,90 @@ export async function demoMyTasks(uid = DEMO_USER_ID, limit = 6) {
   const db = await getDemoWorkspace();
   const active = new Map(db.projects.filter((p) => !p.deleted_at).map((p) => [p.id, p]));
   return db.tasks
-    .filter((t) => !t.deleted_at && t.assignee_ids.includes(uid) && active.has(t.project_id))
+    .filter(
+      (t) =>
+        !t.deleted_at &&
+        (t.status === 'todo' || t.status === 'in_progress') &&
+        t.assignee_ids.includes(uid) &&
+        active.has(t.project_id)
+    )
     .sort((a, b) => (a.due_date ?? '￿').localeCompare(b.due_date ?? '￿'))
     .slice(0, limit)
     .map((t) => ({ ...t, project: { id: t.project_id, name: active.get(t.project_id)!.name } }));
+}
+
+function syncDemoProjectStatus(
+  db: DemoWorkspace,
+  projectId: string,
+  forceInProgress = false
+) {
+  const project = db.projects.find((candidate) => candidate.id === projectId && !candidate.deleted_at);
+  if (!project) return;
+
+  const tasks = db.tasks.filter((task) => task.project_id === projectId && !task.deleted_at);
+  if (tasks.length === 0) return;
+
+  const unfinished = tasks.filter((task) => task.status !== 'done');
+  const blockedCount = unfinished.filter((task) => task.status === 'blocked').length;
+  const hasInProgressTask = unfinished.some((task) => task.status === 'in_progress');
+  let nextStatus: ProjectStatus | null = null;
+
+  if (unfinished.length === 0) {
+    nextStatus = 'done';
+  } else if (forceInProgress && (project.status === 'done' || project.status === 'on_hold')) {
+    nextStatus = 'active';
+  } else if (blockedCount === unfinished.length) {
+    nextStatus = 'on_hold';
+  } else if (project.status === 'done' || project.status === 'on_hold') {
+    nextStatus = 'active';
+  } else if (project.status === 'planning' && hasInProgressTask) {
+    nextStatus = 'active';
+  }
+
+  if (nextStatus && nextStatus !== project.status) {
+    project.status = nextStatus;
+    project.updated_at = now();
+  }
+}
+
+function unblockDemoTasks(
+  db: DemoWorkspace,
+  isBlockedBy: (task: Task) => boolean,
+  blockerName: string
+) {
+  const timestamp = now();
+  let unblockedCount = 0;
+  const affectedProjectIds = new Set<string>();
+  db.tasks = db.tasks.map((task) => {
+    if (task.status !== 'blocked' || !isBlockedBy(task)) return task;
+    unblockedCount += 1;
+    affectedProjectIds.add(task.project_id);
+
+    for (const userId of new Set(task.assignee_ids)) {
+      db.notifications.push({
+        id: id('notification'),
+        user_id: userId,
+        type: 'task',
+        title: 'Task unblocked',
+        body: `Your task "${task.title}" has been unblocked because "${blockerName}" is done.`,
+        data: { projectId: task.project_id, taskId: task.id },
+        read: false,
+        created_at: timestamp,
+      });
+    }
+
+    return {
+      ...task,
+      status: 'todo',
+      blocked_by: null,
+      blocked_by_project: null,
+      updated_at: timestamp,
+    };
+  });
+  for (const projectId of affectedProjectIds) {
+    syncDemoProjectStatus(db, projectId, true);
+  }
+  return unblockedCount;
 }
 
 export async function demoCreateProject(vars: { name: string; description?: string; status: ProjectStatus; priority: Priority; sort_order?: number }) {
@@ -658,8 +742,21 @@ export async function demoCreateProject(vars: { name: string; description?: stri
 
 export async function demoUpdateProject(idValue: string, patch: Partial<Pick<Project, 'name' | 'description' | 'status' | 'priority'>>) {
   const db = await getDemoWorkspace();
+  const previous = db.projects.find((project) => project.id === idValue);
   db.projects = db.projects.map((p) => (p.id === idValue ? { ...p, ...patch, updated_at: now() } : p));
+  let unblockedCount = 0;
+  if (previous && previous.status !== 'done' && patch.status === 'done') {
+    unblockedCount = unblockDemoTasks(
+      db,
+      (task) => task.blocked_by_project === idValue,
+      patch.name ?? previous.name
+    );
+  }
+  if (patch.status === 'planning') {
+    syncDemoProjectStatus(db, idValue);
+  }
   await persist();
+  return unblockedCount;
 }
 
 export async function demoTrashProject(idValue: string) {
@@ -705,14 +802,31 @@ export async function demoCreateTask(vars: { project_id: string; title: string; 
         .map((task) => task.sort_order ?? 0)
     ) + 10;
   db.tasks.push({ id: taskId, created_by: DEMO_USER_ID, created_at: now(), updated_at: now(), deleted_at: null, ...vars, sort_order: sortOrder });
+  syncDemoProjectStatus(db, vars.project_id, true);
   await persist();
   return taskId;
 }
 
 export async function demoUpdateTask(idValue: string, patch: Partial<Omit<Task, 'id' | 'project_id' | 'created_at' | 'updated_at'>>) {
   const db = await getDemoWorkspace();
+  const previous = db.tasks.find((task) => task.id === idValue);
   db.tasks = db.tasks.map((t) => (t.id === idValue ? { ...t, ...patch, updated_at: now() } : t));
+  let unblockedCount = 0;
+  if (previous && previous.status !== 'done' && patch.status === 'done') {
+    unblockedCount = unblockDemoTasks(
+      db,
+      (task) => task.blocked_by === idValue,
+      patch.title ?? previous.title
+    );
+  }
+  if (previous && (patch.status !== undefined || patch.deleted_at !== undefined)) {
+    const wasUnblocked =
+      previous.status === 'blocked' &&
+      (patch.status === 'todo' || patch.status === 'in_progress');
+    syncDemoProjectStatus(db, previous.project_id, wasUnblocked);
+  }
   await persist();
+  return unblockedCount;
 }
 
 export async function demoReorderTasks(taskIds: string[]) {
@@ -727,25 +841,31 @@ export async function demoReorderTasks(taskIds: string[]) {
 
 export async function demoDeleteTask(idValue: string) {
   const db = await getDemoWorkspace();
+  const task = db.tasks.find((candidate) => candidate.id === idValue);
   db.tasks = db.tasks.map((task) =>
     task.id === idValue ? { ...task, deleted_at: now(), updated_at: now() } : task
   );
+  if (task) syncDemoProjectStatus(db, task.project_id);
   await persist();
 }
 
 export async function demoRestoreTask(idValue: string) {
   const db = await getDemoWorkspace();
+  const task = db.tasks.find((candidate) => candidate.id === idValue);
   db.tasks = db.tasks.map((task) =>
     task.id === idValue ? { ...task, deleted_at: null, updated_at: now() } : task
   );
+  if (task) syncDemoProjectStatus(db, task.project_id);
   await persist();
 }
 
 export async function demoDeleteTaskForever(idValue: string) {
   const db = await getDemoWorkspace();
+  const task = db.tasks.find((candidate) => candidate.id === idValue);
   db.tasks = db.tasks
     .filter((t) => t.id !== idValue)
     .map((t) => (t.blocked_by === idValue ? { ...t, blocked_by: null } : t));
+  if (task) syncDemoProjectStatus(db, task.project_id);
   await persist();
 }
 

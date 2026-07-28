@@ -24,7 +24,7 @@ function ProjectCard({ project }: { project: ProjectWithTasks }) {
   const router = useRouter();
   const open = project.tasks.length;
   return (
-    <Pressable className="active:opacity-75" onPress={() => router.push(`/tasks/${project.id}` as any)}>
+    <Pressable className="active:opacity-75" onPress={() => router.push(`/projects/${project.id}` as any)}>
         <Card className="hover:bg-accent/70">
           <CardContent className="gap-3 p-4">
             <View className="flex-row items-center gap-3">
@@ -453,7 +453,7 @@ export default function ProjectsScreen() {
           size="sm"
           label="Trash"
           accessibilityLabel="View trash"
-          onPress={() => router.push('/tasks/trash' as any)}
+          onPress={() => router.push('/projects/trash' as any)}
         />
         <Button
           size="sm"

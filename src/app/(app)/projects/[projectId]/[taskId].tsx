@@ -159,7 +159,7 @@ export default function TaskNotesScreen() {
     setTagsDraft(task.tags.join(', '));
   }
 
-  const backHref = `/tasks/${projectId}`;
+  const backHref = `/projects/${projectId}`;
 
   if (isLoading) {
     return (
@@ -376,7 +376,7 @@ export default function TaskNotesScreen() {
                     icon={ExternalLink}
                     accessibilityLabel={`Open ${blockedByTask.title}`}
                     onPress={() =>
-                      router.push(`/tasks/${blockedByTask.project_id}/${blockedByTask.id}` as any)
+                      router.push(`/projects/${blockedByTask.project_id}/${blockedByTask.id}` as any)
                     }
                   />
                 ) : blockedByProject ? (
@@ -385,7 +385,7 @@ export default function TaskNotesScreen() {
                     size="icon"
                     icon={ExternalLink}
                     accessibilityLabel={`Open ${blockedByProject.name}`}
-                    onPress={() => router.push(`/tasks/${blockedByProject.id}` as any)}
+                    onPress={() => router.push(`/projects/${blockedByProject.id}` as any)}
                   />
                 ) : null}
               </View>

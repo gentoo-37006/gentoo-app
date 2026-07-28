@@ -73,7 +73,7 @@ export default function TaskTrashScreen() {
       <ScreenHeader
         title="Recently deleted"
         description={`Restore tasks from ${projectData?.project?.name ?? 'this project'}, or delete them permanently.`}
-        backHref={`/tasks/${projectId}`}
+        backHref={`/projects/${projectId}`}
       />
 
       {isLoading ? (

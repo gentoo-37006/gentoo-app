@@ -5,12 +5,12 @@ describe('hrefForNotification', () => {
   it('routes task notifications to the project board with a task param', () => {
     expect(
       hrefForNotification({ type: 'task', data: { projectId: 'p1', taskId: 't1' } })
-    ).toBe('/tasks/p1?task=t1');
+    ).toBe('/projects/p1?task=t1');
   });
 
   it('routes task notifications without a taskId to the board alone', () => {
     expect(hrefForNotification({ type: 'task', data: { projectId: 'p1' } })).toBe(
-      '/tasks/p1'
+      '/projects/p1'
     );
   });
 
@@ -36,7 +36,7 @@ describe('hrefForNotification', () => {
 
   it('falls back to the task route for untyped payloads carrying a projectId', () => {
     expect(hrefForNotification({ data: { projectId: 'p1', taskId: 't1' } })).toBe(
-      '/tasks/p1?task=t1'
+      '/projects/p1?task=t1'
     );
   });
 

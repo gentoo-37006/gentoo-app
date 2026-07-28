@@ -14,8 +14,8 @@ export function hrefForNotification(n: {
   const taskId = typeof data.taskId === 'string' && data.taskId ? data.taskId : null;
   const taskHref = projectId
     ? taskId
-      ? `/tasks/${projectId}?task=${taskId}`
-      : `/tasks/${projectId}`
+      ? `/projects/${projectId}?task=${taskId}`
+      : `/projects/${projectId}`
     : null;
   const type = n.type ?? (typeof data.type === 'string' ? data.type : null);
 

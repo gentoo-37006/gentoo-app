@@ -81,7 +81,7 @@ export default function TrashScreen() {
       <ScreenHeader
         title="Trash"
         description="Restore projects, or delete them permanently."
-        backHref="/tasks"
+        backHref="/projects"
       />
 
       {isLoading ? (

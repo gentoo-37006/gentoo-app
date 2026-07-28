@@ -386,7 +386,7 @@ function TaskCard({
     transform: [{ scale: 0.98 + shown.value * 0.02 }],
   }));
   const remove = () => del.mutate(task.id);
-  const openNotes = () => router.push(`/tasks/${task.project_id}/${task.id}` as any);
+  const openNotes = () => router.push(`/projects/${task.project_id}/${task.id}` as any);
   const complete = () => {
     // eslint-disable-next-line react-hooks/immutability -- shared values are mutable containers
     shown.value = withTiming(0, { duration: FADE_DURATION_MS }, (finished) => {
@@ -558,7 +558,7 @@ function TaskTableRow({
     value: profile.id,
     label: profile.full_name ?? 'Member',
   }));
-  const openNotes = () => router.push(`/tasks/${task.project_id}/${task.id}` as any);
+  const openNotes = () => router.push(`/projects/${task.project_id}/${task.id}` as any);
 
   return (
     <View
@@ -1221,7 +1221,7 @@ export default function ProjectDetailScreen() {
   if (isLoading) {
     return (
       <Screen>
-        <ScreenHeader title="Project" backHref="/tasks" />
+        <ScreenHeader title="Project" backHref="/projects" />
         <View className="py-12">
           <ActivityIndicator />
         </View>
@@ -1232,7 +1232,7 @@ export default function ProjectDetailScreen() {
   if (!project) {
     return (
       <Screen>
-        <ScreenHeader title="Project" backHref="/tasks" />
+        <ScreenHeader title="Project" backHref="/projects" />
         <EmptyState icon={FolderX} title="Project not found" description="This project may have been removed." />
       </Screen>
     );
@@ -1325,7 +1325,7 @@ export default function ProjectDetailScreen() {
             if (router.canGoBack()) {
               router.back();
             } else {
-              router.replace('/tasks');
+              router.replace('/projects');
             }
           }}
         >
@@ -1365,7 +1365,7 @@ export default function ProjectDetailScreen() {
               size="sm"
               label="Trash"
               accessibilityLabel="View recently deleted tasks"
-              onPress={() => router.push(`/tasks/${project.id}/trash` as any)}
+              onPress={() => router.push(`/projects/${project.id}/trash` as any)}
             />
             <DeleteButton
               variant="outline"
@@ -1374,7 +1374,7 @@ export default function ProjectDetailScreen() {
               accessibilityLabel="Move project to trash"
               onPress={() => {
                 trashProject.mutate(project.id);
-                router.replace('/tasks' as any);
+                router.replace('/projects' as any);
               }}
             />
           </View>

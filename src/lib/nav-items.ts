@@ -33,7 +33,7 @@ export type NavSection = { label: string; items: NavItem[] };
 /** Day-to-day team work: dashboard, projects, workshop tools. */
 export const GENERAL_NAV: NavItem[] = [
   { name: 'index', label: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'tasks', label: 'Tasks', href: '/tasks', icon: ListChecks },
+  { name: 'projects', label: 'Projects', href: '/projects', icon: ListChecks },
   { name: 'cables', label: 'Cables', href: '/cables', icon: Cable },
 ];
 

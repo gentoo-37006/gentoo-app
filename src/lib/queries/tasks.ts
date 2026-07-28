@@ -39,7 +39,7 @@ async function currentUserId(): Promise<string | undefined> {
   return data.session?.user?.id;
 }
 
-/** Project summary with active (non-trashed) task references. */
+/** Project summary with open, non-trashed task references. */
 export type ProjectWithTasks = Project & { tasks: { id: string }[] };
 
 export function useProjects() {
@@ -52,6 +52,7 @@ export function useProjects() {
         .select('*, tasks:tasks!tasks_project_id_fkey(id)')
         .is('deleted_at', null)
         .is('tasks.deleted_at', null)
+        .neq('tasks.status', 'done')
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true });
       if (error) throw error;
@@ -89,6 +90,7 @@ export function useMyOpenTaskCount(uid?: string) {
         .from('tasks')
         .select('id, projects!tasks_project_id_fkey!inner(deleted_at)', { count: 'exact', head: true })
         .contains('assignee_ids', [uid!])
+        .in('status', ['todo', 'in_progress'])
         .is('deleted_at', null)
         .is('projects.deleted_at', null);
       if (error) throw error;
@@ -110,6 +112,7 @@ export function useMyTasks(uid?: string, limit = 6) {
         .from('tasks')
         .select('*, project:projects!tasks_project_id_fkey!inner(id, name, deleted_at)')
         .contains('assignee_ids', [uid!])
+        .in('status', ['todo', 'in_progress'])
         .is('deleted_at', null)
         .is('project.deleted_at', null)
         .order('due_date', { ascending: true, nullsFirst: false })
@@ -263,9 +266,16 @@ export function useReorderProjects() {
 }
 
 export function useUpdateProject() {
+  const qc = useQueryClient();
   return useProjectsMutation<{ id: string } & Partial<Pick<Project, 'name' | 'description' | 'status' | 'priority'>>>(
     async ({ id, ...patch }) => {
-      if (isDemoMode()) return demoUpdateProject(id, patch);
+      if (isDemoMode()) {
+        const unblockedCount = await demoUpdateProject(id, patch);
+        if (unblockedCount > 0) {
+          await qc.invalidateQueries({ queryKey: ['notifications'] });
+        }
+        return;
+      }
       const { error } = await supabase
         .from('projects')
         .update({ ...patch, updated_at: new Date().toISOString() })
@@ -349,9 +359,16 @@ export function useCreateTask() {
 }
 
 export function useUpdateTask() {
+  const qc = useQueryClient();
   return useProjectsMutation<{ id: string } & Partial<Omit<TaskInput, 'project_id'>>>(
     async ({ id, ...patch }) => {
-      if (isDemoMode()) return demoUpdateTask(id, patch);
+      if (isDemoMode()) {
+        const unblockedCount = await demoUpdateTask(id, patch);
+        if (unblockedCount > 0) {
+          await qc.invalidateQueries({ queryKey: ['notifications'] });
+        }
+        return;
+      }
       type PrevTask = { assignee_ids: string[]; title: string; project_id: string; project: { name: string } | null };
       let prev: PrevTask | null = null;
       if (patch.assignee_ids?.length) {
