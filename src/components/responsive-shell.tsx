@@ -3,6 +3,8 @@ import { Platform, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, usePathname } from 'expo-router';
 import { Menu, ChevronDown, ClipboardList } from 'lucide-react-native';
+import { useColorScheme } from 'nativewind';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { cn } from '@/lib/utils';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useAuth } from '@/lib/auth';
@@ -394,6 +396,28 @@ function MobileHeader({
   );
 }
 
+function BottomSafeAreaFade() {
+  const { colorScheme } = useColorScheme();
+  const backgroundColor = colorScheme === 'dark' ? '#121212' : '#FAFAFA';
+
+  return (
+    <View
+      pointerEvents="none"
+      className="absolute bottom-0 left-0 right-0 z-10 h-6"
+    >
+      <Svg width="100%" height="100%">
+        <Defs>
+          <LinearGradient id="bottom-safe-area-fade" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={backgroundColor} stopOpacity="0" />
+            <Stop offset="1" stopColor={backgroundColor} stopOpacity="1" />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill="url(#bottom-safe-area-fade)" />
+      </Svg>
+    </View>
+  );
+}
+
 export function ResponsiveShell({ children }: { children: React.ReactNode }) {
   const { isWide } = useBreakpoint();
   const pathname = usePathname();
@@ -447,33 +471,37 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
-      <MobileHeader
-        pathname={pathname}
-        unread={unread}
-        name={profile?.full_name}
-        avatarUrl={profile?.avatar_url}
-        onOpenMenu={() => setMenuOpen(true)}
-      />
-      <View className="flex-1">{children}</View>
-      {menuOpen ? (
-        <View className="absolute bottom-0 left-0 right-0 top-0 z-50 flex-row">
-          <Sidebar
-            pathname={pathname}
-            isAdmin={isAdmin}
-            unread={unread}
-            name={profile?.full_name}
-            role={profile?.role}
-            avatarUrl={profile?.avatar_url}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close menu"
-            className="flex-1 bg-black/60"
-            onPress={() => setMenuOpen(false)}
-          />
-        </View>
-      ) : null}
+    <SafeAreaView className="flex-1 bg-card" edges={['top']}>
+      <View className="flex-1 bg-background">
+        <MobileHeader
+          pathname={pathname}
+          unread={unread}
+          name={profile?.full_name}
+          avatarUrl={profile?.avatar_url}
+          onOpenMenu={() => setMenuOpen(true)}
+        />
+        <View className="flex-1">{children}</View>
+        <BottomSafeAreaFade />
+        {menuOpen ? (
+          <View className="absolute bottom-0 left-0 right-0 top-0 z-50 flex-row">
+            <Sidebar
+              pathname={pathname}
+              isAdmin={isAdmin}
+              unread={unread}
+              name={profile?.full_name}
+              role={profile?.role}
+              avatarUrl={profile?.avatar_url}
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close menu"
+              className="flex-1 bg-black/60"
+              onPress={() => setMenuOpen(false)}
+            />
+          </View>
+        ) : null}
+      </View>
+      <SafeAreaView className="bg-background" edges={['bottom']} />
     </SafeAreaView>
   );
 }
