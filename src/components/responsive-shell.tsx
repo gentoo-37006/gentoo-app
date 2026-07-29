@@ -499,7 +499,7 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
       >
         <View className="flex-1 flex-row">
           <View
-            className="w-64 bg-card"
+            className="w-64 border-r border-border bg-card"
             style={{ paddingTop: safeAreaInsets.top }}
           >
             <Sidebar

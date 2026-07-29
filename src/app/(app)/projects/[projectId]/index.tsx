@@ -9,7 +9,13 @@ import {
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, {
+  runOnJS,
+  type SharedValue,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import {
   ChevronLeft,
   CircleDot,
@@ -77,7 +83,6 @@ const COMPLETED_LINE_HEIGHT =
   Platform.OS === 'web' ? 1 / PixelRatio.get() : StyleSheet.hairlineWidth;
 const TABLE_BORDER_RIGHT_OUTSET = Platform.OS === 'web' ? 1 / PixelRatio.get() : 0;
 const TASK_TABLE_MIN_WIDTH = 836;
-const TASK_TABLE_NATIVE_LINE_GUTTER = 16;
 const TASK_TABLE_COLUMNS = {
   task: 'min-w-[220px] flex-[2]',
   status: 'min-w-[112px] flex-1',
@@ -635,7 +640,7 @@ function TaskTableRow({
         setRowWidth(event.nativeEvent.layout.width);
       }}
     >
-      {completed && rowHeight > 0 ? (
+      {Platform.OS === 'web' && completed && rowHeight > 0 ? (
         <Animated.View
           pointerEvents="none"
           style={[
@@ -822,6 +827,68 @@ function TaskTableRow({
   );
 }
 
+function NativeCompletedTaskLine({
+  completed,
+  layout,
+  tableWidth,
+  scrollX,
+}: {
+  completed: boolean;
+  layout?: { y: number; height: number };
+  tableWidth: number;
+  scrollX: SharedValue<number>;
+}) {
+  const previousCompleted = React.useRef(completed);
+  const progress = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => {
+    const extension = tableWidth * 0.015;
+    const lineProgress = progress.value;
+    return {
+      opacity: completed && layout && tableWidth > 0 ? 0.6 : 0,
+      transform: [
+        {
+          translateX:
+            -scrollX.value +
+            ((lineProgress - 1) * tableWidth) / 2 -
+            extension * (1 - lineProgress),
+        },
+        { scaleX: lineProgress * 1.03 },
+      ],
+    };
+  });
+
+  React.useLayoutEffect(() => {
+    if (completed && !previousCompleted.current) {
+      progress.value = 0;
+      progress.value = withTiming(1, {
+        duration: COMPLETED_LINE_DURATION_MS,
+      });
+    } else if (!completed) {
+      progress.value = 1;
+    }
+    previousCompleted.current = completed;
+  }, [completed, progress]);
+
+  if (!layout || tableWidth <= 0) return null;
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      className="absolute left-0 z-30 bg-foreground"
+      style={[
+        {
+          top: PixelRatio.roundToNearestPixel(
+            layout.y + (layout.height - COMPLETED_LINE_HEIGHT) / 2
+          ),
+          width: tableWidth,
+          height: COMPLETED_LINE_HEIGHT,
+        },
+        animatedStyle,
+      ]}
+    />
+  );
+}
+
 function TaskTable({
   tasks,
   profiles,
@@ -857,6 +924,11 @@ function TaskTable({
 
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
   const [viewportWidth, setViewportWidth] = React.useState(0);
+  const [nativeTableWidth, setNativeTableWidth] = React.useState(0);
+  const [nativeLineLayouts, setNativeLineLayouts] = React.useState<
+    Record<string, { y: number; height: number }>
+  >({});
+  const horizontalScrollX = useSharedValue(0);
   const nativeIndicatorY = useSharedValue(0);
   const nativeIndicatorOpacity = useSharedValue(0);
   const nativeIndicatorStyle = useAnimatedStyle(() => ({
@@ -1168,32 +1240,33 @@ function TaskTable({
   };
 
   return (
-    <ScrollView
-      horizontal
-      className="w-full max-w-full"
-      scrollEnabled={!screenDragActive}
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={
-        Platform.OS === 'web'
-          ? { width: '100%', minWidth: TASK_TABLE_MIN_WIDTH }
-          : {
-              width: '100%',
-              minWidth:
-                TASK_TABLE_MIN_WIDTH + TASK_TABLE_NATIVE_LINE_GUTTER * 2,
-              paddingHorizontal: TASK_TABLE_NATIVE_LINE_GUTTER,
-            }
-      }
-      onLayout={(event) => setViewportWidth(event.nativeEvent.layout.width)}
-      style={
-        Platform.OS === 'web' && viewportWidth >= TASK_TABLE_MIN_WIDTH
-          ? { overflow: 'visible' }
-          : undefined
-      }
-    >
-      <View
-        className="relative overflow-visible rounded-md"
-        style={{ width: '100%', minWidth: TASK_TABLE_MIN_WIDTH }}
+    <View className="relative w-full overflow-visible">
+      <ScrollView
+        horizontal
+        className="w-full max-w-full"
+        scrollEnabled={!screenDragActive}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ width: '100%', minWidth: TASK_TABLE_MIN_WIDTH }}
+        onLayout={(event) => setViewportWidth(event.nativeEvent.layout.width)}
+        onScroll={(event) => {
+          horizontalScrollX.value = event.nativeEvent.contentOffset.x;
+        }}
+        scrollEventThrottle={16}
+        style={
+          Platform.OS === 'web' && viewportWidth >= TASK_TABLE_MIN_WIDTH
+            ? { overflow: 'visible' }
+            : undefined
+        }
       >
+        <View
+          className="relative overflow-visible rounded-md"
+          style={{ width: '100%', minWidth: TASK_TABLE_MIN_WIDTH }}
+          onLayout={(event) => {
+            if (Platform.OS !== 'web') {
+              setNativeTableWidth(event.nativeEvent.layout.width);
+            }
+          }}
+        >
         {Platform.OS !== 'web' ? (
           <Animated.View
             pointerEvents="none"
@@ -1279,6 +1352,13 @@ function TaskTable({
                   onLayout={(event) => {
                     const { y, height } = event.nativeEvent.layout;
                     nativeLayouts.current.set(task.id, { y, height });
+                    setNativeLineLayouts((current) => {
+                      const existing = current[task.id];
+                      if (existing?.y === y && existing.height === height) {
+                        return current;
+                      }
+                      return { ...current, [task.id]: { y, height } };
+                    });
                   }}
                 >
                   <MobileDragSurface
@@ -1310,20 +1390,32 @@ function TaskTable({
             </React.Fragment>
           );
         })}
-        <View
-          pointerEvents="none"
-          className="absolute inset-0 z-20 rounded-md border border-border"
-          style={
-            TABLE_BORDER_RIGHT_OUTSET
-              ? ({
-                  borderRightWidth: 0,
-                  boxShadow: `${TABLE_BORDER_RIGHT_OUTSET}px 0 0 hsl(var(--border))`,
-                } as any)
-              : undefined
-          }
-        />
-      </View>
-    </ScrollView>
+          <View
+            pointerEvents="none"
+            className="absolute inset-0 z-20 rounded-md border border-border"
+            style={
+              TABLE_BORDER_RIGHT_OUTSET
+                ? ({
+                    borderRightWidth: 0,
+                    boxShadow: `${TABLE_BORDER_RIGHT_OUTSET}px 0 0 hsl(var(--border))`,
+                  } as any)
+                : undefined
+            }
+          />
+        </View>
+      </ScrollView>
+      {Platform.OS !== 'web'
+        ? tasks.map((task) => (
+            <NativeCompletedTaskLine
+              key={task.id}
+              completed={task.status === 'done'}
+              layout={nativeLineLayouts[task.id]}
+              tableWidth={nativeTableWidth}
+              scrollX={horizontalScrollX}
+            />
+          ))
+        : null}
+    </View>
   );
 }
 
