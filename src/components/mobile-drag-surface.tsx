@@ -12,7 +12,7 @@ import Animated, {
 import { useScreenDragController } from '@/components/ui/screen';
 
 export const MOBILE_DRAG_HOLD_MS = 1_500;
-const PRE_DRAG_MOVE_TOLERANCE = 12;
+const PRE_DRAG_MOVE_TOLERANCE = 20;
 
 type TouchEvent = NativeSyntheticEvent<NativeTouchEvent>;
 
@@ -44,6 +44,8 @@ export function MobileDragSurface({
   const lastAbsoluteY = React.useRef(0);
   const startScrollOffset = React.useRef(0);
   const dragging = React.useRef(false);
+  const queuedMoveY = React.useRef<number | null>(null);
+  const moveFrame = React.useRef<number | null>(null);
   const ghostTranslateY = useSharedValue(0);
   const ghostAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: ghostTranslateY.value }],
@@ -55,6 +57,27 @@ export function MobileDragSurface({
     holdTimer.current = null;
   };
 
+  const flushQueuedMove = () => {
+    if (moveFrame.current !== null) {
+      cancelAnimationFrame(moveFrame.current);
+      moveFrame.current = null;
+    }
+    const absoluteY = queuedMoveY.current;
+    queuedMoveY.current = null;
+    if (absoluteY !== null) onMove(absoluteY);
+  };
+
+  const queueMove = (absoluteY: number) => {
+    queuedMoveY.current = absoluteY;
+    if (moveFrame.current !== null) return;
+    moveFrame.current = requestAnimationFrame(() => {
+      moveFrame.current = null;
+      const nextY = queuedMoveY.current;
+      queuedMoveY.current = null;
+      if (nextY !== null) onMove(nextY);
+    });
+  };
+
   const updateDragPosition = (absoluteY: number) => {
     const start = touchStart.current;
     if (!start) return;
@@ -63,11 +86,12 @@ export function MobileDragSurface({
     // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
     ghostTranslateY.value =
       absoluteY - start.absoluteY + scrollDelta;
-    onMove(absoluteY);
+    queueMove(absoluteY);
   };
 
   const reset = () => {
     clearHoldTimer();
+    flushQueuedMove();
     touchStart.current = null;
     dragging.current = false;
     setGhostContent(null);
@@ -89,13 +113,13 @@ export function MobileDragSurface({
       if (disabledRef.current || !touchStart.current) return;
       dragging.current = true;
       ghostTranslateY.value = 0;
-      setGhostContent(children);
       startScrollOffset.current = screenDragController.getScrollOffset();
       screenDragController.updatePointer(touchStart.current.absoluteY);
       screenDragController.setAutoScrollListener(() =>
         updateDragPosition(lastAbsoluteY.current)
       );
       screenDragController.setActive(true);
+      setGhostContent(children);
       onStart(touchStart.current.absoluteY, touchStart.current.localY);
     }, MOBILE_DRAG_HOLD_MS);
   };
@@ -105,6 +129,8 @@ export function MobileDragSurface({
     lastAbsoluteY.current = absoluteY;
 
     if (dragging.current) {
+      event.preventDefault();
+      event.stopPropagation();
       screenDragController.updatePointer(absoluteY);
       updateDragPosition(absoluteY);
       return;
@@ -129,6 +155,7 @@ export function MobileDragSurface({
     const absoluteY = event?.nativeEvent.pageY ?? lastAbsoluteY.current;
     dragging.current = false;
     clearHoldTimer();
+    flushQueuedMove();
     touchStart.current = null;
     setGhostContent(null);
     screenDragController.setAutoScrollListener(null);
@@ -153,6 +180,7 @@ export function MobileDragSurface({
   React.useEffect(
     () => () => {
       clearHoldTimer();
+      if (moveFrame.current !== null) cancelAnimationFrame(moveFrame.current);
       if (dragging.current) {
         screenDragController.setAutoScrollListener(null);
         screenDragController.setActive(false);

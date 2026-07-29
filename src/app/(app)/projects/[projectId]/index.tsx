@@ -856,10 +856,12 @@ function TaskTable({
 
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
   const [viewportWidth, setViewportWidth] = React.useState(0);
-  const [nativeIndicator, setNativeIndicator] = React.useState<{
-    taskId: string;
-    edge: 'before' | 'after';
-  } | null>(null);
+  const nativeIndicatorY = useSharedValue(0);
+  const nativeIndicatorOpacity = useSharedValue(0);
+  const nativeIndicatorStyle = useAnimatedStyle(() => ({
+    opacity: nativeIndicatorOpacity.value,
+    transform: [{ translateY: nativeIndicatorY.value }],
+  }));
   const [openMetadataTaskIds, setOpenMetadataTaskIds] = React.useState<Set<string>>(
     () => new Set()
   );
@@ -921,12 +923,16 @@ function TaskTable({
       contentY
     );
     drag.insertionIndex = target.insertionIndex;
-    setNativeIndicator((current) => {
-      if (current?.taskId === target.itemId && current.edge === target.edge) {
-        return current;
-      }
-      return { taskId: target.itemId, edge: target.edge };
-    });
+    const targetLayout = nativeLayouts.current.get(target.itemId);
+    if (targetLayout) {
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
+      nativeIndicatorY.value =
+        target.edge === 'before'
+          ? targetLayout.y - 1
+          : targetLayout.y + targetLayout.height - 1;
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
+      nativeIndicatorOpacity.value = 1;
+    }
   };
 
   const startNativeDrag = (
@@ -950,7 +956,8 @@ function TaskTable({
   const clearNativeDrag = () => {
     nativeDrag.current = null;
     setDraggingId(null);
-    setNativeIndicator(null);
+    // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
+    nativeIndicatorOpacity.value = 0;
   };
 
   const endNativeDrag = (absoluteY: number) => {
@@ -1177,6 +1184,13 @@ function TaskTable({
         className="relative overflow-visible rounded-md"
         style={{ width: '100%', minWidth: TASK_TABLE_MIN_WIDTH }}
       >
+        {Platform.OS !== 'web' ? (
+          <Animated.View
+            pointerEvents="none"
+            className="absolute left-0 right-0 z-30 h-0.5 bg-primary"
+            style={nativeIndicatorStyle}
+          />
+        ) : null}
         <View className="h-10 flex-row items-center rounded-t-md bg-muted/60">
           <View className={cn(TASK_TABLE_COLUMNS.task, 'px-3')}>
             <Text variant="label" className="text-muted-foreground">Task</Text>
@@ -1257,10 +1271,6 @@ function TaskTable({
                     nativeLayouts.current.set(task.id, { y, height });
                   }}
                 >
-                  {nativeIndicator?.taskId === task.id &&
-                  nativeIndicator.edge === 'before' ? (
-                    <View className="absolute -top-px left-0 right-0 z-10 h-0.5 bg-primary" />
-                  ) : null}
                   <MobileDragSurface
                     disabled={openMetadataTaskIds.size > 0}
                     onStart={(absoluteY, localY) =>
@@ -1285,10 +1295,6 @@ function TaskTable({
                       }}
                     />
                   </MobileDragSurface>
-                  {nativeIndicator?.taskId === task.id &&
-                  nativeIndicator.edge === 'after' ? (
-                    <View className="absolute -bottom-px left-0 right-0 z-10 h-0.5 bg-primary" />
-                  ) : null}
                 </View>
               )}
             </React.Fragment>

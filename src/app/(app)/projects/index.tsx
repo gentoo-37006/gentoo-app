@@ -172,10 +172,12 @@ function ProjectList({
   };
 
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
-  const [nativeIndicator, setNativeIndicator] = React.useState<{
-    projectId: string;
-    edge: 'before' | 'after';
-  } | null>(null);
+  const nativeIndicatorY = useSharedValue(0);
+  const nativeIndicatorOpacity = useSharedValue(0);
+  const nativeIndicatorStyle = useAnimatedStyle(() => ({
+    opacity: nativeIndicatorOpacity.value,
+    transform: [{ translateY: nativeIndicatorY.value }],
+  }));
   const pointerDrag = React.useRef<PointerDrag | null>(null);
   const nativeLayouts = React.useRef(
     new Map<string, { y: number; height: number }>()
@@ -234,15 +236,16 @@ function ProjectList({
       contentY
     );
     drag.insertionIndex = target.insertionIndex;
-    setNativeIndicator((current) => {
-      if (
-        current?.projectId === target.itemId &&
-        current.edge === target.edge
-      ) {
-        return current;
-      }
-      return { projectId: target.itemId, edge: target.edge };
-    });
+    const targetLayout = nativeLayouts.current.get(target.itemId);
+    if (targetLayout) {
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
+      nativeIndicatorY.value =
+        target.edge === 'before'
+          ? targetLayout.y - 7
+          : targetLayout.y + targetLayout.height + 5;
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
+      nativeIndicatorOpacity.value = 1;
+    }
   };
 
   const startNativeDrag = (
@@ -265,7 +268,8 @@ function ProjectList({
   const clearNativeDrag = () => {
     nativeDrag.current = null;
     setDraggingId(null);
-    setNativeIndicator(null);
+    // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
+    nativeIndicatorOpacity.value = 0;
   };
 
   const endNativeDrag = (absoluteY: number) => {
@@ -472,7 +476,14 @@ function ProjectList({
   };
 
   return (
-    <View className="gap-3">
+    <View className="relative gap-3">
+      {Platform.OS !== 'web' ? (
+        <Animated.View
+          pointerEvents="none"
+          className="absolute left-0 right-0 z-[200] h-0.5 bg-primary"
+          style={nativeIndicatorStyle}
+        />
+      ) : null}
       {projects.map((project) =>
         Platform.OS === 'web' ? (
           React.createElement(
@@ -513,10 +524,6 @@ function ProjectList({
               nativeLayouts.current.set(project.id, { y, height });
             }}
           >
-            {nativeIndicator?.projectId === project.id &&
-            nativeIndicator.edge === 'before' ? (
-              <View className="absolute -top-[7px] left-0 right-0 z-10 h-0.5 bg-primary" />
-            ) : null}
             <MobileDragSurface
               onStart={(absoluteY, localY) =>
                 startNativeDrag(project.id, absoluteY, localY)
@@ -530,10 +537,6 @@ function ProjectList({
                 onPress={() => onOpenProject(project.id)}
               />
             </MobileDragSurface>
-            {nativeIndicator?.projectId === project.id &&
-            nativeIndicator.edge === 'after' ? (
-              <View className="absolute -bottom-[7px] left-0 right-0 z-10 h-0.5 bg-primary" />
-            ) : null}
           </View>
         )
       )}

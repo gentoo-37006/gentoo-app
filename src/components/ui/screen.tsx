@@ -97,6 +97,7 @@ export function Screen({
   });
 
   const setControllerActive = React.useEffectEvent((active: boolean) => {
+    scrollRef.current?.setNativeProps({ scrollEnabled: !active });
     setDragActive(active);
     if (!active) {
       pointerY.current = null;
