@@ -504,12 +504,14 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
 
   const [edgeSwipeResponder] = React.useState(() =>
       PanResponder.create({
-        onMoveShouldSetPanResponder: (_event, gesture) =>
-          gesture.x0 <= MOBILE_EDGE_SWIPE_WIDTH &&
+        onMoveShouldSetPanResponder: (event, gesture) =>
+          event.nativeEvent.pageX - gesture.dx <=
+            MOBILE_EDGE_SWIPE_WIDTH &&
           gesture.dx > 8 &&
           Math.abs(gesture.dx) > Math.abs(gesture.dy),
-        onMoveShouldSetPanResponderCapture: (_event, gesture) =>
-          gesture.x0 <= MOBILE_EDGE_SWIPE_WIDTH &&
+        onMoveShouldSetPanResponderCapture: (event, gesture) =>
+          event.nativeEvent.pageX - gesture.dx <=
+            MOBILE_EDGE_SWIPE_WIDTH &&
           gesture.dx > 8 &&
           Math.abs(gesture.dx) > Math.abs(gesture.dy),
         onPanResponderGrant: () => {
@@ -590,9 +592,15 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
       },
     ],
   }));
-  const backdropAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: menuProgress.value * 0.6,
-  }));
+  const backdropAnimatedStyle = useAnimatedStyle(() => {
+    const opacityStart =
+      MOBILE_OPEN_SWIPE_TRIGGER / MOBILE_SIDEBAR_WIDTH;
+    const visibleProgress = Math.max(
+      0,
+      (menuProgress.value - opacityStart) / (1 - opacityStart)
+    );
+    return { opacity: visibleProgress * 0.6 };
+  });
 
   // Register this device for push once the member is signed in & approved.
   const userId = session?.user?.id;
