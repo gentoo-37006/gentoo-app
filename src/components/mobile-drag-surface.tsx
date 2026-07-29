@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS } from 'react-native-reanimated';
+import { runOnJS, useSharedValue } from 'react-native-reanimated';
 
 export const MOBILE_DRAG_HOLD_MS = 1_500;
 
@@ -20,6 +20,7 @@ export function MobileDragSurface({
   onEnd: (absoluteY: number) => void;
   onCancel: () => void;
 }) {
+  const dragStarted = useSharedValue(false);
   const handleStart = React.useEffectEvent(
     (absoluteY: number, localY: number) => onStart(absoluteY, localY)
   );
@@ -35,22 +36,30 @@ export function MobileDragSurface({
      RNGH gesture object cancels the drag; Effect Events provide the latest handlers. */
   const gesture = React.useMemo(
     () =>
-      Gesture.Pan()
+      Gesture.LongPress()
         .enabled(!disabled)
-        .activateAfterLongPress(MOBILE_DRAG_HOLD_MS)
+        .minDuration(MOBILE_DRAG_HOLD_MS)
+        .maxDistance(24)
+        .shouldCancelWhenOutside(false)
+        .cancelsTouchesInView(true)
         .onStart((event) => {
+          // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
+          dragStarted.value = true;
           runOnJS(handleStart)(event.absoluteY, event.y);
         })
-        .onUpdate((event) => {
-          runOnJS(handleMove)(event.absoluteY);
+        .onTouchesMove((event) => {
+          const touch = event.allTouches[0];
+          if (touch) runOnJS(handleMove)(touch.absoluteY);
         })
-        .onEnd((event) => {
-          runOnJS(handleEnd)(event.absoluteY);
+        .onEnd((event, success) => {
+          if (success) runOnJS(handleEnd)(event.absoluteY);
         })
         .onFinalize((_event, success) => {
-          if (!success) runOnJS(handleCancel)();
+          if (!success && dragStarted.value) runOnJS(handleCancel)();
+          // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
+          dragStarted.value = false;
         }),
-    [disabled]
+    [disabled, dragStarted]
   );
   /* eslint-enable react-hooks/preserve-manual-memoization */
 

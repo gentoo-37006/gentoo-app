@@ -84,19 +84,15 @@ const QUICK_ACTIONS: QuickAction[] = [
 function QuickActionCard({ action }: { action: QuickAction }) {
   return (
     <Link href={action.href as any} asChild>
-      <Pressable className="flex-1 basis-full active:opacity-75 md:basis-[48%]">
-        <Card className="hover:bg-accent/70">
-          <CardContent className="flex-row items-center gap-4 p-4">
-            <View className="h-11 w-11 items-center justify-center rounded-md bg-accent">
-              <Icon as={action.icon} size={22} className="text-primary" />
-            </View>
-            <View className="flex-1">
-              <Text className="font-semibold">{action.label}</Text>
-              <Text variant="muted">{action.description}</Text>
-            </View>
-            <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
-          </CardContent>
-        </Card>
+      <Pressable className="flex-1 basis-full flex-row items-center gap-4 rounded-md border border-border bg-card p-4 active:opacity-75 hover:bg-accent/70 md:basis-[48%]">
+        <View className="h-11 w-11 items-center justify-center rounded-md bg-accent">
+          <Icon as={action.icon} size={22} className="text-primary" />
+        </View>
+        <View className="flex-1">
+          <Text className="font-semibold">{action.label}</Text>
+          <Text variant="muted">{action.description}</Text>
+        </View>
+        <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
       </Pressable>
     </Link>
   );

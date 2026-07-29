@@ -16,7 +16,6 @@ import Animated, {
 import { ListChecks, Plus, ChevronRight } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
@@ -81,15 +80,16 @@ function ProjectCard({
   }, [completed, completedLineProgress]);
 
   return (
-    <Pressable className="active:opacity-75" onPress={onPress}>
-        <Card
-          className="relative overflow-visible hover:bg-accent/70"
-          onLayout={(event) => {
-            setCardHeight(event.nativeEvent.layout.height);
-            setCardWidth(event.nativeEvent.layout.width);
-          }}
-        >
-          <CardContent className={cn('gap-3 p-4', completed && 'opacity-60')}>
+    <Pressable
+      accessibilityRole="button"
+      className="relative overflow-visible rounded-md border border-border bg-card active:opacity-75 hover:bg-accent/70"
+      onPress={onPress}
+      onLayout={(event) => {
+        setCardHeight(event.nativeEvent.layout.height);
+        setCardWidth(event.nativeEvent.layout.width);
+      }}
+    >
+          <View className={cn('gap-3 p-4', completed && 'opacity-60')}>
             <View className="flex-row items-center gap-3">
               <View className="flex-1">
                 <Text className="font-bold">{project.name}</Text>
@@ -108,7 +108,7 @@ function ProjectCard({
             <Text variant="small">
               {open === 0 ? 'All clear — no open tasks' : open === 1 ? '1 open task' : `${open} open tasks`}
             </Text>
-          </CardContent>
+          </View>
           {completed && cardHeight > 0 ? (
             <Animated.View
               pointerEvents="none"
@@ -136,7 +136,6 @@ function ProjectCard({
               />
             </Animated.View>
           ) : null}
-        </Card>
     </Pressable>
   );
 }
