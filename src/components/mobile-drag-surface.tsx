@@ -4,6 +4,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS, useSharedValue } from 'react-native-reanimated';
 
 export const MOBILE_DRAG_HOLD_MS = 1_500;
+const MAX_GESTURE_DISTANCE = 2_147_483_647;
 
 export function MobileDragSurface({
   children,
@@ -39,7 +40,7 @@ export function MobileDragSurface({
       Gesture.LongPress()
         .enabled(!disabled)
         .minDuration(MOBILE_DRAG_HOLD_MS)
-        .maxDistance(24)
+        .maxDistance(MAX_GESTURE_DISTANCE)
         .shouldCancelWhenOutside(false)
         .cancelsTouchesInView(true)
         .onStart((event) => {

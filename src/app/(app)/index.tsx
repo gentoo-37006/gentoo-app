@@ -1,4 +1,4 @@
-import { Pressable, View } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
 import { Link } from 'expo-router';
 import {
   ListChecks,
@@ -73,12 +73,26 @@ function MyTaskRow({ task, now }: { task: MyTask; now: number }) {
   );
 }
 
-type QuickAction = { label: string; description: string; href: string; icon: LucideIcon; hideOnDesktop?: boolean };
+type QuickAction = {
+  label: string;
+  description: string;
+  href: string;
+  icon: LucideIcon;
+  hideOnDesktop?: boolean;
+  webOnly?: boolean;
+};
 
 const QUICK_ACTIONS: QuickAction[] = [
   { label: 'View projects', description: 'Projects and to-dos', href: '/projects', icon: ListChecks },
   { label: 'Count cables', description: 'AI-identify cables from a photo', href: '/cables', icon: Cable },
-  { label: 'Downloads', description: 'Install the app on other devices', href: '/downloads', icon: Download, hideOnDesktop: true },
+  {
+    label: 'Downloads',
+    description: 'Install the app on other devices',
+    href: '/downloads',
+    icon: Download,
+    hideOnDesktop: true,
+    webOnly: true,
+  },
 ];
 
 function QuickActionCard({ action }: { action: QuickAction }) {
@@ -123,7 +137,11 @@ export default function DashboardScreen() {
     },
   ];
 
-  const actions = QUICK_ACTIONS.filter((a) => !(a.hideOnDesktop && isDesktopApp));
+  const actions = QUICK_ACTIONS.filter(
+    (action) =>
+      !(action.hideOnDesktop && isDesktopApp) &&
+      (!action.webOnly || Platform.OS === 'web')
+  );
 
   return (
     <Screen>
