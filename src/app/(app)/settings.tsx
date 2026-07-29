@@ -305,7 +305,7 @@ export default function SettingsScreen() {
         </CardHeader>
         <CardContent className="gap-1">
           <Text variant="muted">© 2026 Gentoo Robotics. All rights reserved.</Text>
-          <Text variant="muted">Yan, Radean, Ethan, and Max</Text>
+          <Text variant="muted">Yan, Radean, Max, and Ethan</Text>
           <Text variant="muted">Version {APP_VERSION}</Text>
           <View className="pt-2">
             <Button
