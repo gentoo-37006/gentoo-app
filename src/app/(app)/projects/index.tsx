@@ -14,7 +14,11 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { ListChecks, Plus, ChevronRight } from 'lucide-react-native';
-import { Screen, ScreenHeader } from '@/components/ui/screen';
+import {
+  Screen,
+  ScreenHeader,
+  useScreenDragController,
+} from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
@@ -30,6 +34,7 @@ import {
   type ProjectWithTasks,
 } from '@/lib/queries/tasks';
 import { cn } from '@/lib/utils';
+import { getNativeDropTarget } from '@/lib/native-reorder';
 
 const COMPLETED_LINE_HEIGHT =
   Platform.OS === 'web' ? 1 / PixelRatio.get() : StyleSheet.hairlineWidth;
@@ -149,6 +154,7 @@ function ProjectList({
   onReorder: (projectIds: string[]) => void;
   onOpenProject: (projectId: string) => void;
 }) {
+  const screenDragController = useScreenDragController();
   type PointerDrag = {
     projectId: string;
     pointerId: number;
@@ -177,6 +183,7 @@ function ProjectList({
   const nativeDrag = React.useRef<{
     projectId: string;
     listTop: number;
+    startScrollOffset: number;
     insertionIndex: number;
   } | null>(null);
   const suppressNextClick = React.useRef(false);
@@ -216,25 +223,26 @@ function ProjectList({
   const moveNativeDrag = (absoluteY: number) => {
     const drag = nativeDrag.current;
     if (!drag) return;
-    const contentY = absoluteY - drag.listTop;
-    const remaining = projects.filter((project) => project.id !== drag.projectId);
-    let insertionIndex = remaining.length;
-    for (let index = 0; index < remaining.length; index += 1) {
-      const layout = nativeLayouts.current.get(remaining[index].id);
-      if (layout && contentY < layout.y + layout.height / 2) {
-        insertionIndex = index;
-        break;
-      }
-    }
-    drag.insertionIndex = insertionIndex;
-    const target = remaining[insertionIndex];
-    setNativeIndicator(
-      target
-        ? { projectId: target.id, edge: 'before' }
-        : remaining.length > 0
-          ? { projectId: remaining[remaining.length - 1].id, edge: 'after' }
-          : { projectId: drag.projectId, edge: 'before' }
+    const contentY =
+      absoluteY -
+      drag.listTop +
+      (screenDragController.getScrollOffset() - drag.startScrollOffset);
+    const target = getNativeDropTarget(
+      projects.map((project) => project.id),
+      drag.projectId,
+      nativeLayouts.current,
+      contentY
     );
+    drag.insertionIndex = target.insertionIndex;
+    setNativeIndicator((current) => {
+      if (
+        current?.projectId === target.itemId &&
+        current.edge === target.edge
+      ) {
+        return current;
+      }
+      return { projectId: target.itemId, edge: target.edge };
+    });
   };
 
   const startNativeDrag = (
@@ -247,6 +255,7 @@ function ProjectList({
     nativeDrag.current = {
       projectId,
       listTop: absoluteY - localY - layout.y,
+      startScrollOffset: screenDragController.getScrollOffset(),
       insertionIndex: projects.findIndex((project) => project.id === projectId),
     };
     setDraggingId(projectId);

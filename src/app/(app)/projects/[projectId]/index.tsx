@@ -27,7 +27,12 @@ import {
   FileText,
   Ban,
 } from 'lucide-react-native';
-import { Screen, ScreenHeader, useScreenDragActive } from '@/components/ui/screen';
+import {
+  Screen,
+  ScreenHeader,
+  useScreenDragActive,
+  useScreenDragController,
+} from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
@@ -64,6 +69,7 @@ import {
   type Task,
   type TaskStatus,
 } from '@/lib/types';
+import { getNativeDropTarget } from '@/lib/native-reorder';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const COMPLETED_LINE_DURATION_MS = 250;
@@ -829,6 +835,7 @@ function TaskTable({
   onOpenTask: (task: Task) => void;
 }) {
   const screenDragActive = useScreenDragActive();
+  const screenDragController = useScreenDragController();
   type PointerDrag = {
     taskId: string;
     pointerId: number;
@@ -863,6 +870,7 @@ function TaskTable({
   const nativeDrag = React.useRef<{
     taskId: string;
     listTop: number;
+    startScrollOffset: number;
     insertionIndex: number;
   } | null>(null);
   const suppressNextClick = React.useRef(false);
@@ -902,25 +910,23 @@ function TaskTable({
   const moveNativeDrag = (absoluteY: number) => {
     const drag = nativeDrag.current;
     if (!drag) return;
-    const contentY = absoluteY - drag.listTop;
-    const remaining = tasks.filter((task) => task.id !== drag.taskId);
-    let insertionIndex = remaining.length;
-    for (let index = 0; index < remaining.length; index += 1) {
-      const layout = nativeLayouts.current.get(remaining[index].id);
-      if (layout && contentY < layout.y + layout.height / 2) {
-        insertionIndex = index;
-        break;
-      }
-    }
-    drag.insertionIndex = insertionIndex;
-    const target = remaining[insertionIndex];
-    setNativeIndicator(
-      target
-        ? { taskId: target.id, edge: 'before' }
-        : remaining.length > 0
-          ? { taskId: remaining[remaining.length - 1].id, edge: 'after' }
-          : { taskId: drag.taskId, edge: 'before' }
+    const contentY =
+      absoluteY -
+      drag.listTop +
+      (screenDragController.getScrollOffset() - drag.startScrollOffset);
+    const target = getNativeDropTarget(
+      tasks.map((task) => task.id),
+      drag.taskId,
+      nativeLayouts.current,
+      contentY
     );
+    drag.insertionIndex = target.insertionIndex;
+    setNativeIndicator((current) => {
+      if (current?.taskId === target.itemId && current.edge === target.edge) {
+        return current;
+      }
+      return { taskId: target.itemId, edge: target.edge };
+    });
   };
 
   const startNativeDrag = (
@@ -934,6 +940,7 @@ function TaskTable({
     nativeDrag.current = {
       taskId,
       listTop: absoluteY - localY - layout.y,
+      startScrollOffset: screenDragController.getScrollOffset(),
       insertionIndex: tasks.findIndex((task) => task.id === taskId),
     };
     setDraggingId(taskId);

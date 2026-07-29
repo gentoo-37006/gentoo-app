@@ -9,7 +9,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
 } from 'react-native-reanimated';
-import { useScreenDragLock } from '@/components/ui/screen';
+import { useScreenDragController } from '@/components/ui/screen';
 
 export const MOBILE_DRAG_HOLD_MS = 1_500;
 const PRE_DRAG_MOVE_TOLERANCE = 12;
@@ -31,8 +31,10 @@ export function MobileDragSurface({
   onEnd: (absoluteY: number) => void;
   onCancel: () => void;
 }) {
-  const setScreenDragActive = useScreenDragLock();
-  const [ghostVisible, setGhostVisible] = React.useState(false);
+  const screenDragController = useScreenDragController();
+  const [ghostContent, setGhostContent] =
+    React.useState<React.ReactNode>(null);
+  const ghostVisible = ghostContent !== null;
   const holdTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const disabledRef = React.useRef(disabled);
   const touchStart = React.useRef<{
@@ -40,6 +42,7 @@ export function MobileDragSurface({
     localY: number;
   } | null>(null);
   const lastAbsoluteY = React.useRef(0);
+  const startScrollOffset = React.useRef(0);
   const dragging = React.useRef(false);
   const ghostTranslateY = useSharedValue(0);
   const ghostAnimatedStyle = useAnimatedStyle(() => ({
@@ -52,12 +55,24 @@ export function MobileDragSurface({
     holdTimer.current = null;
   };
 
+  const updateDragPosition = (absoluteY: number) => {
+    const start = touchStart.current;
+    if (!start) return;
+    const scrollDelta =
+      screenDragController.getScrollOffset() - startScrollOffset.current;
+    // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
+    ghostTranslateY.value =
+      absoluteY - start.absoluteY + scrollDelta;
+    onMove(absoluteY);
+  };
+
   const reset = () => {
     clearHoldTimer();
     touchStart.current = null;
     dragging.current = false;
-    setGhostVisible(false);
-    setScreenDragActive(false);
+    setGhostContent(null);
+    screenDragController.setAutoScrollListener(null);
+    screenDragController.setActive(false);
   };
 
   const beginTouch = (event: TouchEvent) => {
@@ -74,8 +89,13 @@ export function MobileDragSurface({
       if (disabledRef.current || !touchStart.current) return;
       dragging.current = true;
       ghostTranslateY.value = 0;
-      setGhostVisible(true);
-      setScreenDragActive(true);
+      setGhostContent(children);
+      startScrollOffset.current = screenDragController.getScrollOffset();
+      screenDragController.updatePointer(touchStart.current.absoluteY);
+      screenDragController.setAutoScrollListener(() =>
+        updateDragPosition(lastAbsoluteY.current)
+      );
+      screenDragController.setActive(true);
       onStart(touchStart.current.absoluteY, touchStart.current.localY);
     }, MOBILE_DRAG_HOLD_MS);
   };
@@ -85,12 +105,8 @@ export function MobileDragSurface({
     lastAbsoluteY.current = absoluteY;
 
     if (dragging.current) {
-      const start = touchStart.current;
-      if (start) {
-        // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
-        ghostTranslateY.value = absoluteY - start.absoluteY;
-      }
-      onMove(absoluteY);
+      screenDragController.updatePointer(absoluteY);
+      updateDragPosition(absoluteY);
       return;
     }
 
@@ -114,8 +130,9 @@ export function MobileDragSurface({
     dragging.current = false;
     clearHoldTimer();
     touchStart.current = null;
-    setGhostVisible(false);
-    setScreenDragActive(false);
+    setGhostContent(null);
+    screenDragController.setAutoScrollListener(null);
+    screenDragController.setActive(false);
     onEnd(absoluteY);
   };
 
@@ -136,9 +153,12 @@ export function MobileDragSurface({
   React.useEffect(
     () => () => {
       clearHoldTimer();
-      if (dragging.current) setScreenDragActive(false);
+      if (dragging.current) {
+        screenDragController.setAutoScrollListener(null);
+        screenDragController.setActive(false);
+      }
     },
-    [setScreenDragActive]
+    [screenDragController]
   );
 
   return (
@@ -161,7 +181,7 @@ export function MobileDragSurface({
           className="absolute inset-0 z-50 bg-background shadow-lg"
           style={[{ elevation: 20, opacity: 0.65 }, ghostAnimatedStyle]}
         >
-          {children}
+          {ghostContent}
         </Animated.View>
       ) : null}
     </View>
