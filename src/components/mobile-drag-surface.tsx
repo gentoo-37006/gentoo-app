@@ -39,6 +39,7 @@ export function MobileDragSurface({
   const holdTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const disabledRef = React.useRef(disabled);
   const touchStart = React.useRef<{
+    absoluteX: number;
     absoluteY: number;
     localY: number;
   } | null>(null);
@@ -101,6 +102,7 @@ export function MobileDragSurface({
     if (disabled || holdTimer.current !== null || dragging.current) return;
 
     const start = {
+      absoluteX: event.nativeEvent.pageX,
       absoluteY: event.nativeEvent.pageY,
       localY: event.nativeEvent.locationY,
     };
@@ -158,7 +160,10 @@ export function MobileDragSurface({
     const start = touchStart.current;
     if (
       start &&
-      Math.abs(absoluteY - start.absoluteY) > PRE_DRAG_MOVE_TOLERANCE
+      Math.hypot(
+        event.nativeEvent.pageX - start.absoluteX,
+        absoluteY - start.absoluteY
+      ) > PRE_DRAG_MOVE_TOLERANCE
     ) {
       clearHoldTimer();
       touchStart.current = null;

@@ -1171,7 +1171,7 @@ function TaskTable({
       horizontal
       className="w-full max-w-full"
       scrollEnabled={!screenDragActive}
-      showsHorizontalScrollIndicator
+      showsHorizontalScrollIndicator={false}
       contentContainerStyle={{ width: '100%', minWidth: TASK_TABLE_MIN_WIDTH }}
       onLayout={(event) => setViewportWidth(event.nativeEvent.layout.width)}
       style={
