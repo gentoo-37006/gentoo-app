@@ -46,7 +46,7 @@ import { Avatar } from '@/components/ui/avatar';
 const MOBILE_SIDEBAR_WIDTH = 256;
 const MOBILE_SIDEBAR_ANIMATION_MS = 220;
 const MOBILE_EDGE_SWIPE_WIDTH = 24;
-const MOBILE_OPEN_SWIPE_TRIGGER = 96;
+const MOBILE_OPEN_SWIPE_TRIGGER = 64;
 const MOBILE_CLOSE_SWIPE_TRIGGER = 64;
 
 function isActiveRoute(href: string, pathname: string) {
