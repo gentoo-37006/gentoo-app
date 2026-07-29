@@ -1,6 +1,18 @@
 import * as React from 'react';
-import { ActivityIndicator, Platform, Pressable, View } from 'react-native';
+import {
+  ActivityIndicator,
+  PixelRatio,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useRouter } from 'expo-router';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { ListChecks, Plus, ChevronRight } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -20,13 +32,59 @@ import {
 } from '@/lib/queries/tasks';
 import { cn } from '@/lib/utils';
 
+const COMPLETED_LINE_HEIGHT =
+  Platform.OS === 'web' ? 1 / PixelRatio.get() : StyleSheet.hairlineWidth;
+const COMPLETED_LINE_DURATION_MS = 250;
+
 function ProjectCard({ project }: { project: ProjectWithTasks }) {
   const router = useRouter();
+  const [cardHeight, setCardHeight] = React.useState(0);
+  const [cardWidth, setCardWidth] = React.useState(0);
+  const completed = project.status === 'done';
+  const previousCompleted = React.useRef(completed);
+  const completedLineProgress = useSharedValue(1);
+  const completedLineTop = PixelRatio.roundToNearestPixel(
+    (cardHeight - COMPLETED_LINE_HEIGHT) / 2
+  );
+  const completedLineAnimatedStyle = useAnimatedStyle(() => {
+    const progress = completedLineProgress.value;
+    const extension = Platform.OS === 'web' ? 16 : cardWidth * 0.015;
+    return {
+      transform: [
+        {
+          translateX:
+            ((progress - 1) * cardWidth) / 2 - extension * (1 - progress),
+        },
+        {
+          scaleX: progress * (Platform.OS === 'web' ? 1 : 1.03),
+        },
+      ],
+    };
+  });
   const open = project.tasks.length;
+
+  React.useLayoutEffect(() => {
+    if (completed && !previousCompleted.current) {
+      completedLineProgress.value = 0;
+      completedLineProgress.value = withTiming(1, {
+        duration: COMPLETED_LINE_DURATION_MS,
+      });
+    } else if (!completed) {
+      completedLineProgress.value = 1;
+    }
+    previousCompleted.current = completed;
+  }, [completed, completedLineProgress]);
+
   return (
     <Pressable className="active:opacity-75" onPress={() => router.push(`/projects/${project.id}` as any)}>
-        <Card className="hover:bg-accent/70">
-          <CardContent className="gap-3 p-4">
+        <Card
+          className="relative overflow-visible hover:bg-accent/70"
+          onLayout={(event) => {
+            setCardHeight(event.nativeEvent.layout.height);
+            setCardWidth(event.nativeEvent.layout.width);
+          }}
+        >
+          <CardContent className={cn('gap-3 p-4', completed && 'opacity-60')}>
             <View className="flex-row items-center gap-3">
               <View className="flex-1">
                 <Text className="font-bold">{project.name}</Text>
@@ -46,6 +104,33 @@ function ProjectCard({ project }: { project: ProjectWithTasks }) {
               {open === 0 ? 'All clear — no open tasks' : open === 1 ? '1 open task' : `${open} open tasks`}
             </Text>
           </CardContent>
+          {completed && cardHeight > 0 ? (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                {
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  zIndex: 10,
+                  height: COMPLETED_LINE_HEIGHT,
+                  top: completedLineTop,
+                },
+                completedLineAnimatedStyle,
+              ]}
+            >
+              <View
+                className="h-full w-full bg-foreground text-foreground opacity-60"
+                style={
+                  Platform.OS === 'web'
+                    ? ({
+                        boxShadow: '-16px 0 0 currentColor, 16px 0 0 currentColor',
+                      } as any)
+                    : undefined
+                }
+              />
+            </Animated.View>
+          ) : null}
         </Card>
     </Pressable>
   );

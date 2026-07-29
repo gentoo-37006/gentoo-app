@@ -1,5 +1,13 @@
 import * as React from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, View } from 'react-native';
+import {
+  ActivityIndicator,
+  PixelRatio,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import {
@@ -58,6 +66,9 @@ import {
 } from '@/lib/types';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const COMPLETED_LINE_DURATION_MS = 250;
+const COMPLETED_LINE_HEIGHT =
+  Platform.OS === 'web' ? 1 / PixelRatio.get() : StyleSheet.hairlineWidth;
 
 type FilterGroup = {
   key: string;
@@ -554,33 +565,99 @@ function TaskTableRow({
   const router = useRouter();
   const update = useUpdateTask();
   const del = useDeleteTask();
+  const [rowHeight, setRowHeight] = React.useState(0);
+  const [rowWidth, setRowWidth] = React.useState(0);
+  const completed = task.status === 'done';
+  const previousCompleted = React.useRef(completed);
+  const completedLineProgress = useSharedValue(1);
+  const completedCellClass = completed ? 'opacity-60' : undefined;
+  const completedLineTop = PixelRatio.roundToNearestPixel(
+    (rowHeight - COMPLETED_LINE_HEIGHT) / 2
+  );
+  const completedLineAnimatedStyle = useAnimatedStyle(() => {
+    const progress = completedLineProgress.value;
+    const extension = Platform.OS === 'web' ? 16 : rowWidth * 0.015;
+    return {
+      transform: [
+        {
+          translateX:
+            ((progress - 1) * rowWidth) / 2 - extension * (1 - progress),
+        },
+        {
+          scaleX: progress * (Platform.OS === 'web' ? 1 : 1.03),
+        },
+      ],
+    };
+  });
   const assigneeOptions = profiles.map((profile) => ({
     value: profile.id,
     label: profile.full_name ?? 'Member',
   }));
   const openNotes = () => router.push(`/projects/${task.project_id}/${task.id}` as any);
 
+  React.useLayoutEffect(() => {
+    if (completed && !previousCompleted.current) {
+      completedLineProgress.value = 0;
+      completedLineProgress.value = withTiming(1, {
+        duration: COMPLETED_LINE_DURATION_MS,
+      });
+    } else if (!completed) {
+      completedLineProgress.value = 1;
+    }
+    previousCompleted.current = completed;
+  }, [completed, completedLineProgress]);
+
   return (
     <View
       className={cn(
-        'min-h-14 flex-row items-stretch border-t border-border',
+        'relative min-h-14 flex-row items-stretch border-t border-border',
         highlighted ? 'bg-primary/10 hover:bg-primary/12' : 'hover:bg-accent/70'
       )}
+      onLayout={(event) => {
+        setRowHeight(event.nativeEvent.layout.height);
+        setRowWidth(event.nativeEvent.layout.width);
+      }}
     >
-      <View className="min-w-[260px] flex-1 justify-center px-3 py-2.5">
+      {completed && rowHeight > 0 ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            {
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              zIndex: 10,
+              height: COMPLETED_LINE_HEIGHT,
+              top: completedLineTop,
+            },
+            completedLineAnimatedStyle,
+          ]}
+        >
+          <View
+            className="h-full w-full bg-foreground text-foreground opacity-60"
+            style={
+              Platform.OS === 'web'
+                ? ({ boxShadow: '-16px 0 0 currentColor, 16px 0 0 currentColor' } as any)
+                : undefined
+            }
+          />
+        </Animated.View>
+      ) : null}
+
+      <View
+        className={cn(
+          'min-w-[260px] flex-1 justify-center px-3 py-2.5',
+          completedCellClass
+        )}
+      >
         <Pressable className="flex-row items-center gap-2 active:opacity-70" onPress={openNotes}>
-          <Text
-            className={cn(
-              'flex-1 text-sm font-semibold',
-              task.status === 'done' && 'text-muted-foreground line-through'
-            )}
-          >
-            {task.title}
-          </Text>
+          <Text className="flex-1 text-sm font-semibold">{task.title}</Text>
         </Pressable>
       </View>
 
-      <View className="w-[136px] justify-center px-2 py-2">
+      <View
+        className={cn('w-[136px] justify-center px-2 py-2', completedCellClass)}
+      >
         <Select
           options={TASK_STATUSES}
           value={task.status}
@@ -600,7 +677,7 @@ function TaskTableRow({
         />
       </View>
 
-      <View className="w-44 justify-center px-2 py-2">
+      <View className={cn('w-44 justify-center px-2 py-2', completedCellClass)}>
         <MultiSelect
           options={assigneeOptions}
           values={task.assignee_ids}
@@ -648,7 +725,9 @@ function TaskTableRow({
         />
       </View>
 
-      <View className="w-[120px] justify-center px-2 py-2">
+      <View
+        className={cn('w-[120px] justify-center px-2 py-2', completedCellClass)}
+      >
         <DatePicker
           compact
           value={task.due_date}
@@ -658,7 +737,7 @@ function TaskTableRow({
         />
       </View>
 
-      <View className="w-28 justify-center px-2 py-2">
+      <View className={cn('w-28 justify-center px-2 py-2', completedCellClass)}>
         <Select
           options={PRIORITIES}
           value={task.priority}
@@ -671,7 +750,7 @@ function TaskTableRow({
         />
       </View>
 
-      <View className="w-44 justify-center px-2 py-2">
+      <View className={cn('w-44 justify-center px-2 py-2', completedCellClass)}>
         <InlineTagsEditor
           tags={task.tags}
           onChange={(tags) => update.mutate({ id: task.id, tags })}
@@ -679,7 +758,9 @@ function TaskTableRow({
         />
       </View>
 
-      <View className="w-12 items-center justify-center px-1">
+      <View
+        className={cn('w-12 items-center justify-center px-1', completedCellClass)}
+      >
         <DeleteButton
           variant="ghost"
           size="icon"
@@ -723,6 +804,7 @@ function TaskTable({
   };
 
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
+  const [viewportWidth, setViewportWidth] = React.useState(0);
   const [nativeIndicator, setNativeIndicator] = React.useState<{
     taskId: string;
     edge: 'before' | 'after';
@@ -1031,6 +1113,12 @@ function TaskTable({
       horizontal
       showsHorizontalScrollIndicator
       contentContainerStyle={{ minWidth: '100%' }}
+      onLayout={(event) => setViewportWidth(event.nativeEvent.layout.width)}
+      style={
+        Platform.OS === 'web' && viewportWidth >= 1028
+          ? { overflow: 'visible' }
+          : undefined
+      }
     >
       <View className="flex-1 overflow-visible rounded-md border border-border" style={{ minWidth: 1028 }}>
         <View className="h-10 flex-row items-center rounded-t-md bg-muted/60">
