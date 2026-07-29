@@ -1,10 +1,18 @@
 import * as React from 'react';
-import { Modal, Platform, Pressable, ScrollView, View } from 'react-native';
+import {
+  Animated,
+  Modal,
+  PanResponder,
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+} from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import { Link, usePathname } from 'expo-router';
+import { Link, usePathname, useRouter } from 'expo-router';
 import { Menu, ChevronDown, ClipboardList } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -27,6 +35,11 @@ import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Separator } from '@/components/ui/separator';
 import { Avatar } from '@/components/ui/avatar';
+
+const MOBILE_SIDEBAR_WIDTH = 256;
+const MOBILE_SIDEBAR_ANIMATION_MS = 220;
+const MOBILE_EDGE_SWIPE_WIDTH = 24;
+const MOBILE_SWIPE_TRIGGER = 64;
 
 function isActiveRoute(href: string, pathname: string) {
   if (href === '/') return pathname === '/';
@@ -425,20 +438,103 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
   const { isWide } = useBreakpoint();
   const safeAreaInsets = useSafeAreaInsets();
   const pathname = usePathname();
+  const router = useRouter();
   const { profile, isAdmin, session, isDemo } = useAuth();
   const unread = useUnreadCount();
 
   // Mobile drawer + desktop scouting dropdown; navigation closes both.
   // Render-time adjustment (not an effect) so closing happens in the same
   // render pass as the route change, without a cascading re-render.
-  const [menuOpen, setMenuOpen] = React.useState(false);
+  const [menuVisible, setMenuVisible] = React.useState(false);
   const [scoutingOpen, setScoutingOpen] = React.useState(false);
   const [prevPath, setPrevPath] = React.useState(pathname);
+  const [menuProgress] = React.useState(() => new Animated.Value(0));
   if (prevPath !== pathname) {
     setPrevPath(pathname);
-    setMenuOpen(false);
     setScoutingOpen(false);
   }
+
+  const animateMenu = React.useCallback(
+    (toValue: 0 | 1, onComplete?: () => void) => {
+      menuProgress.stopAnimation();
+      Animated.timing(menuProgress, {
+        toValue,
+        duration: MOBILE_SIDEBAR_ANIMATION_MS,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) onComplete?.();
+      });
+    },
+    [menuProgress]
+  );
+
+  const openMenu = React.useCallback(() => {
+    menuProgress.setValue(0);
+    setMenuVisible(true);
+    requestAnimationFrame(() => animateMenu(1));
+  }, [animateMenu, menuProgress]);
+
+  const closeMenu = React.useCallback(() => {
+    animateMenu(0, () => setMenuVisible(false));
+  }, [animateMenu]);
+
+  const previousPath = React.useRef(pathname);
+  React.useEffect(() => {
+    if (previousPath.current === pathname) return;
+    previousPath.current = pathname;
+    if (menuVisible) closeMenu();
+  }, [closeMenu, menuVisible, pathname]);
+
+  const [edgeSwipeResponder] = React.useState(() =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_event, gesture) =>
+          gesture.x0 <= MOBILE_EDGE_SWIPE_WIDTH &&
+          gesture.dx > 8 &&
+          Math.abs(gesture.dx) > Math.abs(gesture.dy),
+        onMoveShouldSetPanResponderCapture: (_event, gesture) =>
+          gesture.x0 <= MOBILE_EDGE_SWIPE_WIDTH &&
+          gesture.dx > 8 &&
+          Math.abs(gesture.dx) > Math.abs(gesture.dy),
+        onPanResponderRelease: (_event, gesture) => {
+          if (
+            gesture.dx >= MOBILE_SWIPE_TRIGGER ||
+            gesture.vx >= 0.35
+          ) {
+            openMenu();
+          }
+        },
+        onPanResponderTerminate: () => {},
+      })
+  );
+
+  const [closeSwipeResponder] = React.useState(() =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_event, gesture) =>
+          gesture.dx < -8 &&
+          Math.abs(gesture.dx) > Math.abs(gesture.dy),
+        onMoveShouldSetPanResponderCapture: (_event, gesture) =>
+          gesture.dx < -8 &&
+          Math.abs(gesture.dx) > Math.abs(gesture.dy),
+        onPanResponderMove: (_event, gesture) => {
+          menuProgress.setValue(
+            Math.max(0, Math.min(1, 1 + gesture.dx / MOBILE_SIDEBAR_WIDTH))
+          );
+        },
+        onPanResponderRelease: (_event, gesture) => {
+          if (
+            gesture.dx <= -MOBILE_SWIPE_TRIGGER ||
+            gesture.vx <= -0.35
+          ) {
+            closeMenu();
+          } else {
+            animateMenu(1);
+          }
+        },
+        onPanResponderTerminate: () => {
+          animateMenu(1);
+        },
+      })
+  );
 
   // Register this device for push once the member is signed in & approved.
   const userId = session?.user?.id;
@@ -476,31 +572,49 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SafeAreaView className="flex-1 bg-card" edges={['top']}>
-      <View className="flex-1 bg-background">
+      <View
+        className="flex-1 bg-background"
+        {...(!menuVisible && !router.canGoBack()
+          ? edgeSwipeResponder.panHandlers
+          : {})}
+      >
         <MobileHeader
           pathname={pathname}
           unread={unread}
           name={profile?.full_name}
           avatarUrl={profile?.avatar_url}
-          onOpenMenu={() => setMenuOpen(true)}
+          onOpenMenu={openMenu}
         />
         <View className="flex-1">{children}</View>
         <BottomSafeAreaFade />
       </View>
       <SafeAreaView className="bg-background" edges={['bottom']} />
       <Modal
-        visible={menuOpen}
+        visible={menuVisible}
         transparent
         animationType="none"
         presentationStyle="overFullScreen"
         statusBarTranslucent
         navigationBarTranslucent
-        onRequestClose={() => setMenuOpen(false)}
+        onRequestClose={closeMenu}
       >
-        <View className="flex-1 flex-row">
-          <View
+        <View
+          className="flex-1 flex-row"
+          {...closeSwipeResponder.panHandlers}
+        >
+          <Animated.View
             className="w-64 border-r border-border bg-card"
-            style={{ paddingTop: safeAreaInsets.top }}
+            style={{
+              paddingTop: safeAreaInsets.top,
+              transform: [
+                {
+                  translateX: menuProgress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-MOBILE_SIDEBAR_WIDTH, 0],
+                  }),
+                },
+              ],
+            }}
           >
             <Sidebar
               pathname={pathname}
@@ -510,13 +624,23 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
               role={profile?.role}
               avatarUrl={profile?.avatar_url}
             />
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close menu"
-            className="flex-1 bg-black/60"
-            onPress={() => setMenuOpen(false)}
-          />
+          </Animated.View>
+          <Animated.View
+            className="flex-1 bg-black"
+            style={{
+              opacity: menuProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 0.6],
+              }),
+            }}
+          >
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close menu"
+              className="flex-1"
+              onPress={closeMenu}
+            />
+          </Animated.View>
         </View>
       </Modal>
     </SafeAreaView>
