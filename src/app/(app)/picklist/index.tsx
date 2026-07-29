@@ -47,6 +47,18 @@ const COL_HEADER_HEIGHT = 42;
 const NOTES_MIN_HEIGHT = 28;
 const NOTES_MAX_HEIGHT = 60;
 
+function resizeWebNotes(element: HTMLTextAreaElement) {
+  element.style.height = '0px';
+  const contentHeight = element.scrollHeight;
+  const height = Math.min(
+    Math.max(contentHeight, NOTES_MIN_HEIGHT),
+    NOTES_MAX_HEIGHT
+  );
+  element.style.height = `${height}px`;
+  element.style.overflowY = contentHeight > NOTES_MAX_HEIGHT ? 'auto' : 'hidden';
+  if (contentHeight <= NOTES_MAX_HEIGHT) element.scrollTop = 0;
+}
+
 /** Per-question filter: absent = any. */
 type FilterChoice = 'yes' | 'no';
 type Filters = Record<string, FilterChoice>;
@@ -248,7 +260,21 @@ function TeamCard({
   const [draft, setDraft] = React.useState(team.notes ?? '');
   const [notesFocused, setNotesFocused] = React.useState(false);
   const [notesContentHeight, setNotesContentHeight] = React.useState(NOTES_MIN_HEIGHT);
+  const [notesScrollReady, setNotesScrollReady] = React.useState(false);
+  const measuredNotesHeight = React.useRef(NOTES_MIN_HEIGHT);
+  const notesInputRef = React.useRef<React.ElementRef<typeof Textarea>>(null);
   const notesSaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useLayoutEffect(() => {
+    if (Platform.OS !== 'web' || !notesInputRef.current) return;
+    resizeWebNotes(notesInputRef.current as unknown as HTMLTextAreaElement);
+  }, []);
+
+  React.useEffect(() => {
+    if (notesContentHeight <= NOTES_MAX_HEIGHT || notesScrollReady) return;
+    const frame = requestAnimationFrame(() => setNotesScrollReady(true));
+    return () => cancelAnimationFrame(frame);
+  }, [notesContentHeight, notesScrollReady]);
 
   React.useEffect(
     () => () => {
@@ -337,27 +363,59 @@ function TeamCard({
             </Pressable>
           </View>
 
-          <Textarea
+          <View className="relative w-full">
+            <Text
+              accessible={false}
+              pointerEvents="none"
+              className="absolute left-0 right-0 px-2 py-1.5 text-xs leading-4 opacity-0"
+              onLayout={(event) => {
+                const nextHeight = event.nativeEvent.layout.height;
+                const wasScrollable = measuredNotesHeight.current > NOTES_MAX_HEIGHT;
+                measuredNotesHeight.current = nextHeight;
+                if (nextHeight <= NOTES_MAX_HEIGHT || !wasScrollable) {
+                  setNotesScrollReady(false);
+                }
+                setNotesContentHeight(nextHeight);
+              }}
+            >
+              {`${draft}\u200b`}
+            </Text>
+            <Textarea
+            ref={notesInputRef}
             value={draft}
             onChangeText={changeNotes}
+            onChange={
+              Platform.OS === 'web'
+                ? (event) =>
+                    resizeWebNotes(event.target as unknown as HTMLTextAreaElement)
+                : undefined
+            }
             onFocus={() => setNotesFocused(true)}
             onBlur={() => {
               setNotesFocused(false);
               flushNotes();
             }}
             numberOfLines={1}
-            scrollEnabled={notesContentHeight > NOTES_MAX_HEIGHT}
-            onContentSizeChange={(event) => setNotesContentHeight(event.nativeEvent.contentSize.height)}
+            scrollEnabled={
+              Platform.OS === 'web'
+                ? undefined
+                : notesContentHeight > NOTES_MAX_HEIGHT && notesScrollReady
+            }
             placeholder="Picklist notes…"
             placeholderTextColor={colorScheme === 'dark' ? 'hsl(0 0% 48%)' : 'hsl(0 0% 78%)'}
             className="min-h-[28px] max-h-[60px] resize-none rounded-sm border-0 bg-muted px-2 py-1.5 text-xs leading-4 outline-none focus:border-transparent"
-            style={{
-              height: Math.min(
-                Math.max(notesContentHeight, NOTES_MIN_HEIGHT),
-                NOTES_MAX_HEIGHT
-              ),
-            }}
-          />
+            style={
+              Platform.OS !== 'web' && notesContentHeight > NOTES_MAX_HEIGHT
+                ? {
+                    height: Math.min(
+                      Math.max(notesContentHeight, NOTES_MIN_HEIGHT),
+                      NOTES_MAX_HEIGHT
+                    ),
+                  }
+                : undefined
+            }
+            />
+          </View>
         </View>
       </GestureDetector>
       {indicatorAfter ? (
