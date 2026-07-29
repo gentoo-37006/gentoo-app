@@ -77,6 +77,7 @@ const COMPLETED_LINE_HEIGHT =
   Platform.OS === 'web' ? 1 / PixelRatio.get() : StyleSheet.hairlineWidth;
 const TABLE_BORDER_RIGHT_OUTSET = Platform.OS === 'web' ? 1 / PixelRatio.get() : 0;
 const TASK_TABLE_MIN_WIDTH = 836;
+const TASK_TABLE_NATIVE_LINE_GUTTER = 16;
 const TASK_TABLE_COLUMNS = {
   task: 'min-w-[220px] flex-[2]',
   status: 'min-w-[112px] flex-1',
@@ -1172,7 +1173,16 @@ function TaskTable({
       className="w-full max-w-full"
       scrollEnabled={!screenDragActive}
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ width: '100%', minWidth: TASK_TABLE_MIN_WIDTH }}
+      contentContainerStyle={
+        Platform.OS === 'web'
+          ? { width: '100%', minWidth: TASK_TABLE_MIN_WIDTH }
+          : {
+              width: '100%',
+              minWidth:
+                TASK_TABLE_MIN_WIDTH + TASK_TABLE_NATIVE_LINE_GUTTER * 2,
+              paddingHorizontal: TASK_TABLE_NATIVE_LINE_GUTTER,
+            }
+      }
       onLayout={(event) => setViewportWidth(event.nativeEvent.layout.width)}
       style={
         Platform.OS === 'web' && viewportWidth >= TASK_TABLE_MIN_WIDTH

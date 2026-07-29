@@ -18,10 +18,58 @@ import {
   DeleteTooltipPortal,
   type DeleteTooltipAnchor,
 } from '@/components/ui/delete-tooltip-portal';
+import { useDragOverlay } from '@/components/drag-overlay';
 import { cn } from '@/lib/utils';
 
-const MOBILE_TOOLTIP_WIDTH = 152;
 const TOOLTIP_VIEWPORT_MARGIN = 8;
+const TOOLTIP_ANCHOR_GAP = 8;
+
+function NativeDeleteTooltip({
+  anchor,
+  text,
+  viewportWidth,
+}: {
+  anchor: DeleteTooltipAnchor;
+  text: string;
+  viewportWidth: number;
+}) {
+  const [size, setSize] = React.useState({ width: 0, height: 0 });
+  const isMeasured = size.width > 0 && size.height > 0;
+  const left = Math.min(
+    Math.max(
+      anchor.left + anchor.width / 2 - size.width / 2,
+      TOOLTIP_VIEWPORT_MARGIN
+    ),
+    viewportWidth - size.width - TOOLTIP_VIEWPORT_MARGIN
+  );
+
+  return (
+    <View
+      pointerEvents="none"
+      onLayout={(event) => {
+        const { width, height } = event.nativeEvent.layout;
+        if (width !== size.width || height !== size.height) {
+          setSize({ width, height });
+        }
+      }}
+      className="absolute rounded-sm border border-border bg-popover px-2.5 py-1.5"
+      style={{
+        left,
+        top: anchor.top - size.height - TOOLTIP_ANCHOR_GAP,
+        maxWidth: viewportWidth - TOOLTIP_VIEWPORT_MARGIN * 2,
+        opacity: isMeasured ? 1 : 0,
+      }}
+    >
+      <Text
+        className="select-none text-xs font-semibold text-popover-foreground"
+        numberOfLines={1}
+        selectable={false}
+      >
+        {text}
+      </Text>
+    </View>
+  );
+}
 
 /**
  * Whether the pointer is coarse (touch). `Platform.OS === 'web'` is also true
@@ -82,6 +130,7 @@ export function DeleteButton({
   ...pressableProps
 }: ButtonProps) {
   const { width: viewportWidth } = useWindowDimensions();
+  const dragOverlay = useDragOverlay();
   const shiftPressed = useShiftPressed();
   const coarsePointer = useCoarsePointer();
   const [hovered, setHovered] = React.useState(false);
@@ -102,15 +151,6 @@ export function DeleteButton({
     !isDisabled && ((shiftGate && hovered && shiftPressed) || (!shiftGate && confirming));
   const tooltipText = shiftGate ? 'Hold Shift to delete' : 'Press again to delete';
   const confirmationTextClass = cn(textClass, showDangerIcon && 'text-destructive');
-  const mobileTooltipLeft = tooltipAnchor
-    ? Math.min(
-        Math.max(
-          tooltipAnchor.left + tooltipAnchor.width / 2 - MOBILE_TOOLTIP_WIDTH / 2,
-          TOOLTIP_VIEWPORT_MARGIN
-        ),
-        viewportWidth - MOBILE_TOOLTIP_WIDTH - TOOLTIP_VIEWPORT_MARGIN
-      ) - tooltipAnchor.left
-    : 0;
 
   const measureTooltipAnchor = () =>
     buttonRef.current?.measureInWindow((left, top, width, height) => {
@@ -123,6 +163,26 @@ export function DeleteButton({
     },
     []
   );
+
+  React.useEffect(() => {
+    if (isWeb || !showTooltip || !tooltipAnchor) return;
+
+    dragOverlay.show(
+      <NativeDeleteTooltip
+        anchor={tooltipAnchor}
+        text={tooltipText}
+        viewportWidth={viewportWidth}
+      />
+    );
+    return () => dragOverlay.hide();
+  }, [
+    dragOverlay,
+    isWeb,
+    showTooltip,
+    tooltipAnchor,
+    tooltipText,
+    viewportWidth,
+  ]);
 
   const resetConfirming = () => {
     if (timer.current) clearTimeout(timer.current);
@@ -181,21 +241,6 @@ export function DeleteButton({
       }}
     >
       <DeleteTooltipPortal visible={isWeb && showTooltip} anchor={tooltipAnchor} text={tooltipText} />
-      {showTooltip && !isWeb && tooltipAnchor ? (
-        <View
-          pointerEvents="none"
-          className="absolute bottom-full z-50 mb-2 items-center rounded-sm border border-border bg-popover px-2.5 py-1.5"
-          style={{ left: mobileTooltipLeft, width: MOBILE_TOOLTIP_WIDTH }}
-        >
-          <Text
-            className="select-none text-xs font-semibold text-popover-foreground"
-            numberOfLines={1}
-            selectable={false}
-          >
-            {tooltipText}
-          </Text>
-        </View>
-      ) : null}
       <TextClassContext.Provider value={confirmationTextClass}>
         <View
           pointerEvents="none"

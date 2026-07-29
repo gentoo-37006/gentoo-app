@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Platform, Pressable, ScrollView, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, usePathname } from 'expo-router';
 import { Menu, ChevronDown, ClipboardList } from 'lucide-react-native';
@@ -482,8 +482,22 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
         />
         <View className="flex-1">{children}</View>
         <BottomSafeAreaFade />
-        {menuOpen ? (
-          <View className="absolute bottom-0 left-0 right-0 top-0 z-50 flex-row">
+      </View>
+      <SafeAreaView className="bg-background" edges={['bottom']} />
+      <Modal
+        visible={menuOpen}
+        transparent
+        animationType="none"
+        presentationStyle="overFullScreen"
+        statusBarTranslucent
+        navigationBarTranslucent
+        onRequestClose={() => setMenuOpen(false)}
+      >
+        <View className="flex-1 flex-row">
+          <SafeAreaView
+            className="w-64 bg-card"
+            edges={['top', 'bottom']}
+          >
             <Sidebar
               pathname={pathname}
               isAdmin={isAdmin}
@@ -492,16 +506,15 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
               role={profile?.role}
               avatarUrl={profile?.avatar_url}
             />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close menu"
-              className="flex-1 bg-black/60"
-              onPress={() => setMenuOpen(false)}
-            />
-          </View>
-        ) : null}
-      </View>
-      <SafeAreaView className="bg-background" edges={['bottom']} />
+          </SafeAreaView>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close menu"
+            className="flex-1 bg-black/60"
+            onPress={() => setMenuOpen(false)}
+          />
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
