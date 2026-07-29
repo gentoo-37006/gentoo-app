@@ -536,8 +536,8 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
       })
   );
 
-  const [closeSwipeResponder] = React.useState(() =>
-      PanResponder.create({
+  const createCloseSwipeResponder = () =>
+    PanResponder.create({
         onMoveShouldSetPanResponder: (_event, gesture) =>
           gesture.dx < -8 &&
           Math.abs(gesture.dx) > Math.abs(gesture.dy),
@@ -566,7 +566,12 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
         onPanResponderTerminate: () => {
           animateMenu(1);
         },
-      })
+      });
+  const [sidebarCloseSwipeResponder] = React.useState(
+    createCloseSwipeResponder
+  );
+  const [backdropCloseSwipeResponder] = React.useState(
+    createCloseSwipeResponder
   );
 
   // Register this device for push once the member is signed in & approved.
@@ -629,12 +634,10 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
         navigationBarTranslucent
         onRequestClose={closeMenu}
       >
-        <View
-          className="relative flex-1"
-          {...closeSwipeResponder.panHandlers}
-        >
+        <View className="relative flex-1">
           <Animated.View
             className="absolute inset-0 bg-black"
+            {...backdropCloseSwipeResponder.panHandlers}
             style={{
               opacity: menuProgress.interpolate({
                 inputRange: [0, 1],
@@ -651,7 +654,7 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
           </Animated.View>
           <Animated.View
             className="z-10 h-full w-64 border-r border-border bg-card"
-            {...closeSwipeResponder.panHandlers}
+            {...sidebarCloseSwipeResponder.panHandlers}
             style={{
               paddingTop: safeAreaInsets.top,
               transform: [
