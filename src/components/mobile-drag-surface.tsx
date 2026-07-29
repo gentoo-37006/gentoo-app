@@ -169,6 +169,14 @@ export function MobileDragSurface({
     if (wasDragging) onCancel();
   });
 
+  const releaseScreenDrag = React.useEffectEvent(() => {
+    clearHoldTimer();
+    if (moveFrame.current !== null) cancelAnimationFrame(moveFrame.current);
+    if (!dragging.current) return;
+    screenDragController.setAutoScrollListener(null);
+    screenDragController.setActive(false);
+  });
+
   React.useEffect(() => {
     disabledRef.current = disabled;
     if (disabled) {
@@ -177,17 +185,7 @@ export function MobileDragSurface({
     }
   }, [disabled]);
 
-  React.useEffect(
-    () => () => {
-      clearHoldTimer();
-      if (moveFrame.current !== null) cancelAnimationFrame(moveFrame.current);
-      if (dragging.current) {
-        screenDragController.setAutoScrollListener(null);
-        screenDragController.setActive(false);
-      }
-    },
-    [screenDragController]
-  );
+  React.useEffect(() => () => releaseScreenDrag(), []);
 
   return (
     <View
