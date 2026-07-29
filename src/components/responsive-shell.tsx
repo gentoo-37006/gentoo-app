@@ -1,6 +1,9 @@
 import * as React from 'react';
 import { Modal, Platform, Pressable, ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import { Link, usePathname } from 'expo-router';
 import { Menu, ChevronDown, ClipboardList } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
@@ -420,6 +423,7 @@ function BottomSafeAreaFade() {
 
 export function ResponsiveShell({ children }: { children: React.ReactNode }) {
   const { isWide } = useBreakpoint();
+  const safeAreaInsets = useSafeAreaInsets();
   const pathname = usePathname();
   const { profile, isAdmin, session, isDemo } = useAuth();
   const unread = useUnreadCount();
@@ -494,9 +498,9 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
         onRequestClose={() => setMenuOpen(false)}
       >
         <View className="flex-1 flex-row">
-          <SafeAreaView
+          <View
             className="w-64 bg-card"
-            edges={['top', 'bottom']}
+            style={{ paddingTop: safeAreaInsets.top }}
           >
             <Sidebar
               pathname={pathname}
@@ -506,7 +510,7 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
               role={profile?.role}
               avatarUrl={profile?.avatar_url}
             />
-          </SafeAreaView>
+          </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Close menu"
