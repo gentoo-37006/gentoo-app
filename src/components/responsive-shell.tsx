@@ -39,7 +39,8 @@ import { Avatar } from '@/components/ui/avatar';
 const MOBILE_SIDEBAR_WIDTH = 256;
 const MOBILE_SIDEBAR_ANIMATION_MS = 220;
 const MOBILE_EDGE_SWIPE_WIDTH = 24;
-const MOBILE_SWIPE_TRIGGER = 64;
+const MOBILE_OPEN_SWIPE_TRIGGER = 96;
+const MOBILE_CLOSE_SWIPE_TRIGGER = 64;
 
 function isActiveRoute(href: string, pathname: string) {
   if (href === '/') return pathname === '/';
@@ -455,14 +456,29 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
   }
 
   const animateMenu = React.useCallback(
-    (toValue: 0 | 1, onComplete?: () => void) => {
-      menuProgress.stopAnimation();
-      Animated.timing(menuProgress, {
-        toValue,
-        duration: MOBILE_SIDEBAR_ANIMATION_MS,
-        useNativeDriver: true,
-      }).start(({ finished }) => {
-        if (finished) onComplete?.();
+    (
+      toValue: 0 | 1,
+      onComplete?: () => void,
+      releaseVelocity = 0
+    ) => {
+      menuProgress.stopAnimation((currentValue) => {
+        const remainingDistance =
+          Math.abs(toValue - currentValue) * MOBILE_SIDEBAR_WIDTH;
+        const normalVelocity =
+          MOBILE_SIDEBAR_WIDTH / MOBILE_SIDEBAR_ANIMATION_MS;
+        const velocity = Math.max(normalVelocity, Math.abs(releaseVelocity));
+        const duration = Math.max(
+          1,
+          Math.round(remainingDistance / velocity)
+        );
+
+        Animated.timing(menuProgress, {
+          toValue,
+          duration,
+          useNativeDriver: true,
+        }).start(({ finished }) => {
+          if (finished) onComplete?.();
+        });
       });
     },
     [menuProgress]
@@ -506,10 +522,10 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
         },
         onPanResponderRelease: (_event, gesture) => {
           if (
-            gesture.dx >= MOBILE_SWIPE_TRIGGER ||
+            gesture.dx >= MOBILE_OPEN_SWIPE_TRIGGER ||
             gesture.vx >= 0.35
           ) {
-            animateMenu(1);
+            animateMenu(1, undefined, gesture.vx);
           } else {
             animateMenu(0, () => setMenuVisible(false));
           }
@@ -535,10 +551,14 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
         },
         onPanResponderRelease: (_event, gesture) => {
           if (
-            gesture.dx <= -MOBILE_SWIPE_TRIGGER ||
+            gesture.dx <= -MOBILE_CLOSE_SWIPE_TRIGGER ||
             gesture.vx <= -0.35
           ) {
-            closeMenu();
+            animateMenu(
+              0,
+              () => setMenuVisible(false),
+              gesture.vx
+            );
           } else {
             animateMenu(1);
           }
