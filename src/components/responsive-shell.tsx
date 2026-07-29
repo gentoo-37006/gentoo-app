@@ -1,6 +1,5 @@
 import * as React from 'react';
 import {
-  Animated,
   Modal,
   PanResponder,
   Platform,
@@ -8,6 +7,14 @@ import {
   ScrollView,
   View,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Reanimated, {
+  cancelAnimation,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -449,7 +456,7 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
   const [menuVisible, setMenuVisible] = React.useState(false);
   const [scoutingOpen, setScoutingOpen] = React.useState(false);
   const [prevPath, setPrevPath] = React.useState(pathname);
-  const [menuProgress] = React.useState(() => new Animated.Value(0));
+  const menuProgress = useSharedValue(0);
   if (prevPath !== pathname) {
     setPrevPath(pathname);
     setScoutingOpen(false);
@@ -461,31 +468,25 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
       onComplete?: () => void,
       releaseVelocity = 0
     ) => {
-      menuProgress.stopAnimation((currentValue) => {
-        const remainingDistance =
-          Math.abs(toValue - currentValue) * MOBILE_SIDEBAR_WIDTH;
-        const normalVelocity =
-          MOBILE_SIDEBAR_WIDTH / MOBILE_SIDEBAR_ANIMATION_MS;
-        const velocity = Math.max(normalVelocity, Math.abs(releaseVelocity));
-        const duration = Math.max(
-          1,
-          Math.round(remainingDistance / velocity)
-        );
+      cancelAnimation(menuProgress);
+      const remainingDistance =
+        Math.abs(toValue - menuProgress.value) * MOBILE_SIDEBAR_WIDTH;
+      const normalVelocity =
+        MOBILE_SIDEBAR_WIDTH / MOBILE_SIDEBAR_ANIMATION_MS;
+      const velocity = Math.max(normalVelocity, Math.abs(releaseVelocity));
+      const duration = Math.max(1, Math.round(remainingDistance / velocity));
 
-        Animated.timing(menuProgress, {
-          toValue,
-          duration,
-          useNativeDriver: true,
-        }).start(({ finished }) => {
-          if (finished) onComplete?.();
-        });
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
+      menuProgress.value = withTiming(toValue, { duration }, (finished) => {
+        if (finished && onComplete) runOnJS(onComplete)();
       });
     },
     [menuProgress]
   );
 
   const openMenu = React.useCallback(() => {
-    menuProgress.setValue(0);
+    // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
+    menuProgress.value = 0;
     setMenuVisible(true);
     requestAnimationFrame(() => animateMenu(1));
   }, [animateMenu, menuProgress]);
@@ -512,12 +513,13 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
           gesture.dx > 8 &&
           Math.abs(gesture.dx) > Math.abs(gesture.dy),
         onPanResponderGrant: () => {
-          menuProgress.setValue(0);
+          menuProgress.value = 0;
           setMenuVisible(true);
         },
         onPanResponderMove: (_event, gesture) => {
-          menuProgress.setValue(
-            Math.max(0, Math.min(1, gesture.dx / MOBILE_SIDEBAR_WIDTH))
+          menuProgress.value = Math.max(
+            0,
+            Math.min(1, gesture.dx / MOBILE_SIDEBAR_WIDTH)
           );
         },
         onPanResponderRelease: (_event, gesture) => {
@@ -536,43 +538,61 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
       })
   );
 
-  const createCloseSwipeResponder = () =>
-    PanResponder.create({
-        onMoveShouldSetPanResponder: (_event, gesture) =>
-          gesture.dx < -8 &&
-          Math.abs(gesture.dx) > Math.abs(gesture.dy),
-        onMoveShouldSetPanResponderCapture: (_event, gesture) =>
-          gesture.dx < -8 &&
-          Math.abs(gesture.dx) > Math.abs(gesture.dy),
-        onPanResponderMove: (_event, gesture) => {
-          menuProgress.setValue(
-            Math.max(0, Math.min(1, 1 + gesture.dx / MOBILE_SIDEBAR_WIDTH))
+  const closeSwipeGesture = React.useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX([-8, 10_000])
+        .failOffsetY([-12, 12])
+        .onBegin(() => {
+          cancelAnimation(menuProgress);
+        })
+        .onUpdate((event) => {
+          // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
+          menuProgress.value = Math.max(
+            0,
+            Math.min(1, 1 + event.translationX / MOBILE_SIDEBAR_WIDTH)
           );
-        },
-        onPanResponderRelease: (_event, gesture) => {
-          if (
-            gesture.dx <= -MOBILE_CLOSE_SWIPE_TRIGGER ||
-            gesture.vx <= -0.35
-          ) {
-            animateMenu(
-              0,
-              () => setMenuVisible(false),
-              gesture.vx
-            );
-          } else {
-            animateMenu(1);
-          }
-        },
-        onPanResponderTerminate: () => {
-          animateMenu(1);
-        },
-      });
-  const [sidebarCloseSwipeResponder] = React.useState(
-    createCloseSwipeResponder
+        })
+        .onEnd((event) => {
+          const shouldClose =
+            event.translationX <= -MOBILE_CLOSE_SWIPE_TRIGGER ||
+            event.velocityX <= -350;
+          const target = shouldClose ? 0 : 1;
+          const remainingDistance =
+            Math.abs(target - menuProgress.value) * MOBILE_SIDEBAR_WIDTH;
+          const normalVelocity =
+            MOBILE_SIDEBAR_WIDTH / MOBILE_SIDEBAR_ANIMATION_MS;
+          const releaseVelocity = Math.abs(event.velocityX) / 1000;
+          const velocity = Math.max(normalVelocity, releaseVelocity);
+          const duration = Math.max(
+            1,
+            Math.round(remainingDistance / velocity)
+          );
+
+          // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
+          menuProgress.value = withTiming(
+            target,
+            { duration },
+            (finished) => {
+              if (finished && shouldClose) {
+                runOnJS(setMenuVisible)(false);
+              }
+            }
+          );
+        }),
+    [menuProgress]
   );
-  const [backdropCloseSwipeResponder] = React.useState(
-    createCloseSwipeResponder
-  );
+  const sidebarAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX:
+          -MOBILE_SIDEBAR_WIDTH * (1 - menuProgress.value),
+      },
+    ],
+  }));
+  const backdropAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: menuProgress.value * 0.6,
+  }));
 
   // Register this device for push once the member is signed in & approved.
   const userId = session?.user?.id;
@@ -634,16 +654,11 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
         navigationBarTranslucent
         onRequestClose={closeMenu}
       >
-        <View className="relative flex-1">
-          <Animated.View
+        <GestureDetector gesture={closeSwipeGesture}>
+          <View className="relative flex-1">
+          <Reanimated.View
             className="absolute inset-0 bg-black"
-            {...backdropCloseSwipeResponder.panHandlers}
-            style={{
-              opacity: menuProgress.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 0.6],
-              }),
-            }}
+            style={backdropAnimatedStyle}
           >
             <Pressable
               accessibilityRole="button"
@@ -651,21 +666,13 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
               className="flex-1"
               onPress={closeMenu}
             />
-          </Animated.View>
-          <Animated.View
+          </Reanimated.View>
+          <Reanimated.View
             className="z-10 h-full w-64 border-r border-border bg-card"
-            {...sidebarCloseSwipeResponder.panHandlers}
-            style={{
-              paddingTop: safeAreaInsets.top,
-              transform: [
-                {
-                  translateX: menuProgress.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-MOBILE_SIDEBAR_WIDTH, 0],
-                  }),
-                },
-              ],
-            }}
+            style={[
+              { paddingTop: safeAreaInsets.top },
+              sidebarAnimatedStyle,
+            ]}
           >
             <Sidebar
               pathname={pathname}
@@ -675,8 +682,9 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
               role={profile?.role}
               avatarUrl={profile?.avatar_url}
             />
-          </Animated.View>
-        </View>
+          </Reanimated.View>
+          </View>
+        </GestureDetector>
       </Modal>
     </SafeAreaView>
   );
