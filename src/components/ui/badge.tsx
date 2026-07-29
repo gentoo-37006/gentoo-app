@@ -16,10 +16,14 @@ const badgeVariants = cva(
         warning: 'bg-warning',
         outline: 'border border-border bg-transparent',
         muted: 'bg-muted',
-        priorityLow: 'border border-[#1D572D] bg-[#12261E]',
-        priorityMedium: 'border border-[#624711] bg-[#272115]',
-        priorityHigh: 'border border-[#792E2E] bg-[#25171C]',
-        priorityUrgent: 'border border-[#6C3657] bg-[#221925]',
+        priorityLow:
+          'border border-[#8BC49A] bg-[#E0F1E4] dark:border-[#1D572D] dark:bg-[#12261E]',
+        priorityMedium:
+          'border border-[#D8B150] bg-[#F7E9BC] dark:border-[#624711] dark:bg-[#272115]',
+        priorityHigh:
+          'border border-[#D98984] bg-[#F4D9D7] dark:border-[#792E2E] dark:bg-[#25171C]',
+        priorityUrgent:
+          'border border-[#C984AA] bg-[#EFD9E6] dark:border-[#6C3657] dark:bg-[#221925]',
         taskTodo: 'bg-[#75746D]',
         taskInProgress: 'bg-[#446E99]',
         taskBlocked: 'bg-[#A15851]',
@@ -41,10 +45,10 @@ const badgeTextVariants = cva('text-[11px] font-bold uppercase tracking-wide', {
       warning: 'text-warning-foreground',
       outline: 'text-foreground',
       muted: 'text-muted-foreground',
-      priorityLow: 'text-[#3FB950]',
-      priorityMedium: 'text-[#D29922]',
-      priorityHigh: 'text-[#F85149]',
-      priorityUrgent: 'text-[#DB61A2]',
+      priorityLow: 'text-[#12692B] dark:text-[#3FB950]',
+      priorityMedium: 'text-[#755300] dark:text-[#D29922]',
+      priorityHigh: 'text-[#A72721] dark:text-[#F85149]',
+      priorityUrgent: 'text-[#86275E] dark:text-[#DB61A2]',
       taskTodo: 'text-white',
       taskInProgress: 'text-white',
       taskBlocked: 'text-white',

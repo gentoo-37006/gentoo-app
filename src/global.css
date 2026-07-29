@@ -4,41 +4,41 @@
 
 @layer base {
   :root {
-    --background: 0 0% 98%;
-    --foreground: 0 0% 8%;
+    --background: 0 0% 96%;
+    --foreground: 0 0% 6%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 8%;
+    --card: 0 0% 95%;
+    --card-foreground: 0 0% 6%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 8%;
+    --popover: 0 0% 95%;
+    --popover-foreground: 0 0% 6%;
 
     /* Team accent — "gentoo" lilac (#CEA2FD family; darkened here for contrast on white) */
-    --primary: 269 65% 63%;
+    --primary: 269 65% 60%;
     --primary-foreground: 0 0% 100%;
-    --alliance-blue: 222 89% 55%;
+    --alliance-blue: 222 89% 52%;
 
-    --secondary: 0 0% 93%;
-    --secondary-foreground: 0 0% 8%;
+    --secondary: 0 0% 90%;
+    --secondary-foreground: 0 0% 6%;
 
-    --muted: 0 0% 93%;
-    --muted-foreground: 0 0% 40%;
+    --muted: 0 0% 90%;
+    --muted-foreground: 0 0% 36%;
 
-    --accent: 0 0% 90%;
-    --accent-foreground: 0 0% 8%;
+    --accent: 0 0% 87%;
+    --accent-foreground: 0 0% 6%;
 
-    --destructive: 0 72% 48%;
+    --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 152 60% 34%;
+    --success: 152 60% 31%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 40 95% 42%;
+    --warning: 40 95% 39%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 0 0% 86%;
-    --input: 0 0% 82%;
-    --ring: 269 65% 63%;
+    --border: 0 0% 82%;
+    --input: 0 0% 78%;
+    --ring: 269 65% 60%;
 
     --radius: 0.125rem;
   }

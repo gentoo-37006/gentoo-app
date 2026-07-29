@@ -69,6 +69,17 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const COMPLETED_LINE_DURATION_MS = 250;
 const COMPLETED_LINE_HEIGHT =
   Platform.OS === 'web' ? 1 / PixelRatio.get() : StyleSheet.hairlineWidth;
+const TABLE_BORDER_RIGHT_OUTSET = Platform.OS === 'web' ? 1 / PixelRatio.get() : 0;
+const TASK_TABLE_MIN_WIDTH = 836;
+const TASK_TABLE_COLUMNS = {
+  task: 'min-w-[220px] flex-[2]',
+  status: 'min-w-[112px] flex-1',
+  assignees: 'min-w-[136px] flex-[1.25]',
+  dueDate: 'min-w-[104px] flex-1',
+  priority: 'min-w-[96px] flex-[0.9]',
+  tags: 'min-w-[120px] flex-[1.15]',
+  actions: 'w-12 flex-none',
+} as const;
 
 type FilterGroup = {
   key: string;
@@ -646,7 +657,8 @@ function TaskTableRow({
 
       <View
         className={cn(
-          'min-w-[260px] flex-1 justify-center px-3 py-2.5',
+          TASK_TABLE_COLUMNS.task,
+          'justify-center px-3 py-2.5',
           completedCellClass
         )}
       >
@@ -656,7 +668,11 @@ function TaskTableRow({
       </View>
 
       <View
-        className={cn('w-[136px] justify-center px-2 py-2', completedCellClass)}
+        className={cn(
+          TASK_TABLE_COLUMNS.status,
+          'justify-center px-2 py-2',
+          completedCellClass
+        )}
       >
         <Select
           options={TASK_STATUSES}
@@ -677,7 +693,13 @@ function TaskTableRow({
         />
       </View>
 
-      <View className={cn('w-44 justify-center px-2 py-2', completedCellClass)}>
+      <View
+        className={cn(
+          TASK_TABLE_COLUMNS.assignees,
+          'justify-center px-2 py-2',
+          completedCellClass
+        )}
+      >
         <MultiSelect
           options={assigneeOptions}
           values={task.assignee_ids}
@@ -726,7 +748,11 @@ function TaskTableRow({
       </View>
 
       <View
-        className={cn('w-[120px] justify-center px-2 py-2', completedCellClass)}
+        className={cn(
+          TASK_TABLE_COLUMNS.dueDate,
+          'justify-center px-2 py-2',
+          completedCellClass
+        )}
       >
         <DatePicker
           compact
@@ -737,7 +763,13 @@ function TaskTableRow({
         />
       </View>
 
-      <View className={cn('w-28 justify-center px-2 py-2', completedCellClass)}>
+      <View
+        className={cn(
+          TASK_TABLE_COLUMNS.priority,
+          'justify-center px-2 py-2',
+          completedCellClass
+        )}
+      >
         <Select
           options={PRIORITIES}
           value={task.priority}
@@ -750,7 +782,13 @@ function TaskTableRow({
         />
       </View>
 
-      <View className={cn('w-44 justify-center px-2 py-2', completedCellClass)}>
+      <View
+        className={cn(
+          TASK_TABLE_COLUMNS.tags,
+          'justify-center px-2 py-2',
+          completedCellClass
+        )}
+      >
         <InlineTagsEditor
           tags={task.tags}
           onChange={(tags) => update.mutate({ id: task.id, tags })}
@@ -759,7 +797,11 @@ function TaskTableRow({
       </View>
 
       <View
-        className={cn('w-12 items-center justify-center px-1', completedCellClass)}
+        className={cn(
+          TASK_TABLE_COLUMNS.actions,
+          'items-center justify-center px-1',
+          completedCellClass
+        )}
       >
         <DeleteButton
           variant="ghost"
@@ -1111,36 +1153,40 @@ function TaskTable({
   return (
     <ScrollView
       horizontal
+      className="w-full max-w-full"
       showsHorizontalScrollIndicator
-      contentContainerStyle={{ minWidth: '100%' }}
+      contentContainerStyle={{ width: '100%', minWidth: TASK_TABLE_MIN_WIDTH }}
       onLayout={(event) => setViewportWidth(event.nativeEvent.layout.width)}
       style={
-        Platform.OS === 'web' && viewportWidth >= 1028
+        Platform.OS === 'web' && viewportWidth >= TASK_TABLE_MIN_WIDTH
           ? { overflow: 'visible' }
           : undefined
       }
     >
-      <View className="flex-1 overflow-visible rounded-md border border-border" style={{ minWidth: 1028 }}>
+      <View
+        className="relative overflow-visible rounded-md"
+        style={{ width: '100%', minWidth: TASK_TABLE_MIN_WIDTH }}
+      >
         <View className="h-10 flex-row items-center rounded-t-md bg-muted/60">
-          <View className="min-w-[260px] flex-1 px-3">
+          <View className={cn(TASK_TABLE_COLUMNS.task, 'px-3')}>
             <Text variant="label" className="text-muted-foreground">Task</Text>
           </View>
-          <View className="w-[136px] px-2">
+          <View className={cn(TASK_TABLE_COLUMNS.status, 'px-2')}>
             <Text variant="label" className="text-muted-foreground">Status</Text>
           </View>
-          <View className="w-44 px-3">
+          <View className={cn(TASK_TABLE_COLUMNS.assignees, 'px-3')}>
             <Text variant="label" className="text-muted-foreground">Assignees</Text>
           </View>
-          <View className="w-[120px] px-3">
+          <View className={cn(TASK_TABLE_COLUMNS.dueDate, 'px-3')}>
             <Text variant="label" className="text-muted-foreground">Due date</Text>
           </View>
-          <View className="w-28 px-3">
+          <View className={cn(TASK_TABLE_COLUMNS.priority, 'px-3')}>
             <Text variant="label" className="text-muted-foreground">Priority</Text>
           </View>
-          <View className="w-44 px-3">
+          <View className={cn(TASK_TABLE_COLUMNS.tags, 'px-3')}>
             <Text variant="label" className="text-muted-foreground">Tags</Text>
           </View>
-          <View className="w-12" />
+          <View className={TASK_TABLE_COLUMNS.actions} />
         </View>
 
         {tasks.map((task, index) => {
@@ -1231,6 +1277,18 @@ function TaskTable({
             </React.Fragment>
           );
         })}
+        <View
+          pointerEvents="none"
+          className="absolute inset-0 z-20 rounded-md border border-border"
+          style={
+            TABLE_BORDER_RIGHT_OUTSET
+              ? ({
+                  borderRightWidth: 0,
+                  boxShadow: `${TABLE_BORDER_RIGHT_OUTSET}px 0 0 hsl(var(--border))`,
+                } as any)
+              : undefined
+          }
+        />
       </View>
     </ScrollView>
   );
