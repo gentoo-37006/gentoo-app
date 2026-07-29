@@ -27,7 +27,7 @@ import {
   FileText,
   Ban,
 } from 'lucide-react-native';
-import { Screen, ScreenHeader } from '@/components/ui/screen';
+import { Screen, ScreenHeader, useScreenDragActive } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
@@ -828,6 +828,7 @@ function TaskTable({
   onReorder: (taskIds: string[]) => void;
   onOpenTask: (task: Task) => void;
 }) {
+  const screenDragActive = useScreenDragActive();
   type PointerDrag = {
     taskId: string;
     pointerId: number;
@@ -1155,6 +1156,7 @@ function TaskTable({
     <ScrollView
       horizontal
       className="w-full max-w-full"
+      scrollEnabled={!screenDragActive}
       showsHorizontalScrollIndicator
       contentContainerStyle={{ width: '100%', minWidth: TASK_TABLE_MIN_WIDTH }}
       onLayout={(event) => setViewportWidth(event.nativeEvent.layout.width)}
@@ -1237,7 +1239,12 @@ function TaskTable({
                 )
               ) : (
                 <View
-                  className={cn('relative', draggingId === task.id && 'opacity-40')}
+                  className="relative"
+                  style={
+                    draggingId === task.id
+                      ? { zIndex: 100, elevation: 100 }
+                      : undefined
+                  }
                   onLayout={(event) => {
                     const { y, height } = event.nativeEvent.layout;
                     nativeLayouts.current.set(task.id, { y, height });

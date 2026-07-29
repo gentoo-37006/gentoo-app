@@ -493,7 +493,12 @@ function ProjectList({
         ) : (
           <View
             key={project.id}
-            className={cn('relative', draggingId === project.id && 'opacity-40')}
+            className="relative"
+            style={
+              draggingId === project.id
+                ? { zIndex: 100, elevation: 100 }
+                : undefined
+            }
             onLayout={(event) => {
               const { y, height } = event.nativeEvent.layout;
               nativeLayouts.current.set(project.id, { y, height });

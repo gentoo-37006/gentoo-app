@@ -5,6 +5,11 @@ import {
   type NativeTouchEvent,
   View,
 } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
+import { useScreenDragLock } from '@/components/ui/screen';
 
 export const MOBILE_DRAG_HOLD_MS = 1_500;
 const PRE_DRAG_MOVE_TOLERANCE = 12;
@@ -26,13 +31,20 @@ export function MobileDragSurface({
   onEnd: (absoluteY: number) => void;
   onCancel: () => void;
 }) {
+  const setScreenDragActive = useScreenDragLock();
+  const [ghostVisible, setGhostVisible] = React.useState(false);
   const holdTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const disabledRef = React.useRef(disabled);
   const touchStart = React.useRef<{
     absoluteY: number;
     localY: number;
   } | null>(null);
   const lastAbsoluteY = React.useRef(0);
   const dragging = React.useRef(false);
+  const ghostTranslateY = useSharedValue(0);
+  const ghostAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: ghostTranslateY.value }],
+  }));
 
   const clearHoldTimer = () => {
     if (holdTimer.current === null) return;
@@ -44,6 +56,8 @@ export function MobileDragSurface({
     clearHoldTimer();
     touchStart.current = null;
     dragging.current = false;
+    setGhostVisible(false);
+    setScreenDragActive(false);
   };
 
   const beginTouch = (event: TouchEvent) => {
@@ -57,8 +71,11 @@ export function MobileDragSurface({
     lastAbsoluteY.current = start.absoluteY;
     holdTimer.current = setTimeout(() => {
       holdTimer.current = null;
-      if (!touchStart.current) return;
+      if (disabledRef.current || !touchStart.current) return;
       dragging.current = true;
+      ghostTranslateY.value = 0;
+      setGhostVisible(true);
+      setScreenDragActive(true);
       onStart(touchStart.current.absoluteY, touchStart.current.localY);
     }, MOBILE_DRAG_HOLD_MS);
   };
@@ -68,6 +85,11 @@ export function MobileDragSurface({
     lastAbsoluteY.current = absoluteY;
 
     if (dragging.current) {
+      const start = touchStart.current;
+      if (start) {
+        // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
+        ghostTranslateY.value = absoluteY - start.absoluteY;
+      }
       onMove(absoluteY);
       return;
     }
@@ -92,6 +114,8 @@ export function MobileDragSurface({
     dragging.current = false;
     clearHoldTimer();
     touchStart.current = null;
+    setGhostVisible(false);
+    setScreenDragActive(false);
     onEnd(absoluteY);
   };
 
@@ -102,12 +126,24 @@ export function MobileDragSurface({
   });
 
   React.useEffect(() => {
-    if (disabled) cancelTouch();
-    return clearHoldTimer;
+    disabledRef.current = disabled;
+    if (disabled) {
+      clearHoldTimer();
+      touchStart.current = null;
+    }
   }, [disabled]);
+
+  React.useEffect(
+    () => () => {
+      clearHoldTimer();
+      if (dragging.current) setScreenDragActive(false);
+    },
+    [setScreenDragActive]
+  );
 
   return (
     <View
+      className="relative overflow-visible"
       onTouchStart={beginTouch}
       onTouchMove={moveTouch}
       onTouchEnd={finishTouch}
@@ -118,7 +154,16 @@ export function MobileDragSurface({
       onResponderTerminate={cancelTouch}
       onResponderTerminationRequest={() => !dragging.current}
     >
-      {children}
+      <View className={ghostVisible ? 'opacity-40' : undefined}>{children}</View>
+      {ghostVisible ? (
+        <Animated.View
+          pointerEvents="none"
+          className="absolute inset-0 z-50 bg-background shadow-lg"
+          style={[{ elevation: 20, opacity: 0.65 }, ghostAnimatedStyle]}
+        >
+          {children}
+        </Animated.View>
+      ) : null}
     </View>
   );
 }

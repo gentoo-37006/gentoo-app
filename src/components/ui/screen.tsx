@@ -6,6 +6,17 @@ import { cn } from '@/lib/utils';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 
+const ScreenDragContext = React.createContext<(active: boolean) => void>(() => {});
+const ScreenDragActiveContext = React.createContext(false);
+
+export function useScreenDragLock() {
+  return React.useContext(ScreenDragContext);
+}
+
+export function useScreenDragActive() {
+  return React.useContext(ScreenDragActiveContext);
+}
+
 /**
  * Standard scrollable page container. Fills the viewport width under the top
  * navbar; pass maxWidth (e.g. 'max-w-2xl') for pages that read better narrow.
@@ -21,23 +32,30 @@ export function Screen({
   contentClassName?: string;
   maxWidth?: string;
 }) {
+  const [dragActive, setDragActive] = React.useState(false);
+
   return (
-    <ScrollView
-      className={cn('flex-1 bg-background', className)}
-      contentContainerClassName="items-center"
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-    >
-      <View
-        className={cn(
-          'w-full gap-5 px-4 py-5 md:px-8 md:py-8',
-          maxWidth,
-          contentClassName
-        )}
-      >
-        {children}
-      </View>
-    </ScrollView>
+    <ScreenDragContext.Provider value={setDragActive}>
+      <ScreenDragActiveContext.Provider value={dragActive}>
+        <ScrollView
+          className={cn('flex-1 bg-background', className)}
+          contentContainerClassName="items-center"
+          keyboardShouldPersistTaps="handled"
+          scrollEnabled={!dragActive}
+          showsVerticalScrollIndicator={false}
+        >
+          <View
+            className={cn(
+              'w-full gap-5 px-4 py-5 md:px-8 md:py-8',
+              maxWidth,
+              contentClassName
+            )}
+          >
+            {children}
+          </View>
+        </ScrollView>
+      </ScreenDragActiveContext.Provider>
+    </ScreenDragContext.Provider>
   );
 }
 
