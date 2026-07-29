@@ -36,8 +36,13 @@ const COMPLETED_LINE_HEIGHT =
   Platform.OS === 'web' ? 1 / PixelRatio.get() : StyleSheet.hairlineWidth;
 const COMPLETED_LINE_DURATION_MS = 250;
 
-function ProjectCard({ project }: { project: ProjectWithTasks }) {
-  const router = useRouter();
+function ProjectCard({
+  project,
+  onPress,
+}: {
+  project: ProjectWithTasks;
+  onPress: () => void;
+}) {
   const [cardHeight, setCardHeight] = React.useState(0);
   const [cardWidth, setCardWidth] = React.useState(0);
   const completed = project.status === 'done';
@@ -76,7 +81,7 @@ function ProjectCard({ project }: { project: ProjectWithTasks }) {
   }, [completed, completedLineProgress]);
 
   return (
-    <Pressable className="active:opacity-75" onPress={() => router.push(`/projects/${project.id}` as any)}>
+    <Pressable className="active:opacity-75" onPress={onPress}>
         <Card
           className="relative overflow-visible hover:bg-accent/70"
           onLayout={(event) => {
@@ -139,9 +144,11 @@ function ProjectCard({ project }: { project: ProjectWithTasks }) {
 function ProjectList({
   projects,
   onReorder,
+  onOpenProject,
 }: {
   projects: ProjectWithTasks[];
   onReorder: (projectIds: string[]) => void;
+  onOpenProject: (projectId: string) => void;
 }) {
   type PointerDrag = {
     projectId: string;
@@ -479,7 +486,10 @@ function ProjectList({
                 draggingId === project.id && 'cursor-grabbing opacity-40'
               ),
             },
-            <ProjectCard project={project} />
+            <ProjectCard
+              project={project}
+              onPress={() => onOpenProject(project.id)}
+            />
           )
         ) : (
           <View
@@ -502,7 +512,10 @@ function ProjectList({
               onEnd={endNativeDrag}
               onCancel={clearNativeDrag}
             >
-              <ProjectCard project={project} />
+              <ProjectCard
+                project={project}
+                onPress={() => onOpenProject(project.id)}
+              />
             </MobileDragSurface>
             {nativeIndicator?.projectId === project.id &&
             nativeIndicator.edge === 'after' ? (
@@ -572,6 +585,9 @@ export default function ProjectsScreen() {
         <ProjectList
           projects={projects ?? []}
           onReorder={(projectIds) => reorderProjects.mutate({ projectIds })}
+          onOpenProject={(projectId) =>
+            router.push(`/projects/${projectId}` as any)
+          }
         />
       )}
     </Screen>

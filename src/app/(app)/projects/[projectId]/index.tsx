@@ -567,13 +567,14 @@ function TaskTableRow({
   profiles,
   highlighted = false,
   onMetadataOpenChange,
+  onOpen,
 }: {
   task: Task;
   profiles: Profile[];
   highlighted?: boolean;
   onMetadataOpenChange: (open: boolean) => void;
+  onOpen: () => void;
 }) {
-  const router = useRouter();
   const update = useUpdateTask();
   const del = useDeleteTask();
   const [rowHeight, setRowHeight] = React.useState(0);
@@ -604,8 +605,6 @@ function TaskTableRow({
     value: profile.id,
     label: profile.full_name ?? 'Member',
   }));
-  const openNotes = () => router.push(`/projects/${task.project_id}/${task.id}` as any);
-
   React.useLayoutEffect(() => {
     if (completed && !previousCompleted.current) {
       completedLineProgress.value = 0;
@@ -662,7 +661,7 @@ function TaskTableRow({
           completedCellClass
         )}
       >
-        <Pressable className="flex-row items-center gap-2 active:opacity-70" onPress={openNotes}>
+        <Pressable className="flex-row items-center gap-2 active:opacity-70" onPress={onOpen}>
           <Text className="flex-1 text-sm font-semibold">{task.title}</Text>
         </Pressable>
       </View>
@@ -821,11 +820,13 @@ function TaskTable({
   profiles,
   focusTaskId,
   onReorder,
+  onOpenTask,
 }: {
   tasks: Task[];
   profiles: Profile[];
   focusTaskId: string | null;
   onReorder: (taskIds: string[]) => void;
+  onOpenTask: (task: Task) => void;
 }) {
   type PointerDrag = {
     taskId: string;
@@ -1223,6 +1224,7 @@ function TaskTable({
                   task={task}
                   profiles={profiles}
                   highlighted={task.id === focusTaskId}
+                  onOpen={() => onOpenTask(task)}
                   onMetadataOpenChange={(open) => {
                     setOpenMetadataTaskIds((current) => {
                       const next = new Set(current);
@@ -1258,6 +1260,7 @@ function TaskTable({
                       task={task}
                       profiles={profiles}
                       highlighted={task.id === focusTaskId}
+                      onOpen={() => onOpenTask(task)}
                       onMetadataOpenChange={(open) => {
                         setOpenMetadataTaskIds((current) => {
                           const next = new Set(current);
@@ -1594,6 +1597,9 @@ export default function ProjectDetailScreen() {
           profiles={members}
           focusTaskId={focusTaskId}
           onReorder={reorderVisibleTasks}
+          onOpenTask={(task) =>
+            router.push(`/projects/${task.project_id}/${task.id}` as any)
+          }
         />
       )}
     </Screen>

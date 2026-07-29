@@ -20,25 +20,39 @@ export function MobileDragSurface({
   onEnd: (absoluteY: number) => void;
   onCancel: () => void;
 }) {
+  const handleStart = React.useEffectEvent(
+    (absoluteY: number, localY: number) => onStart(absoluteY, localY)
+  );
+  const handleMove = React.useEffectEvent(
+    (absoluteY: number) => onMove(absoluteY)
+  );
+  const handleEnd = React.useEffectEvent(
+    (absoluteY: number) => onEnd(absoluteY)
+  );
+  const handleCancel = React.useEffectEvent(() => onCancel());
+
+  /* eslint-disable react-hooks/preserve-manual-memoization -- Replacing an active
+     RNGH gesture object cancels the drag; Effect Events provide the latest handlers. */
   const gesture = React.useMemo(
     () =>
       Gesture.Pan()
         .enabled(!disabled)
         .activateAfterLongPress(MOBILE_DRAG_HOLD_MS)
         .onStart((event) => {
-          runOnJS(onStart)(event.absoluteY, event.y);
+          runOnJS(handleStart)(event.absoluteY, event.y);
         })
         .onUpdate((event) => {
-          runOnJS(onMove)(event.absoluteY);
+          runOnJS(handleMove)(event.absoluteY);
         })
         .onEnd((event) => {
-          runOnJS(onEnd)(event.absoluteY);
+          runOnJS(handleEnd)(event.absoluteY);
         })
         .onFinalize((_event, success) => {
-          if (!success) runOnJS(onCancel)();
+          if (!success) runOnJS(handleCancel)();
         }),
-    [disabled, onCancel, onEnd, onMove, onStart]
+    [disabled]
   );
+  /* eslint-enable react-hooks/preserve-manual-memoization */
 
   return (
     <GestureDetector gesture={gesture}>
