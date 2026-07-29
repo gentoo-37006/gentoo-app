@@ -1,10 +1,15 @@
 import * as React from 'react';
-import { View } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS, useSharedValue } from 'react-native-reanimated';
+import {
+  type GestureResponderEvent,
+  type NativeSyntheticEvent,
+  type NativeTouchEvent,
+  View,
+} from 'react-native';
 
 export const MOBILE_DRAG_HOLD_MS = 1_500;
-const MAX_GESTURE_DISTANCE = 2_147_483_647;
+const PRE_DRAG_MOVE_TOLERANCE = 12;
+
+type TouchEvent = NativeSyntheticEvent<NativeTouchEvent>;
 
 export function MobileDragSurface({
   children,
@@ -21,52 +26,99 @@ export function MobileDragSurface({
   onEnd: (absoluteY: number) => void;
   onCancel: () => void;
 }) {
-  const dragStarted = useSharedValue(false);
-  const handleStart = React.useEffectEvent(
-    (absoluteY: number, localY: number) => onStart(absoluteY, localY)
-  );
-  const handleMove = React.useEffectEvent(
-    (absoluteY: number) => onMove(absoluteY)
-  );
-  const handleEnd = React.useEffectEvent(
-    (absoluteY: number) => onEnd(absoluteY)
-  );
-  const handleCancel = React.useEffectEvent(() => onCancel());
+  const holdTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStart = React.useRef<{
+    absoluteY: number;
+    localY: number;
+  } | null>(null);
+  const lastAbsoluteY = React.useRef(0);
+  const dragging = React.useRef(false);
 
-  /* eslint-disable react-hooks/preserve-manual-memoization -- Replacing an active
-     RNGH gesture object cancels the drag; Effect Events provide the latest handlers. */
-  const gesture = React.useMemo(
-    () =>
-      Gesture.LongPress()
-        .enabled(!disabled)
-        .minDuration(MOBILE_DRAG_HOLD_MS)
-        .maxDistance(MAX_GESTURE_DISTANCE)
-        .shouldCancelWhenOutside(false)
-        .cancelsTouchesInView(true)
-        .onStart((event) => {
-          // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
-          dragStarted.value = true;
-          runOnJS(handleStart)(event.absoluteY, event.y);
-        })
-        .onTouchesMove((event) => {
-          const touch = event.allTouches[0];
-          if (touch) runOnJS(handleMove)(touch.absoluteY);
-        })
-        .onEnd((event, success) => {
-          if (success) runOnJS(handleEnd)(event.absoluteY);
-        })
-        .onFinalize((_event, success) => {
-          if (!success && dragStarted.value) runOnJS(handleCancel)();
-          // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
-          dragStarted.value = false;
-        }),
-    [disabled, dragStarted]
-  );
-  /* eslint-enable react-hooks/preserve-manual-memoization */
+  const clearHoldTimer = () => {
+    if (holdTimer.current === null) return;
+    clearTimeout(holdTimer.current);
+    holdTimer.current = null;
+  };
+
+  const reset = () => {
+    clearHoldTimer();
+    touchStart.current = null;
+    dragging.current = false;
+  };
+
+  const beginTouch = (event: TouchEvent) => {
+    if (disabled || holdTimer.current !== null || dragging.current) return;
+
+    const start = {
+      absoluteY: event.nativeEvent.pageY,
+      localY: event.nativeEvent.locationY,
+    };
+    touchStart.current = start;
+    lastAbsoluteY.current = start.absoluteY;
+    holdTimer.current = setTimeout(() => {
+      holdTimer.current = null;
+      if (!touchStart.current) return;
+      dragging.current = true;
+      onStart(touchStart.current.absoluteY, touchStart.current.localY);
+    }, MOBILE_DRAG_HOLD_MS);
+  };
+
+  const moveTouch = (event: TouchEvent | GestureResponderEvent) => {
+    const absoluteY = event.nativeEvent.pageY;
+    lastAbsoluteY.current = absoluteY;
+
+    if (dragging.current) {
+      onMove(absoluteY);
+      return;
+    }
+
+    const start = touchStart.current;
+    if (
+      start &&
+      Math.abs(absoluteY - start.absoluteY) > PRE_DRAG_MOVE_TOLERANCE
+    ) {
+      clearHoldTimer();
+      touchStart.current = null;
+    }
+  };
+
+  const finishTouch = (event?: TouchEvent | GestureResponderEvent) => {
+    if (!dragging.current) {
+      reset();
+      return;
+    }
+
+    const absoluteY = event?.nativeEvent.pageY ?? lastAbsoluteY.current;
+    dragging.current = false;
+    clearHoldTimer();
+    touchStart.current = null;
+    onEnd(absoluteY);
+  };
+
+  const cancelTouch = React.useEffectEvent(() => {
+    const wasDragging = dragging.current;
+    reset();
+    if (wasDragging) onCancel();
+  });
+
+  React.useEffect(() => {
+    if (disabled) cancelTouch();
+    return clearHoldTimer;
+  }, [disabled]);
 
   return (
-    <GestureDetector gesture={gesture}>
-      <View>{children}</View>
-    </GestureDetector>
+    <View
+      onTouchStart={beginTouch}
+      onTouchMove={moveTouch}
+      onTouchEnd={finishTouch}
+      onTouchCancel={cancelTouch}
+      onMoveShouldSetResponderCapture={() => dragging.current}
+      onResponderMove={moveTouch}
+      onResponderRelease={finishTouch}
+      onResponderTerminate={cancelTouch}
+      onResponderTerminationRequest={() => !dragging.current}
+    >
+      {children}
+    </View>
   );
 }
