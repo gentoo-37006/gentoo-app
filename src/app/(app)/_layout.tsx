@@ -3,6 +3,7 @@ import { ResponsiveShell } from '@/components/responsive-shell';
 import { WhatsNewGate } from '@/components/whats-new';
 import { useAuth } from '@/lib/auth';
 import { usePushNavigation } from '@/lib/use-push-navigation';
+import { DragOverlayProvider } from '@/components/drag-overlay';
 
 export default function AppLayout() {
   const pathname = usePathname();
@@ -13,9 +14,11 @@ export default function AppLayout() {
   if (isDownloads && !session) return <Slot />;
 
   return (
-    <ResponsiveShell>
-      <Slot />
-      <WhatsNewGate />
-    </ResponsiveShell>
+    <DragOverlayProvider>
+      <ResponsiveShell>
+        <Slot />
+        <WhatsNewGate />
+      </ResponsiveShell>
+    </DragOverlayProvider>
   );
 }

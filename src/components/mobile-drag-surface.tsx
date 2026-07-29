@@ -10,6 +10,7 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 import { useScreenDragController } from '@/components/ui/screen';
+import { useDragOverlay } from '@/components/drag-overlay';
 
 export const MOBILE_DRAG_HOLD_MS = 1_500;
 const PRE_DRAG_MOVE_TOLERANCE = 20;
@@ -32,9 +33,9 @@ export function MobileDragSurface({
   onCancel: () => void;
 }) {
   const screenDragController = useScreenDragController();
-  const [ghostContent, setGhostContent] =
-    React.useState<React.ReactNode>(null);
-  const ghostVisible = ghostContent !== null;
+  const dragOverlay = useDragOverlay();
+  const [ghostVisible, setGhostVisible] = React.useState(false);
+  const surfaceRef = React.useRef<View>(null);
   const holdTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const disabledRef = React.useRef(disabled);
   const touchStart = React.useRef<{
@@ -42,7 +43,6 @@ export function MobileDragSurface({
     localY: number;
   } | null>(null);
   const lastAbsoluteY = React.useRef(0);
-  const startScrollOffset = React.useRef(0);
   const dragging = React.useRef(false);
   const queuedMoveY = React.useRef<number | null>(null);
   const moveFrame = React.useRef<number | null>(null);
@@ -81,11 +81,8 @@ export function MobileDragSurface({
   const updateDragPosition = (absoluteY: number) => {
     const start = touchStart.current;
     if (!start) return;
-    const scrollDelta =
-      screenDragController.getScrollOffset() - startScrollOffset.current;
     // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
-    ghostTranslateY.value =
-      absoluteY - start.absoluteY + scrollDelta;
+    ghostTranslateY.value = absoluteY - start.absoluteY;
     queueMove(absoluteY);
   };
 
@@ -94,7 +91,8 @@ export function MobileDragSurface({
     flushQueuedMove();
     touchStart.current = null;
     dragging.current = false;
-    setGhostContent(null);
+    setGhostVisible(false);
+    dragOverlay.hide();
     screenDragController.setAutoScrollListener(null);
     screenDragController.setActive(false);
   };
@@ -113,13 +111,34 @@ export function MobileDragSurface({
       if (disabledRef.current || !touchStart.current) return;
       dragging.current = true;
       ghostTranslateY.value = 0;
-      startScrollOffset.current = screenDragController.getScrollOffset();
       screenDragController.updatePointer(touchStart.current.absoluteY);
       screenDragController.setAutoScrollListener(() =>
         updateDragPosition(lastAbsoluteY.current)
       );
       screenDragController.setActive(true);
-      setGhostContent(children);
+      setGhostVisible(true);
+      surfaceRef.current?.measureInWindow((x, y, width, height) => {
+        if (!dragging.current) return;
+        dragOverlay.show(
+          <Animated.View
+            pointerEvents="none"
+            className="absolute bg-background shadow-lg"
+            style={[
+              {
+                left: x,
+                top: y,
+                width,
+                height,
+                elevation: 20,
+                opacity: 0.65,
+              },
+              ghostAnimatedStyle,
+            ]}
+          >
+            {children}
+          </Animated.View>
+        );
+      });
       onStart(touchStart.current.absoluteY, touchStart.current.localY);
     }, MOBILE_DRAG_HOLD_MS);
   };
@@ -157,9 +176,11 @@ export function MobileDragSurface({
     clearHoldTimer();
     flushQueuedMove();
     touchStart.current = null;
-    setGhostContent(null);
+    setGhostVisible(false);
+    dragOverlay.hide();
     screenDragController.setAutoScrollListener(null);
     screenDragController.setActive(false);
+    dragOverlay.hide();
     onEnd(absoluteY);
   };
 
@@ -189,6 +210,7 @@ export function MobileDragSurface({
 
   return (
     <View
+      ref={surfaceRef}
       className="relative overflow-visible"
       onTouchStart={beginTouch}
       onTouchMove={moveTouch}
@@ -201,15 +223,6 @@ export function MobileDragSurface({
       onResponderTerminationRequest={() => !dragging.current}
     >
       <View className={ghostVisible ? 'opacity-40' : undefined}>{children}</View>
-      {ghostVisible ? (
-        <Animated.View
-          pointerEvents="none"
-          className="absolute inset-0 z-50 bg-background shadow-lg"
-          style={[{ elevation: 20, opacity: 0.65 }, ghostAnimatedStyle]}
-        >
-          {ghostContent}
-        </Animated.View>
-      ) : null}
     </View>
   );
 }
