@@ -495,15 +495,28 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
           gesture.x0 <= MOBILE_EDGE_SWIPE_WIDTH &&
           gesture.dx > 8 &&
           Math.abs(gesture.dx) > Math.abs(gesture.dy),
+        onPanResponderGrant: () => {
+          menuProgress.setValue(0);
+          setMenuVisible(true);
+        },
+        onPanResponderMove: (_event, gesture) => {
+          menuProgress.setValue(
+            Math.max(0, Math.min(1, gesture.dx / MOBILE_SIDEBAR_WIDTH))
+          );
+        },
         onPanResponderRelease: (_event, gesture) => {
           if (
             gesture.dx >= MOBILE_SWIPE_TRIGGER ||
             gesture.vx >= 0.35
           ) {
-            openMenu();
+            animateMenu(1);
+          } else {
+            animateMenu(0, () => setMenuVisible(false));
           }
         },
-        onPanResponderTerminate: () => {},
+        onPanResponderTerminate: () => {
+          animateMenu(0, () => setMenuVisible(false));
+        },
       })
   );
 
@@ -574,9 +587,7 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
     <SafeAreaView className="flex-1 bg-card" edges={['top']}>
       <View
         className="flex-1 bg-background"
-        {...(!menuVisible && edgeSwipeEnabled
-          ? edgeSwipeResponder.panHandlers
-          : {})}
+        {...(edgeSwipeEnabled ? edgeSwipeResponder.panHandlers : {})}
       >
         <MobileHeader
           pathname={pathname}
@@ -620,6 +631,7 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
           </Animated.View>
           <Animated.View
             className="z-10 h-full w-64 border-r border-border bg-card"
+            {...closeSwipeResponder.panHandlers}
             style={{
               paddingTop: safeAreaInsets.top,
               transform: [
