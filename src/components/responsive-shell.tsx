@@ -12,7 +12,7 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import { Link, usePathname, useRouter } from 'expo-router';
+import { Link, usePathname } from 'expo-router';
 import { Menu, ChevronDown, ClipboardList } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -438,9 +438,9 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
   const { isWide } = useBreakpoint();
   const safeAreaInsets = useSafeAreaInsets();
   const pathname = usePathname();
-  const router = useRouter();
   const { profile, isAdmin, session, isDemo } = useAuth();
   const unread = useUnreadCount();
+  const edgeSwipeEnabled = ALL_NAV.some((item) => item.href === pathname);
 
   // Mobile drawer + desktop scouting dropdown; navigation closes both.
   // Render-time adjustment (not an effect) so closing happens in the same
@@ -574,7 +574,7 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
     <SafeAreaView className="flex-1 bg-card" edges={['top']}>
       <View
         className="flex-1 bg-background"
-        {...(!menuVisible && !router.canGoBack()
+        {...(!menuVisible && edgeSwipeEnabled
           ? edgeSwipeResponder.panHandlers
           : {})}
       >
@@ -599,11 +599,27 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
         onRequestClose={closeMenu}
       >
         <View
-          className="flex-1 flex-row"
+          className="relative flex-1"
           {...closeSwipeResponder.panHandlers}
         >
           <Animated.View
-            className="w-64 border-r border-border bg-card"
+            className="absolute inset-0 bg-black"
+            style={{
+              opacity: menuProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 0.6],
+              }),
+            }}
+          >
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close menu"
+              className="flex-1"
+              onPress={closeMenu}
+            />
+          </Animated.View>
+          <Animated.View
+            className="z-10 h-full w-64 border-r border-border bg-card"
             style={{
               paddingTop: safeAreaInsets.top,
               transform: [
@@ -623,22 +639,6 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
               name={profile?.full_name}
               role={profile?.role}
               avatarUrl={profile?.avatar_url}
-            />
-          </Animated.View>
-          <Animated.View
-            className="flex-1 bg-black"
-            style={{
-              opacity: menuProgress.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 0.6],
-              }),
-            }}
-          >
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close menu"
-              className="flex-1"
-              onPress={closeMenu}
             />
           </Animated.View>
         </View>
