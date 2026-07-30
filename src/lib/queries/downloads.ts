@@ -7,7 +7,7 @@ import {
 } from '@/lib/env';
 
 export type DownloadItem = {
-  os: 'Android' | 'Linux' | 'macOS' | 'Windows';
+  os: 'Android';
   label: string;
   arch: string;
   filename: string;

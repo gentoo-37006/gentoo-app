@@ -15,7 +15,6 @@ import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
-import { isDesktopApp } from '@/lib/desktop-updates';
 import { useProjects, useMyTasks, useMyOpenTaskCount, type MyTask } from '@/lib/queries/tasks';
 import { priorityVariant, taskStatusVariant, labelOf } from '@/lib/task-style';
 import { PRIORITIES, TASK_STATUSES } from '@/lib/types';
@@ -78,7 +77,6 @@ type QuickAction = {
   description: string;
   href: string;
   icon: LucideIcon;
-  hideOnDesktop?: boolean;
   webOnly?: boolean;
 };
 
@@ -90,7 +88,6 @@ const QUICK_ACTIONS: QuickAction[] = [
     description: 'Install the app on other devices',
     href: '/downloads',
     icon: Download,
-    hideOnDesktop: true,
     webOnly: true,
   },
 ];
@@ -138,9 +135,7 @@ export default function DashboardScreen() {
   ];
 
   const actions = QUICK_ACTIONS.filter(
-    (action) =>
-      !(action.hideOnDesktop && isDesktopApp) &&
-      (!action.webOnly || Platform.OS === 'web')
+    (action) => !action.webOnly || Platform.OS === 'web'
   );
 
   return (

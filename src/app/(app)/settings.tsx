@@ -9,7 +9,6 @@ import { Text } from '@/components/ui/text';
 import { WhatsNewModal } from '@/components/whats-new';
 import { APP_VERSION } from '@/lib/app-version';
 import { useAuth } from '@/lib/auth';
-import { useDesktopUpdates } from '@/lib/desktop-updates';
 import { timeAgo } from '@/lib/format';
 import { useSyncFTCScout } from '@/lib/queries/ftcscout';
 import { ACTIVE_EVENT_KEY, useAppSetting } from '@/lib/queries/settings';
@@ -232,50 +231,6 @@ function DiscordCard() {
   );
 }
 
-/** Desktop-only: manual update check + restart-to-install, driven by the
- *  Electron shell's auto-updater (see src/lib/desktop-updates.ts). */
-function DesktopUpdates() {
-  const { isDesktop, status, check, install } = useDesktopUpdates();
-  if (!isDesktop || status?.state === 'unsupported') return null;
-
-  const state = status?.state ?? 'idle';
-  const detail =
-    state === 'checking'
-      ? 'Checking for updates…'
-      : state === 'downloading'
-        ? `Downloading update${status?.next ? ` v${status.next}` : ''}… ${status?.percent ?? 0}%`
-        : state === 'downloaded'
-          ? `Update ready${status?.next ? ` (v${status.next})` : ''} — restart to install.`
-          : state === 'up-to-date'
-            ? 'You’re up to date.'
-            : state === 'error'
-              ? `Update check failed: ${status?.message ?? 'unknown error'}`
-              : null;
-
-  return (
-    <View className="gap-2 pt-2">
-      {detail ? (
-        <Text variant="small" className="text-muted-foreground">
-          {detail}
-        </Text>
-      ) : null}
-      {state === 'downloaded' ? (
-        <Button size="sm" label="Restart to update" icon={RefreshCw} onPress={install} />
-      ) : (
-        <Button
-          variant="outline"
-          size="sm"
-          label="Check for updates"
-          icon={RefreshCw}
-          loading={state === 'checking'}
-          disabled={state === 'checking' || state === 'downloading'}
-          onPress={check}
-        />
-      )}
-    </View>
-  );
-}
-
 export default function SettingsScreen() {
   const [whatsNewOpen, setWhatsNewOpen] = React.useState(false);
 
@@ -316,7 +271,6 @@ export default function SettingsScreen() {
               onPress={() => setWhatsNewOpen(true)}
             />
           </View>
-          <DesktopUpdates />
           <WhatsNewModal visible={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
         </CardContent>
       </Card>

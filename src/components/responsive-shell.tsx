@@ -26,7 +26,6 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { cn } from '@/lib/utils';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useAuth } from '@/lib/auth';
-import { isDesktopApp } from '@/lib/desktop-updates';
 import { useUnreadCount } from '@/lib/queries/notifications';
 import { registerForPushNotifications } from '@/lib/push';
 import {
@@ -156,7 +155,6 @@ function Sidebar({
   const secondary = SECONDARY_NAV.filter(
     (i) =>
       (!i.adminOnly || isAdmin) &&
-      !(i.hideOnDesktop && isDesktopApp) &&
       (!i.webOnly || Platform.OS === 'web')
   );
   return (
@@ -265,7 +263,6 @@ function TopNav({
   const icons = SECONDARY_NAV.filter(
     (i) =>
       (!i.adminOnly || isAdmin) &&
-      !(i.hideOnDesktop && isDesktopApp) &&
       (!i.webOnly || Platform.OS === 'web')
   );
   const scoutingActive = SCOUTING_MENU.some((i) => isActiveRoute(i.href, pathname));

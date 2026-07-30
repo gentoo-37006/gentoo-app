@@ -22,8 +22,6 @@ export type NavItem = {
   icon: LucideIcon;
   /** Only render for admins. */
   adminOnly?: boolean;
-  /** Hide inside the Electron desktop app (e.g. desktop-install downloads). */
-  hideOnDesktop?: boolean;
   /** Only render in browser-based navigation. */
   webOnly?: boolean;
 };
@@ -68,7 +66,6 @@ export const SECONDARY_NAV: NavItem[] = [
     label: 'Downloads',
     href: '/downloads',
     icon: Download,
-    hideOnDesktop: true,
     webOnly: true,
   },
   { name: 'admin', label: 'Admin', href: '/admin', icon: ShieldCheck, adminOnly: true },

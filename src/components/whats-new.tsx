@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, View, type TextStyle } from 'react-native';
 import { Sparkles, X } from 'lucide-react-native';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
@@ -8,17 +8,25 @@ import { FadeModal } from '@/components/ui/fade-modal';
 import { APP_VERSION } from '@/lib/app-version';
 import { useReleaseNotes, shouldShowWhatsNew, markWhatsNewSeen } from '@/lib/release-notes';
 
+// Release notes carry long unbroken tokens — migration names like
+// 0024_sync_project_status, identifiers, URLs. Native Text already drops an
+// over-long word onto the next line; on web it would instead run past the
+// modal's right edge and under the scrollbar.
+const WRAP_ANYWHERE = (Platform.OS === 'web' ? { overflowWrap: 'anywhere' } : undefined) as
+  | TextStyle
+  | undefined;
+
 /** Just enough markdown for GitHub release notes: headings, bullets, and
  *  stripped bold/inline-code markers. Keeps us dependency-free. */
 function NotesBody({ notes }: { notes: string }) {
   const lines = notes.replace(/\r\n/g, '\n').split('\n');
   return (
-    <View className="gap-1.5">
+    <View className="w-full gap-1.5">
       {lines.map((raw, i) => {
         const line = raw.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/`([^`]+)`/g, '$1');
         if (/^#{1,6}\s/.test(line)) {
           return (
-            <Text key={i} className="pt-2 font-bold">
+            <Text key={i} className="pt-2 font-bold" style={WRAP_ANYWHERE}>
               {line.replace(/^#{1,6}\s*/, '')}
             </Text>
           );
@@ -26,15 +34,19 @@ function NotesBody({ notes }: { notes: string }) {
         const bullet = line.match(/^\s*[-*•]\s+(.*)$/);
         if (bullet) {
           return (
-            <View key={i} className="flex-row gap-2 pl-1">
+            <View key={i} className="w-full flex-row gap-2 pl-1">
               <Text variant="muted">•</Text>
-              <Text className="flex-1 text-sm">{bullet[1]}</Text>
+              {/* min-w-0 lets the flex child shrink below its content width —
+                  without it a long token widens the row instead of wrapping. */}
+              <Text className="min-w-0 flex-1 text-sm" style={WRAP_ANYWHERE}>
+                {bullet[1]}
+              </Text>
             </View>
           );
         }
         if (!line.trim()) return <View key={i} className="h-1" />;
         return (
-          <Text key={i} className="text-sm">
+          <Text key={i} className="text-sm" style={WRAP_ANYWHERE}>
             {line}
           </Text>
         );
@@ -64,7 +76,9 @@ export function WhatsNewModal({ visible, onClose }: { visible: boolean; onClose:
             </Pressable>
           </View>
 
-          <ScrollView className="max-h-96">
+          {/* pr-3 keeps the text clear of the web scrollbar, which is drawn
+              inside the ScrollView's box and would otherwise sit on top of it. */}
+          <ScrollView className="max-h-96" contentContainerClassName="pr-3">
             {isLoading ? (
               <View className="py-8">
                 <ActivityIndicator />

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Gather the installers produced by `npm run release:all` into a clean releases/
-# directory, named so the Downloads Edge Function recognizes every file
-# (supabase/functions/downloads/index.ts):
-#   Gentoo-<version>-mac-arm64.dmg   /mac.*arm64\.dmg$/i
-#   Gentoo-<version>-win-x64.exe     /win.*x64.*\.exe$/i
+# directory, named so the Downloads Edge Function recognizes every file:
 #   Gentoo-<version>-android.apk     /(?:android|apk).*\.apk$/i
-# Copies (not moves): desktop-build/ keeps the auto-update latest*.yml/blockmaps.
+# (supabase/functions/downloads/releases.ts holds the patterns.)
+#
+# iOS ships through TestFlight, so it has no artifact here. The desktop app was
+# retired, so there are no dmg/exe/deb installers or electron-updater feeds to
+# collect any more.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -18,50 +19,11 @@ fail() {
   exit 1
 }
 
-shopt -s nullglob
-dmgs=(desktop-build/Gentoo-*-mac-arm64.dmg)
-exes=(desktop-build/Gentoo-*-win-x64.exe)
-# Deb arch suffix is Debian-style ("amd64"), unlike the win/mac artifacts.
-debs=(desktop-build/Gentoo-*-linux-*.deb)
-# Auto-update needs these on the GitHub release too: the mac zip is what
-# electron-updater actually installs, and the yml files are the update feed
-# (served to apps by the downloads Edge Function). Blockmaps enable
-# differential downloads. Feed globs are latest*/beta* on purpose — they skip
-# electron-builder's builder-debug.yml.
-zips=(desktop-build/Gentoo-*-mac-arm64.zip)
-blockmaps=(desktop-build/*.blockmap)
-shopt -u nullglob
-
-# Feed files have fixed names, so filter by existence — nullglob only affects
-# actual glob patterns, not literal paths. Stable builds emit latest*.yml,
-# date-stamped beta builds emit beta*.yml; either satisfies the checks below.
-mac_feeds=()
-for f in desktop-build/latest-mac.yml desktop-build/beta-mac.yml; do
-  if [[ -f "$f" ]]; then mac_feeds+=("$f"); fi
-done
-win_feeds=()
-for f in desktop-build/latest.yml desktop-build/beta.yml; do
-  if [[ -f "$f" ]]; then win_feeds+=("$f"); fi
-done
-linux_feeds=()
-for f in desktop-build/latest-linux.yml desktop-build/beta-linux.yml; do
-  if [[ -f "$f" ]]; then linux_feeds+=("$f"); fi
-done
-
-(( ${#dmgs[@]} > 0 )) || fail "no macOS DMG found in desktop-build/ (expected Gentoo-*-mac-arm64.dmg)"
-(( ${#zips[@]} > 0 )) || fail "no macOS update zip found in desktop-build/ (expected Gentoo-*-mac-arm64.zip)"
-(( ${#exes[@]} > 0 )) || fail "no Windows installer found in desktop-build/ (expected Gentoo-*-win-x64.exe)"
-(( ${#debs[@]} > 0 )) || fail "no Linux package found in desktop-build/ (expected Gentoo-*-linux-*.deb)"
-(( ${#mac_feeds[@]} > 0 )) || fail "no macOS update feed found in desktop-build/ (expected latest-mac.yml or beta-mac.yml)"
-(( ${#win_feeds[@]} > 0 )) || fail "no Windows update feed found in desktop-build/ (expected latest.yml or beta.yml)"
-(( ${#linux_feeds[@]} > 0 )) || fail "no Linux update feed found in desktop-build/ (expected latest-linux.yml or beta-linux.yml)"
 [[ -f android-build/Gentoo.apk ]] || fail "no Android APK found at android-build/Gentoo.apk"
 
 rm -rf releases
 mkdir releases
 
-cp "${dmgs[@]}" "${zips[@]}" "${exes[@]}" "${debs[@]}" "${mac_feeds[@]}" "${win_feeds[@]}" "${linux_feeds[@]}" releases/
-(( ${#blockmaps[@]} > 0 )) && cp "${blockmaps[@]}" releases/
 cp android-build/Gentoo.apk "releases/Gentoo-${VERSION}-android.apk"
 
 echo "Release artifacts (v${VERSION}):"
