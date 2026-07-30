@@ -468,7 +468,7 @@ function TeamCard({
             placeholderTextColor={colorScheme === 'dark' ? 'hsl(0 0% 48%)' : 'hsl(0 0% 78%)'}
             className="min-h-[28px] max-h-[60px] resize-none rounded-sm border-0 bg-muted px-2 py-1.5 text-xs leading-4 outline-none focus:border-transparent"
             style={
-              Platform.OS !== 'web' && notesContentHeight > NOTES_MAX_HEIGHT
+              Platform.OS !== 'web'
                 ? {
                     height: Math.min(
                       Math.max(notesContentHeight, NOTES_MIN_HEIGHT),
