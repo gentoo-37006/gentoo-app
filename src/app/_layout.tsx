@@ -60,14 +60,14 @@ function LoadingSpinner({ color }: { color: string }) {
 
   return (
     <View
-      style={{ width: 52.5, height: 52.5, alignItems: 'center', justifyContent: 'center' }}
+      style={{ width: 105, height: 105, alignItems: 'center', justifyContent: 'center' }}
     >
       <Animated.View
         style={{
           position: 'absolute',
           inset: 0,
-          borderRadius: 26.25,
-          borderWidth: 3.125,
+          borderRadius: 52.5,
+          borderWidth: 6.25,
           borderColor: `${color}38`,
           borderTopColor: color,
           transform: [
@@ -79,9 +79,9 @@ function LoadingSpinner({ color }: { color: string }) {
       />
       <View
         style={{
-          width: 46.25,
-          height: 46.25,
-          borderRadius: 23.125,
+          width: 92.5,
+          height: 92.5,
+          borderRadius: 46.25,
           overflow: 'hidden',
         }}
       >
