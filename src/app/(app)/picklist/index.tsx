@@ -2,7 +2,12 @@ import * as React from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useSharedValue, runOnJS } from 'react-native-reanimated';
+import Animated, {
+  runOnJS,
+  type SharedValue,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 import {
   ListOrdered,
   Search,
@@ -19,6 +24,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MOBILE_DRAG_HOLD_MS } from '@/components/mobile-drag-surface';
+import { useDragOverlay } from '@/components/drag-overlay';
 import { cn } from '@/lib/utils';
 import { useColorScheme } from '@/lib/theme';
 import { useBreakpoint } from '@/lib/use-breakpoint';
@@ -224,6 +230,55 @@ type WebPointerDrag = {
   cancelListener: ((event: PointerEvent) => void) | null;
 };
 
+function PicklistTeamGhost({
+  team,
+  index,
+  highlight,
+}: {
+  team: PicklistTeam;
+  index: number;
+  highlight: boolean | null;
+}) {
+  const notes = team.notes ?? '';
+  const noteLines = Math.min(3, Math.max(1, notes.split('\n').length));
+
+  return (
+    <View
+      className={cn(
+        'gap-2 rounded-md border bg-background p-2.5',
+        highlight === true ? 'border-success' : 'border-border',
+        highlight === false && 'opacity-40'
+      )}
+    >
+      <View className="flex-row items-start gap-2">
+        <View className="flex-1">
+          <Text className="text-base font-extrabold">#{team.team_number}</Text>
+          <Text variant="small" numberOfLines={1}>
+            {team.team_name ?? 'Unknown name'}
+          </Text>
+          <Text className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            idx: {index + 1} | reports: {team.entry_count}
+          </Text>
+        </View>
+      </View>
+      <View
+        className="min-h-[28px] max-h-[60px] justify-center rounded-sm bg-muted px-2 py-1.5"
+        style={{ height: 28 + (noteLines - 1) * 16 }}
+      >
+        <Text
+          className={cn(
+            'text-xs leading-4',
+            notes ? 'text-foreground' : 'text-muted-foreground'
+          )}
+          numberOfLines={3}
+        >
+          {notes || 'Picklist notes...'}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 function TeamCard({
   team,
   index,
@@ -232,6 +287,8 @@ function TeamCard({
   onDragMove,
   onDragEnd,
   onLayoutCard,
+  dragX,
+  dragY,
   dragging,
   indicatorBefore,
   indicatorAfter,
@@ -250,6 +307,8 @@ function TeamCard({
   onDragMove: (team: PicklistTeam, absX: number, absY: number) => void;
   onDragEnd: (team: PicklistTeam, absX: number, absY: number) => void;
   onLayoutCard: (teamId: string, layout: CardLayout) => void;
+  dragX: SharedValue<number>;
+  dragY: SharedValue<number>;
   dragging: boolean;
   indicatorBefore?: boolean;
   indicatorAfter?: boolean;
@@ -314,6 +373,10 @@ function TeamCard({
           runOnJS(onDragStart)(team, e.absoluteX, e.absoluteY, e.x, e.y);
         })
         .onUpdate((e) => {
+          // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
+          dragX.value = e.absoluteX;
+          // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
+          dragY.value = e.absoluteY;
           runOnJS(onDragMove)(team, e.absoluteX, e.absoluteY);
         })
         .onEnd((e) => {
@@ -322,7 +385,7 @@ function TeamCard({
         .onTouchesCancelled(() => {
           runOnJS(onDragEnd)(team, -1, -1);
         }),
-    [team, notesFocused, onDragStart, onDragMove, onDragEnd]
+    [team, notesFocused, onDragStart, onDragMove, onDragEnd, dragX, dragY]
   );
 
   return (
@@ -430,6 +493,7 @@ export default function PicklistScreen() {
   const { data: questions } = useCapabilityQuestions(true);
   const moveTeam = useMoveTeam();
   const { isWide } = useBreakpoint();
+  const dragOverlay = useDragOverlay();
 
   const [search, setSearch] = React.useState('');
   const [filters, setFilters] = React.useState<Filters>({});
@@ -460,29 +524,31 @@ export default function PicklistScreen() {
     [search]
   );
 
-  const columns = TIER_ORDER.map((key) => {
-    const all = tierLists.get(key)!;
-    return {
-      key,
-      all,
-      shown: all.map((team, index) => ({ team, index })).filter(({ team }) => searchVisible(team)),
-    };
-  });
+  const columns = React.useMemo(
+    () =>
+      TIER_ORDER.map((key) => {
+        const all = tierLists.get(key)!;
+        return {
+          key,
+          all,
+          shown: all
+            .map((team, index) => ({ team, index }))
+            .filter(({ team }) => searchVisible(team)),
+        };
+      }),
+    [searchVisible, tierLists]
+  );
 
   // ---- Filter popup anchoring --------------------------------------------------
 
   const rootRef = React.useRef<View>(null);
   const rootRect = React.useRef({ x: 0, y: 0 });
   const filterBtnRef = React.useRef<View>(null);
-  // Shared-value mirror of rootRect, read by the drag overlay's animated style.
-  const rootOrigin = useSharedValue({ x: 0, y: 0 });
-
   const measureRoot = React.useCallback(() => {
     rootRef.current?.measureInWindow((x, y) => {
       rootRect.current = { x, y };
-      rootOrigin.value = { x, y };
     });
-  }, [rootOrigin]);
+  }, []);
 
   const toggleFilters = () => {
     if (showFilters) {
@@ -505,8 +571,19 @@ export default function PicklistScreen() {
   const dragOffsetX = useSharedValue(0);
   const dragOffsetY = useSharedValue(0);
   const dragWidth = useSharedValue(240);
+  const ghostStyle = useAnimatedStyle(() => ({
+    left: dragX.value - dragOffsetX.value,
+    top: dragY.value - dragOffsetY.value,
+    width: dragWidth.value,
+  }));
   const pointerDrag = React.useRef<WebPointerDrag | null>(null);
   const suppressNextClick = React.useRef(false);
+  const queuedNativeMove = React.useRef<{
+    team: PicklistTeam;
+    absX: number;
+    absY: number;
+  } | null>(null);
+  const nativeMoveFrame = React.useRef<number | null>(null);
 
   const boardRef = React.useRef<View>(null);
   const boardRect = React.useRef({ x: 0, y: 0, w: 0, h: 0 });
@@ -610,6 +687,20 @@ export default function PicklistScreen() {
     [moveTeam, tierLists]
   );
 
+  const updateDropTarget = React.useCallback((next: DropTarget | null) => {
+    setDropTarget((current) => {
+      if (
+        current?.tierKey === next?.tierKey &&
+        current?.markerIndex === next?.markerIndex &&
+        current?.insertBeforeTeamId === next?.insertBeforeTeamId &&
+        current?.dimContents === next?.dimContents
+      ) {
+        return current;
+      }
+      return next;
+    });
+  }, []);
+
   // Reanimated shared values are mutable containers written from gesture
   // callbacks; the compiler's immutability/deps rules don't model that, so
   // the writes and depless callbacks below carry targeted disables.
@@ -621,42 +712,79 @@ export default function PicklistScreen() {
       localX: number,
       localY: number
     ) => {
-      measureRoot();
       measureBoard();
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
       dragX.value = absX;
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
       dragY.value = absY;
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
       dragOffsetX.value = localX;
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
       dragOffsetY.value = localY;
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
       dragWidth.value = cardLayouts.current.get(team.id)?.w ?? 240;
       setDragTeam(team);
       setDraggingId(team.id);
-      setDropTarget(resolveDropPoint(team, absX, absY));
+      updateDropTarget(resolveDropPoint(team, absX, absY));
+      const tierKey = team.tier ?? 'untiered';
+      const index = tierLists
+        .get(tierKey)!
+        .findIndex((candidate) => candidate.id === team.id);
+      const highlight =
+        filterCount > 0 ? matchesFilters(team, filters) : null;
+      dragOverlay.show(
+        <Animated.View
+          pointerEvents="none"
+          className="shadow-lg"
+          style={[
+            ghostStyle,
+            { position: 'absolute', opacity: 0.65, elevation: 20 },
+          ]}
+        >
+          <PicklistTeamGhost
+            team={team}
+            index={Math.max(0, index)}
+            highlight={highlight}
+          />
+        </Animated.View>
+      );
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [measureRoot, measureBoard, resolveDropPoint]
+    [measureBoard, resolveDropPoint, updateDropTarget, tierLists, filterCount, filters, dragOverlay]
   );
 
   const onDragMove = React.useCallback(
     (team: PicklistTeam, absX: number, absY: number) => {
-      // eslint-disable-next-line react-hooks/immutability
-      dragX.value = absX;
-      // eslint-disable-next-line react-hooks/immutability
-      dragY.value = absY;
-      setDropTarget(resolveDropPoint(team, absX, absY));
+      queuedNativeMove.current = { team, absX, absY };
+      if (nativeMoveFrame.current !== null) return;
+      nativeMoveFrame.current = requestAnimationFrame(() => {
+        nativeMoveFrame.current = null;
+        const move = queuedNativeMove.current;
+        queuedNativeMove.current = null;
+        if (!move) return;
+        updateDropTarget(
+          resolveDropPoint(move.team, move.absX, move.absY)
+        );
+      });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [resolveDropPoint]
+    [resolveDropPoint, updateDropTarget]
   );
 
   const onDragEnd = React.useCallback(
     (team: PicklistTeam, absX: number, absY: number) => {
+      if (nativeMoveFrame.current !== null) {
+        cancelAnimationFrame(nativeMoveFrame.current);
+        nativeMoveFrame.current = null;
+      }
+      queuedNativeMove.current = null;
+      dragOverlay.hide();
       setDragTeam(null);
       setDraggingId(null);
       const target = absX < 0 ? null : resolveDropPoint(team, absX, absY);
-      setDropTarget(null);
+      updateDropTarget(null);
       commitDrop(team, target);
     },
-    [commitDrop, resolveDropPoint]
+    [commitDrop, dragOverlay, resolveDropPoint, updateDropTarget]
   );
 
   React.useEffect(() => {
@@ -869,12 +997,6 @@ export default function PicklistScreen() {
     [clearPointerDrag, endPointerDrag, movePointerDrag]
   );
 
-  const ghostStyle = useAnimatedStyle(() => ({
-    left: dragX.value - rootOrigin.value.x - dragOffsetX.value,
-    top: dragY.value - rootOrigin.value.y - dragOffsetY.value,
-    width: dragWidth.value,
-  }));
-
   // ---- Render -------------------------------------------------------------------
 
   const renderColumn = (col: (typeof columns)[number]) => (
@@ -930,6 +1052,8 @@ export default function PicklistScreen() {
                 onDragMove={onDragMove}
                 onDragEnd={onDragEnd}
                 onLayoutCard={onLayoutCard}
+                dragX={dragX}
+                dragY={dragY}
                 dragging={draggingId === team.id}
                 indicatorBefore={
                   Platform.OS !== 'web' &&
@@ -1115,26 +1239,6 @@ export default function PicklistScreen() {
         questions={questions ?? []}
       />
 
-      {/* Ghost card that follows the pointer while dragging. */}
-      {Platform.OS !== 'web' && dragTeam ? (
-        <Animated.View
-          pointerEvents="none"
-          style={ghostStyle}
-          className="absolute z-50 gap-1 rounded-md border border-primary bg-card p-2.5 opacity-65"
-        >
-          <View className="flex-row items-center gap-2">
-            <Text className="text-base font-extrabold">#{dragTeam.team_number}</Text>
-          </View>
-          <Text variant="small" numberOfLines={1}>
-            {dragTeam.team_name ?? 'Unknown name'}
-          </Text>
-          {dragTeam.notes ? (
-            <Text className="text-xs text-muted-foreground" numberOfLines={1}>
-              {dragTeam.notes}
-            </Text>
-          ) : null}
-        </Animated.View>
-      ) : null}
     </View>
   );
 }
