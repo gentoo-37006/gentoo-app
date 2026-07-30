@@ -46,8 +46,9 @@ import { Avatar } from '@/components/ui/avatar';
 const MOBILE_SIDEBAR_WIDTH = 256;
 const MOBILE_SIDEBAR_ANIMATION_MS = 220;
 const MOBILE_EDGE_SWIPE_WIDTH = 24;
-const MOBILE_OPEN_SWIPE_TRIGGER = 64;
+const MOBILE_OPEN_SWIPE_TRIGGER = 48;
 const MOBILE_CLOSE_SWIPE_TRIGGER = 64;
+const MOBILE_OPEN_SWIPE_VELOCITY = 0.18;
 
 function isActiveRoute(href: string, pathname: string) {
   if (href === '/') return pathname === '/';
@@ -527,15 +528,26 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
         onPanResponderRelease: (_event, gesture) => {
           if (
             gesture.dx >= MOBILE_OPEN_SWIPE_TRIGGER ||
-            gesture.vx >= 0.35
+            menuProgress.value * MOBILE_SIDEBAR_WIDTH >=
+              MOBILE_OPEN_SWIPE_TRIGGER ||
+            gesture.vx >= MOBILE_OPEN_SWIPE_VELOCITY
           ) {
             animateMenu(1, undefined, gesture.vx);
           } else {
             animateMenu(0, () => setMenuVisible(false));
           }
         },
-        onPanResponderTerminate: () => {
-          animateMenu(0, () => setMenuVisible(false));
+        onPanResponderTerminate: (_event, gesture) => {
+          if (
+            gesture.dx >= MOBILE_OPEN_SWIPE_TRIGGER ||
+            menuProgress.value * MOBILE_SIDEBAR_WIDTH >=
+              MOBILE_OPEN_SWIPE_TRIGGER ||
+            gesture.vx >= MOBILE_OPEN_SWIPE_VELOCITY
+          ) {
+            animateMenu(1, undefined, gesture.vx);
+          } else {
+            animateMenu(0, () => setMenuVisible(false));
+          }
         },
       })
   );
