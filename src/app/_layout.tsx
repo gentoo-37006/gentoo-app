@@ -16,6 +16,7 @@ if (!globalThis.crypto.subtle) {
    app modules are evaluated (Metro executes requires in source order). */
 import * as React from 'react';
 import { Animated, Easing, Image, Platform, View } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 import * as Updates from 'expo-updates';
 import { Stack, ThemeProvider, usePathname, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -28,6 +29,10 @@ import { Providers } from '@/components/providers';
 import { UpdateBanner } from '@/components/update-banner';
 import { useAuth } from '@/lib/auth';
 import { useDatabaseRealtime } from '@/lib/use-database-realtime';
+
+if (Platform.OS !== 'web') {
+  void SplashScreen.preventAutoHideAsync();
+}
 
 const LOADING_COLORS = {
   light: { background: '#FAFAFA', spinner: '#9F63DE' },
@@ -100,9 +105,14 @@ export default function RootLayout() {
   const theme = colorScheme === 'dark' ? NAV_THEME.dark : NAV_THEME.light;
   useRestoreThemeMode();
   useNativeUpdates();
+  const hideNativeSplash = React.useCallback(() => {
+    if (Platform.OS !== 'web') {
+      void SplashScreen.hideAsync();
+    }
+  }, []);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }} onLayout={hideNativeSplash}>
       <SafeAreaProvider>
         <ThemeProvider value={theme}>
           <Providers>
