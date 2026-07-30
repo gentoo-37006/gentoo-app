@@ -87,7 +87,7 @@ function ProjectCard({
   return (
     <Pressable
       accessibilityRole="button"
-      className="relative overflow-visible rounded-md border border-border bg-card active:opacity-75 hover:bg-accent/70"
+      className="relative w-full overflow-visible rounded-md border border-border bg-card active:opacity-75 hover:bg-accent/70"
       onPress={onPress}
       onLayout={(event) => {
         setCardHeight(event.nativeEvent.layout.height);
@@ -476,7 +476,7 @@ function ProjectList({
   };
 
   return (
-    <View className="relative gap-3">
+    <View className="relative w-full gap-3">
       {Platform.OS !== 'web' ? (
         <Animated.View
           pointerEvents="none"
@@ -501,7 +501,7 @@ function ProjectList({
                 event.stopPropagation();
               },
               className: cn(
-                'relative',
+                'relative w-full',
                 draggingId === project.id && 'cursor-grabbing opacity-40'
               ),
             },
@@ -513,7 +513,7 @@ function ProjectList({
         ) : (
           <View
             key={project.id}
-            className="relative"
+            className="relative w-full"
             style={
               draggingId === project.id
                 ? { zIndex: 100, elevation: 100 }

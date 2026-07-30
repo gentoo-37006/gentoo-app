@@ -67,7 +67,7 @@ function LoadingSpinner({ color }: { color: string }) {
           position: 'absolute',
           inset: 0,
           borderRadius: 52.5,
-          borderWidth: 6.25,
+          borderWidth: 3.125,
           borderColor: `${color}38`,
           borderTopColor: color,
           transform: [
@@ -86,7 +86,7 @@ function LoadingSpinner({ color }: { color: string }) {
         }}
       >
         <Image
-          source={require('../../assets/images/favicon.png')}
+          source={require('../../assets/images/icon.png')}
           resizeMode="cover"
           style={{ width: '100%', height: '100%' }}
         />

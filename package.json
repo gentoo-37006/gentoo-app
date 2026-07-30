@@ -1,7 +1,7 @@
 {
   "name": "gentoo-app",
   "main": "expo-router/entry",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/gentoo-34755/gentoo-app.git"
