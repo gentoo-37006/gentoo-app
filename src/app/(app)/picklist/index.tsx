@@ -38,6 +38,11 @@ import {
   type PicklistTeam,
 } from '@/lib/queries/picklist';
 import { tierLabel, type CapabilityQuestion, type PicklistTier, type TierKey } from '@/lib/types';
+import {
+  hapticReorderDrop,
+  hapticReorderPickup,
+  hapticReorderTargetChange,
+} from '@/lib/reorder-haptics';
 
 const TIER_ORDER: TierKey[] = ['tier1', 'tier2', 'tier3', 'dnp', 'untiered'];
 
@@ -566,6 +571,7 @@ export default function PicklistScreen() {
   const [dragTeam, setDragTeam] = React.useState<PicklistTeam | null>(null);
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
   const [dropTarget, setDropTarget] = React.useState<DropTarget | null>(null);
+  const dropTargetRef = React.useRef<DropTarget | null>(null);
   const dragX = useSharedValue(0);
   const dragY = useSharedValue(0);
   const dragOffsetX = useSharedValue(0);
@@ -687,18 +693,19 @@ export default function PicklistScreen() {
     [moveTeam, tierLists]
   );
 
-  const updateDropTarget = React.useCallback((next: DropTarget | null) => {
-    setDropTarget((current) => {
-      if (
-        current?.tierKey === next?.tierKey &&
-        current?.markerIndex === next?.markerIndex &&
-        current?.insertBeforeTeamId === next?.insertBeforeTeamId &&
-        current?.dimContents === next?.dimContents
-      ) {
-        return current;
-      }
-      return next;
-    });
+  const updateDropTarget = React.useCallback((next: DropTarget | null, haptic = true) => {
+    const current = dropTargetRef.current;
+    if (
+      current?.tierKey === next?.tierKey &&
+      current?.markerIndex === next?.markerIndex &&
+      current?.insertBeforeTeamId === next?.insertBeforeTeamId &&
+      current?.dimContents === next?.dimContents
+    ) {
+      return;
+    }
+    dropTargetRef.current = next;
+    setDropTarget(next);
+    if (haptic) hapticReorderTargetChange();
   }, []);
 
   // Reanimated shared values are mutable containers written from gesture
@@ -725,7 +732,8 @@ export default function PicklistScreen() {
       dragWidth.value = cardLayouts.current.get(team.id)?.w ?? 240;
       setDragTeam(team);
       setDraggingId(team.id);
-      updateDropTarget(resolveDropPoint(team, absX, absY));
+      hapticReorderPickup();
+      updateDropTarget(resolveDropPoint(team, absX, absY), false);
       const tierKey = team.tier ?? 'untiered';
       const index = tierLists
         .get(tierKey)!
@@ -781,7 +789,8 @@ export default function PicklistScreen() {
       setDragTeam(null);
       setDraggingId(null);
       const target = absX < 0 ? null : resolveDropPoint(team, absX, absY);
-      updateDropTarget(null);
+      updateDropTarget(null, false);
+      if (target) hapticReorderDrop();
       commitDrop(team, target);
     },
     [commitDrop, dragOverlay, resolveDropPoint, updateDropTarget]

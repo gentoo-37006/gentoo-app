@@ -35,6 +35,11 @@ import {
 } from '@/lib/queries/tasks';
 import { cn } from '@/lib/utils';
 import { getNativeDropTarget } from '@/lib/native-reorder';
+import {
+  hapticReorderDrop,
+  hapticReorderPickup,
+  hapticReorderTargetChange,
+} from '@/lib/reorder-haptics';
 
 const COMPLETED_LINE_HEIGHT =
   Platform.OS === 'web' ? 1 / PixelRatio.get() : StyleSheet.hairlineWidth;
@@ -187,6 +192,7 @@ function ProjectList({
     listTop: number;
     startScrollOffset: number;
     insertionIndex: number;
+    targetKey: string | null;
   } | null>(null);
   const suppressNextClick = React.useRef(false);
 
@@ -222,7 +228,7 @@ function ProjectList({
     }
   };
 
-  const moveNativeDrag = (absoluteY: number) => {
+  const moveNativeDrag = (absoluteY: number, notifyTargetChange = true) => {
     const drag = nativeDrag.current;
     if (!drag) return;
     const contentY =
@@ -235,6 +241,15 @@ function ProjectList({
       nativeLayouts.current,
       contentY
     );
+    const targetKey = `${target.itemId}:${target.edge}:${target.insertionIndex}`;
+    if (
+      notifyTargetChange &&
+      drag.targetKey !== null &&
+      drag.targetKey !== targetKey
+    ) {
+      hapticReorderTargetChange();
+    }
+    drag.targetKey = targetKey;
     drag.insertionIndex = target.insertionIndex;
     const targetLayout = nativeLayouts.current.get(target.itemId);
     if (targetLayout) {
@@ -260,9 +275,11 @@ function ProjectList({
       listTop: absoluteY - localY - layout.y,
       startScrollOffset: screenDragController.getScrollOffset(),
       insertionIndex: projects.findIndex((project) => project.id === projectId),
+      targetKey: null,
     };
     setDraggingId(projectId);
-    moveNativeDrag(absoluteY);
+    hapticReorderPickup();
+    moveNativeDrag(absoluteY, false);
   };
 
   const clearNativeDrag = () => {
@@ -277,6 +294,7 @@ function ProjectList({
     if (!drag) return;
     moveNativeDrag(absoluteY);
     reorderAt(drag.projectId, drag.insertionIndex);
+    hapticReorderDrop();
     clearNativeDrag();
   };
 

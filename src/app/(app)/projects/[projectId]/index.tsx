@@ -76,6 +76,11 @@ import {
   type TaskStatus,
 } from '@/lib/types';
 import { getNativeDropTarget } from '@/lib/native-reorder';
+import {
+  hapticReorderDrop,
+  hapticReorderPickup,
+  hapticReorderTargetChange,
+} from '@/lib/reorder-haptics';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const COMPLETED_LINE_DURATION_MS = 250;
@@ -947,6 +952,7 @@ function TaskTable({
     listTop: number;
     startScrollOffset: number;
     insertionIndex: number;
+    targetKey: string | null;
   } | null>(null);
   const suppressNextClick = React.useRef(false);
 
@@ -982,7 +988,7 @@ function TaskTable({
     }
   };
 
-  const moveNativeDrag = (absoluteY: number) => {
+  const moveNativeDrag = (absoluteY: number, notifyTargetChange = true) => {
     const drag = nativeDrag.current;
     if (!drag) return;
     const contentY =
@@ -995,6 +1001,15 @@ function TaskTable({
       nativeLayouts.current,
       contentY
     );
+    const targetKey = `${target.itemId}:${target.edge}:${target.insertionIndex}`;
+    if (
+      notifyTargetChange &&
+      drag.targetKey !== null &&
+      drag.targetKey !== targetKey
+    ) {
+      hapticReorderTargetChange();
+    }
+    drag.targetKey = targetKey;
     drag.insertionIndex = target.insertionIndex;
     const targetLayout = nativeLayouts.current.get(target.itemId);
     if (targetLayout) {
@@ -1021,9 +1036,11 @@ function TaskTable({
       listTop: absoluteY - localY - layout.y,
       startScrollOffset: screenDragController.getScrollOffset(),
       insertionIndex: tasks.findIndex((task) => task.id === taskId),
+      targetKey: null,
     };
     setDraggingId(taskId);
-    moveNativeDrag(absoluteY);
+    hapticReorderPickup();
+    moveNativeDrag(absoluteY, false);
   };
 
   const clearNativeDrag = () => {
@@ -1038,6 +1055,7 @@ function TaskTable({
     if (!drag) return;
     moveNativeDrag(absoluteY);
     reorderAt(drag.taskId, drag.insertionIndex);
+    hapticReorderDrop();
     clearNativeDrag();
   };
 
