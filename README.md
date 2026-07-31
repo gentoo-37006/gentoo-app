@@ -38,10 +38,18 @@ npm start              # then press w (web), i (iOS), a (Android)
 | `npm run lint` | Run Expo lint |
 | `npm run release:all` | Build + submit iOS, build the Android APK, collect artifacts |
 
-> **iOS builds need macOS — except through EAS.** `release:all` picks the
-> toolchain the machine can run: a local Xcode build on a Mac, or EAS's macOS
-> workers anywhere else, so the same release works from Linux. Force either one
-> with `npm run ios:publish` (local) or `npm run ios:publish:cloud` (EAS).
+> **`release:all` runs anywhere.** Each platform picks the toolchain the machine
+> can actually run, so a release works from a Mac or from Linux:
+>
+> - **iOS** — a local Xcode build on macOS; EAS's macOS workers elsewhere, since
+>   Xcode is macOS-only. Either way it submits to TestFlight.
+> - **Android** — a local Gradle build when a JDK 17/21 and the Android SDK are
+>   installed; otherwise EAS, and the finished APK is downloaded to
+>   `android-build/` so `release:collect` still finds it.
+>
+> Force a specific route with `ios:publish` / `ios:publish:cloud` and
+> `android:apk` / `android:apk:cloud`. Cloud builds need `eas login` and consume
+> build credits.
 
 > **The export bakes in the environment.** `EXPO_PUBLIC_*` values are inlined
 > when the web bundle is exported, so a build made without `.env` (or without

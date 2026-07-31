@@ -1,7 +1,18 @@
 #!/usr/bin/env bash
+# Build the release APK locally. Needs a JDK 17/21 and the Android SDK.
+#
+# `--check` runs only the toolchain detection and exits 0 when a local build is
+# possible — publish-android.sh uses it to decide between building here and
+# building on EAS. It deliberately stops before touching ~/.gradle.
 set -euo pipefail
 
-java_home_cmd="/usr/libexec/java_home"
+CHECK_ONLY=0
+if [[ "${1:-}" == "--check" ]]; then
+  CHECK_ONLY=1
+  shift
+fi
+
+java_home_cmd="/usr/libexec/java_home" # macOS only; absent elsewhere
 
 java_major() {
   "$1/bin/java" -version 2>&1 | awk -F '[." ]+' '/version/ { print $3; exit }'
@@ -14,21 +25,32 @@ is_supported_java_home() {
   [[ "$major" == "17" || "$major" == "21" ]]
 }
 
+# Every tree a JDK is normally installed into: Homebrew (macOS), the distro
+# package manager and SDKMAN (Linux). Unmatched globs simply fail the -x test.
+jdk_search_paths() {
+  printf '%s\n' \
+    "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home" \
+    "/usr/local/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home" \
+    "/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home" \
+    "/usr/local/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home" \
+    /usr/lib/jvm/*/ \
+    /usr/local/lib/jvm/*/ \
+    "$HOME"/.sdkman/candidates/java/*/
+}
+
 find_supported_java_home() {
   local requested home
-  local homebrew_home_candidates=(
-    "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
-    "/usr/local/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
-  )
 
-  for home in "${homebrew_home_candidates[@]}"; do
-    if [[ -x "$home/bin/java" && "$(java_major "$home")" == "21" ]]; then
+  # Newest supported JDK first, so a box with both 17 and 21 uses 21.
+  for requested in 21 17; do
+    while IFS= read -r home; do
+      home="${home%/}"
+      [[ -x "$home/bin/java" ]] || continue
+      [[ "$(java_major "$home")" == "$requested" ]] || continue
       echo "$home"
       return 0
-    fi
-  done
+    done < <(jdk_search_paths)
 
-  for requested in 21 17; do
     if [[ -x "$java_home_cmd" ]]; then
       home="$("$java_home_cmd" -v "$requested" 2>/dev/null || true)"
       if [[ -n "$home" && -x "$home/bin/java" && "$(java_major "$home")" == "$requested" ]]; then
@@ -53,14 +75,17 @@ if [[ -z "${JAVA_HOME:-}" ]]; then
   if [[ -n "$supported_java_home" ]]; then
     export JAVA_HOME="$supported_java_home"
   else
-    cat >&2 <<'EOF'
-No supported local Android build JDK was found.
-
-Install an LTS JDK, then rerun this command:
-  brew install --cask temurin@21
-
-Your current Java is likely too new for this Android Gradle build.
-EOF
+    echo "No supported local Android build JDK was found (needs 21 or 17)." >&2
+    echo >&2
+    echo "Install an LTS JDK, then rerun this command:" >&2
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+      echo "  brew install --cask temurin@21" >&2
+    else
+      echo "  sudo apt install openjdk-21-jdk      # or: sdk install java 21-tem" >&2
+    fi
+    echo >&2
+    echo "A newer Java (25+) is not usable by this Android Gradle build." >&2
+    echo "Or skip the local toolchain entirely: npm run android:apk:cloud" >&2
     exit 1
   fi
 fi
@@ -69,21 +94,43 @@ echo "Using JAVA_HOME=$JAVA_HOME"
 
 # Android SDK: auto-detect the standard location when ANDROID_HOME isn't set.
 if [[ -z "${ANDROID_HOME:-}" ]]; then
-  if [[ -d "$HOME/Library/Android/sdk" ]]; then
-    export ANDROID_HOME="$HOME/Library/Android/sdk"
-  else
-    cat >&2 <<'EOF'
-No Android SDK found (ANDROID_HOME unset, ~/Library/Android/sdk missing).
+  # macOS keeps the SDK under ~/Library; Linux (and Android Studio there) uses
+  # ~/Android/Sdk. ANDROID_SDK_ROOT is the modern spelling of the same thing.
+  for sdk_candidate in \
+    "${ANDROID_SDK_ROOT:-}" \
+    "$HOME/Library/Android/sdk" \
+    "$HOME/Android/Sdk" \
+    "$HOME/.android/sdk"; do
+    if [[ -n "$sdk_candidate" && -d "$sdk_candidate" ]]; then
+      export ANDROID_HOME="$sdk_candidate"
+      break
+    fi
+  done
+fi
 
-One-time setup:
-  brew install --cask android-commandlinetools
-  yes | sdkmanager --licenses --sdk_root="$HOME/Library/Android/sdk"
-  yes | sdkmanager --sdk_root="$HOME/Library/Android/sdk" platform-tools
-EOF
-    exit 1
+if [[ -z "${ANDROID_HOME:-}" ]]; then
+  sdk_dir="$HOME/Android/Sdk"
+  [[ "$(uname -s)" == "Darwin" ]] && sdk_dir="$HOME/Library/Android/sdk"
+  echo "No Android SDK found (ANDROID_HOME unset, no SDK at $sdk_dir)." >&2
+  echo >&2
+  echo "One-time setup:" >&2
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    echo "  brew install --cask android-commandlinetools" >&2
+  else
+    echo "  sudo apt install android-sdk   # or unzip Google's commandlinetools" >&2
   fi
+  echo "  yes | sdkmanager --licenses --sdk_root=\"$sdk_dir\"" >&2
+  echo "  yes | sdkmanager --sdk_root=\"$sdk_dir\" platform-tools" >&2
+  echo >&2
+  echo "Or skip the local toolchain entirely: npm run android:apk:cloud" >&2
+  exit 1
 fi
 echo "Using ANDROID_HOME=$ANDROID_HOME"
+
+if [[ "$CHECK_ONLY" == "1" ]]; then
+  echo "Local Android toolchain is usable."
+  exit 0
+fi
 
 # The RN gradle plugin compiles with a Java 17 toolchain. Expose every local
 # JDK to Gradle and disable toolchain auto-download: without a matching local
