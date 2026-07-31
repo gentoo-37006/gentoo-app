@@ -141,13 +141,29 @@ fi
 # ~/.gradle/gradle.properties — GRADLE_OPTS system properties don't reach the
 # daemon, and EAS runs gradlew itself so CLI flags aren't an option.
 jdk_paths="$JAVA_HOME"
-for extra in \
-  "/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home" \
-  "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"; do
-  if [[ -x "$extra/bin/java" && "$extra" != "$JAVA_HOME" ]]; then
-    jdk_paths="$jdk_paths,$extra"
+has_jdk17=0
+[[ "$(java_major "$JAVA_HOME")" == "17" ]] && has_jdk17=1
+while IFS= read -r extra; do
+  extra="${extra%/}"
+  [[ -x "$extra/bin/java" && "$extra" != "$JAVA_HOME" ]] || continue
+  case "$(java_major "$extra")" in
+    17) has_jdk17=1 ;;
+    21) ;;
+    *) continue ;; # Gradle only needs the versions the build asks for
+  esac
+  jdk_paths="$jdk_paths,$extra"
+done < <(jdk_search_paths)
+
+if [[ "$has_jdk17" -eq 0 ]]; then
+  echo "warning: no JDK 17 found. React Native's Gradle plugin compiles with a" >&2
+  echo "Java 17 toolchain, and auto-provisioning is off, so the build will fail" >&2
+  echo "with \"Cannot find a Java installation ... languageVersion=17\"." >&2
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    echo "Install one with: brew install openjdk@17" >&2
+  else
+    echo "Install one with: sudo apt install openjdk-17-jdk" >&2
   fi
-done
+fi
 gradle_props="$HOME/.gradle/gradle.properties"
 mkdir -p "$HOME/.gradle"
 touch "$gradle_props"
