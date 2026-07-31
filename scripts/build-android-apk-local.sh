@@ -35,7 +35,9 @@ jdk_search_paths() {
     "/usr/local/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home" \
     /usr/lib/jvm/*/ \
     /usr/local/lib/jvm/*/ \
-    "$HOME"/.sdkman/candidates/java/*/
+    "$HOME"/.sdkman/candidates/java/*/ \
+    "$HOME"/.jdks/*/ \
+    /Library/Java/JavaVirtualMachines/*/Contents/Home
 }
 
 find_supported_java_home() {
@@ -158,4 +160,13 @@ mv "$gradle_props.tmp" "$gradle_props"
 echo "Configured Gradle toolchains in $gradle_props (paths: $jdk_paths)"
 
 mkdir -p android-build
-exec eas build -p android --profile release-apk --local --output android-build/Gentoo.apk "$@"
+
+# `eas` is a global install on the release machines; fall back to npx so a box
+# without it still builds (the first run downloads the CLI).
+if command -v eas >/dev/null 2>&1; then
+  exec eas build -p android --profile release-apk --local --output android-build/Gentoo.apk "$@"
+fi
+
+echo "'eas' is not on PATH — running it through npx."
+exec npx --yes eas-cli build -p android --profile release-apk --local \
+  --output android-build/Gentoo.apk "$@"
