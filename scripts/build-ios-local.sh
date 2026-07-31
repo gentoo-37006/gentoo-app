@@ -10,6 +10,25 @@ export LC_ALL="${LC_ALL:-en_US.UTF-8}"
 
 OUT="${OUT:-ios-build/Gentoo.ipa}"
 
+# Xcode only runs on macOS, so a local iOS build is impossible anywhere else —
+# check this before the toolchain hints below, which would otherwise send a
+# Linux user chasing fastlane for a build that still cannot happen.
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  cat >&2 <<EOF
+iOS apps can only be built on macOS (Xcode is required), and this is $(uname -s).
+
+Build iOS on EAS's macOS workers instead:
+  npm run ios:publish:cloud
+
+The rest of the release runs fine here:
+  npm run android:apk && npm run release:collect
+
+'npm run release:all' chains the local iOS build first, so it cannot complete
+on this machine.
+EOF
+  exit 1
+fi
+
 if ! command -v fastlane >/dev/null 2>&1; then
   cat >&2 <<'EOF'
 'fastlane' not found on PATH — 'eas build --local' requires it for iOS.

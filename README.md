@@ -36,13 +36,18 @@ npm start              # then press w (web), i (iOS), a (Android)
 | `npm run web` / `ios` / `android` | Start on a specific platform |
 | `npm run typecheck` | Run `tsc --noEmit` |
 | `npm run lint` | Run Expo lint |
-| `npm run mac:preview` | Build the web bundle and open it in the desktop shell |
+| `npm run release:all` | Build + submit iOS, build the Android APK, collect artifacts |
 
-> **Desktop builds bake in the environment.** `EXPO_PUBLIC_*` values are inlined
-> when the web bundle is exported, so a desktop build made without `.env` (or
-> without those vars on the build host) installs fine but shows "Backend not
-> configured" on launch. Every export runs `scripts/check-public-env.js` first
-> and fails with a fix-it message rather than shipping a dead app.
+> **iOS builds need macOS — except through EAS.** `release:all` picks the
+> toolchain the machine can run: a local Xcode build on a Mac, or EAS's macOS
+> workers anywhere else, so the same release works from Linux. Force either one
+> with `npm run ios:publish` (local) or `npm run ios:publish:cloud` (EAS).
+
+> **The export bakes in the environment.** `EXPO_PUBLIC_*` values are inlined
+> when the web bundle is exported, so a build made without `.env` (or without
+> those vars on the build host) runs fine but shows "Backend not configured" on
+> launch. Every export runs `scripts/check-public-env.js` first and fails with a
+> fix-it message rather than shipping a dead app.
 
 ## Render deploys
 
