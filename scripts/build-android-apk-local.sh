@@ -164,16 +164,26 @@ if [[ "$has_jdk17" -eq 0 ]]; then
     echo "Install one with: sudo apt install openjdk-17-jdk" >&2
   fi
 fi
+# Expo's generated android/gradle.properties gives the daemon 2 GiB heap and
+# only 512 MiB metaspace, which KSP (:expo-updates:kspReleaseKotlin) and lint
+# both exhaust — "OutOfMemoryError: Metaspace" partway through the build. The
+# user-level file wins over the project one, and unlike android/ it survives
+# prebuild regenerating the native project. Both values are ceilings: the JVM
+# commits only what it uses, so this is safe on smaller machines too.
+GRADLE_JVM_ARGS="${GRADLE_JVM_ARGS:--Xmx4g -XX:MaxMetaspaceSize=2g -Dfile.encoding=UTF-8}"
+
 gradle_props="$HOME/.gradle/gradle.properties"
 mkdir -p "$HOME/.gradle"
 touch "$gradle_props"
-grep -v '^org\.gradle\.java\.installations\.' "$gradle_props" > "$gradle_props.tmp" || true
+grep -vE '^org\.gradle\.(java\.installations\.|jvmargs)' "$gradle_props" > "$gradle_props.tmp" || true
 mv "$gradle_props.tmp" "$gradle_props"
 {
   echo "org.gradle.java.installations.auto-download=false"
   echo "org.gradle.java.installations.paths=$jdk_paths"
+  echo "org.gradle.jvmargs=$GRADLE_JVM_ARGS"
 } >> "$gradle_props"
 echo "Configured Gradle toolchains in $gradle_props (paths: $jdk_paths)"
+echo "Configured Gradle daemon memory: $GRADLE_JVM_ARGS"
 
 mkdir -p android-build
 
