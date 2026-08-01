@@ -1,6 +1,7 @@
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConfirmationButton } from '@/components/ui/delete-button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -15,7 +16,7 @@ import { ACTIVE_EVENT_KEY, useAppSetting } from '@/lib/queries/settings';
 import { supabase } from '@/lib/supabase';
 import { useThemeMode } from '@/lib/theme-mode';
 import { cn } from '@/lib/utils';
-import { Download, LogOut, Moon, RefreshCw, Sparkles, Sun, SunMoon, type LucideIcon } from 'lucide-react-native';
+import { Download, LogOut, Moon, Sparkles, Sun, SunMoon, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Alert, Pressable, View } from 'react-native';
 
@@ -90,7 +91,13 @@ function AccountCard() {
           ))}
         </View>
         <Text variant="muted">If linked, a role will automatically be assigned.</Text>
-        <Button variant="outline" label="Sign out" icon={LogOut} onPress={signOut} />
+        <ConfirmationButton
+          variant="outline"
+          label="Sign out"
+          icon={LogOut}
+          confirmationAction="sign out"
+          onPress={signOut}
+        />
       </CardContent>
     </Card>
   );
@@ -210,7 +217,13 @@ function DiscordCard() {
       </CardHeader>
       <CardContent className="gap-3">
         {isLinked ? (
-          <Button variant="outline" label="Unlink Discord" loading={unlinking} onPress={unlink} />
+          <ConfirmationButton
+            variant="outline"
+            label="Unlink Discord"
+            loading={unlinking}
+            confirmationAction="unlink Discord"
+            onPress={unlink}
+          />
         ) : code ? (
           <>
             <View className="items-center rounded-lg bg-muted px-4 py-5">

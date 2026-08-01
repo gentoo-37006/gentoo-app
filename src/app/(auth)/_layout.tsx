@@ -1,5 +1,10 @@
 import { Stack } from 'expo-router';
+import { DragOverlayProvider } from '@/components/drag-overlay';
 
 export default function AuthLayout() {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <DragOverlayProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+    </DragOverlayProvider>
+  );
 }

@@ -44,7 +44,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { AutoGrowingTextInput } from '@/components/ui/auto-growing-text-input';
 import { Button } from '@/components/ui/button';
 import { DeleteButton } from '@/components/ui/delete-button';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +55,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { FadeModal, FADE_DURATION_MS } from '@/components/ui/fade-modal';
 import { MobileDragSurface } from '@/components/mobile-drag-surface';
 import { cn } from '@/lib/utils';
+import { useColorScheme } from '@/lib/theme';
 import { useProfiles } from '@/lib/queries/profiles';
 import {
   useProject,
@@ -1297,19 +1298,19 @@ function TaskTable({
             <Text variant="label" className="text-muted-foreground">Task</Text>
           </View>
           <View className={cn(TASK_TABLE_COLUMNS.status, 'px-2')}>
-            <Text variant="label" className="text-muted-foreground">Status</Text>
+            <Text variant="label" className="ml-1 text-muted-foreground">Status</Text>
           </View>
-          <View className={cn(TASK_TABLE_COLUMNS.assignees, 'px-3')}>
-            <Text variant="label" className="text-muted-foreground">Assignees</Text>
+          <View className={cn(TASK_TABLE_COLUMNS.assignees, 'px-2')}>
+            <Text variant="label" className="ml-1 text-muted-foreground">Assignees</Text>
           </View>
-          <View className={cn(TASK_TABLE_COLUMNS.dueDate, 'px-3')}>
-            <Text variant="label" className="text-muted-foreground">Due date</Text>
+          <View className={cn(TASK_TABLE_COLUMNS.dueDate, 'px-2')}>
+            <Text variant="label" className="ml-1 text-muted-foreground">Due date</Text>
           </View>
-          <View className={cn(TASK_TABLE_COLUMNS.priority, 'px-3')}>
-            <Text variant="label" className="text-muted-foreground">Priority</Text>
+          <View className={cn(TASK_TABLE_COLUMNS.priority, 'px-2')}>
+            <Text variant="label" className="ml-1 text-muted-foreground">Priority</Text>
           </View>
-          <View className={cn(TASK_TABLE_COLUMNS.tags, 'px-3')}>
-            <Text variant="label" className="text-muted-foreground">Tags</Text>
+          <View className={cn(TASK_TABLE_COLUMNS.tags, 'px-2')}>
+            <Text variant="label" className="ml-1 text-muted-foreground">Tags</Text>
           </View>
           <View className={TASK_TABLE_COLUMNS.actions} />
         </View>
@@ -1439,6 +1440,7 @@ function TaskTable({
 
 export default function ProjectDetailScreen() {
   const router = useRouter();
+  const { colorScheme } = useColorScheme();
   const { projectId, task: focusParam } = useLocalSearchParams<{
     projectId: string;
     task?: string;
@@ -1487,7 +1489,6 @@ export default function ProjectDetailScreen() {
   const [draftProjectId, setDraftProjectId] = React.useState<string | null>(null);
   const [nameDraft, setNameDraft] = React.useState('');
   const [descriptionDraft, setDescriptionDraft] = React.useState('');
-  const [descriptionInputHeight, setDescriptionInputHeight] = React.useState(20);
   const nameSaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const descriptionSaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1504,7 +1505,6 @@ export default function ProjectDetailScreen() {
     setDraftProjectId(project.id);
     setNameDraft(project.name);
     setDescriptionDraft(project.description ?? '');
-    setDescriptionInputHeight(20);
   }
 
   if (isLoading) {
@@ -1623,27 +1623,28 @@ export default function ProjectDetailScreen() {
         </Pressable>
 
         <View className="flex-row items-start justify-between gap-4">
-          <View className="flex-1 gap-2">
-            <Input
+          <View className="min-w-0 flex-1 gap-2">
+            <AutoGrowingTextInput
+              minHeight={32}
               value={nameDraft}
               onChangeText={changeName}
               onBlur={finishNameEditing}
               onSubmitEditing={finishNameEditing}
-              className="h-auto min-h-8 rounded-none border-0 bg-transparent px-0 py-0 text-2xl font-bold tracking-tight outline-none focus:border-transparent"
+              className="min-h-8 rounded-none border-0 bg-transparent px-0 py-0 text-2xl font-bold tracking-tight outline-none focus:border-transparent"
             />
 
-            <View className="min-h-8 justify-center">
-              <Textarea
+            <View className="min-h-8 pt-1.5">
+              <AutoGrowingTextInput
+                minHeight={20}
                 value={descriptionDraft}
                 onChangeText={changeDescription}
                 onBlur={finishDescriptionEditing}
-                onContentSizeChange={(event) =>
-                  setDescriptionInputHeight(Math.max(20, event.nativeEvent.contentSize.height))
-                }
-                scrollEnabled={false}
+                onSubmitEditing={finishDescriptionEditing}
                 placeholder="Add a description"
-                className="min-h-5 resize-none rounded-none border-0 bg-transparent p-0 text-sm outline-none focus:border-transparent"
-                style={{ height: descriptionInputHeight }}
+                placeholderTextColor={
+                  colorScheme === 'dark' ? 'hsl(0 0% 68%)' : 'hsl(0 0% 36%)'
+                }
+                className="min-h-5 max-w-full rounded-none border-0 bg-transparent p-0 text-sm outline-none focus:border-transparent"
               />
             </View>
           </View>
@@ -1658,7 +1659,8 @@ export default function ProjectDetailScreen() {
             />
             <DeleteButton
               variant="outline"
-              size="icon"
+              size="sm"
+              className="w-9 px-0"
               icon={Trash2}
               accessibilityLabel="Move project to trash"
               onPress={() => {

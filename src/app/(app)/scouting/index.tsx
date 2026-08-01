@@ -38,7 +38,7 @@ const SECTIONS: Section[] = [
 function SectionCard({ section }: { section: Section }) {
   const router = useRouter();
   const card = (
-    <Card className={!section.href ? 'opacity-70' : undefined}>
+    <Card className={!section.href ? 'opacity-70' : 'hover:bg-accent/70'}>
       <CardContent className="flex-row items-center gap-4 p-4">
         <View className="h-11 w-11 items-center justify-center rounded-xl bg-accent">
           <Icon as={section.icon} size={22} className="text-primary" />

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <title>Gentoo</title>
+    <script>
+      try {
+        var splashTheme = localStorage.getItem('gentoo.theme-mode');
+        var splashDark =
+          splashTheme === 'dark' ||
+          (splashTheme !== 'light' &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.add(
+          splashDark ? 'splash-dark' : 'splash-light'
+        );
+        window.gentooSplashIcon = splashDark
+          ? '/splash-icon-dark.png'
+          : '/splash-icon-light.png';
+      } catch (_error) {}
+    </script>
+    <style id="expo-reset">
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+    <style id="gentoo-splash-styles">
+      html,
+      body {
+        background: #fafafa;
+      }
+
+      #gentoo-static-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fafafa;
+        opacity: 1;
+        transition: opacity 75ms ease-out;
+      }
+
+      #gentoo-static-splash-logo {
+        width: 370px;
+        height: 370px;
+      }
+
+      #gentoo-static-splash-logo img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      html.splash-dark,
+      html.splash-dark body,
+      html.splash-dark #gentoo-static-splash {
+        background: #0a0a0a;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        html:not(.splash-light),
+        html:not(.splash-light) body,
+        html:not(.splash-light) #gentoo-static-splash {
+          background: #0a0a0a;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="gentoo-static-splash" aria-hidden="true">
+      <div id="gentoo-static-splash-logo">
+        <img id="gentoo-static-splash-image" src="/splash-icon-light.png" alt="" />
+        <script>
+          document.getElementById('gentoo-static-splash-image').src =
+            window.gentooSplashIcon || '/splash-icon-light.png';
+        </script>
+      </div>
+    </div>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
+import { ConfirmationButton } from '@/components/ui/delete-button';
 import { Card, CardContent } from '@/components/ui/card';
 
 export default function PendingScreen() {
@@ -60,7 +61,13 @@ export default function PendingScreen() {
             </CardContent>
           </Card>
 
-          <Button variant="ghost" label="Sign out" icon={LogOut} onPress={signOut} />
+          <ConfirmationButton
+            variant="ghost"
+            label="Sign out"
+            icon={LogOut}
+            confirmationAction="sign out"
+            onPress={signOut}
+          />
         </View>
       </View>
     </SafeAreaView>

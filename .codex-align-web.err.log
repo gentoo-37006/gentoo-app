@@ -1,0 +1,14 @@
+npm WARN logfile Error: EPERM: operation not permitted, scandir 'C:\Users\herob\AppData\Local\npm-cache\_logs'
+npm WARN logfile     at async Object.readdir (node:internal/fs/promises:945:18)
+npm WARN logfile     at async #cleanLogs (C:\Program Files\nodejs\node_modules\npm\lib\utils\log-file.js:207:19)
+npm WARN logfile  error cleaning log files Error: EPERM: operation not permitted, scandir 'C:\Users\herob\AppData\Local\npm-cache\_logs'
+npm WARN logfile     at async Object.readdir (node:internal/fs/promises:945:18)
+npm WARN logfile     at async #cleanLogs (C:\Program Files\nodejs\node_modules\npm\lib\utils\log-file.js:207:19) {
+npm WARN logfile   errno: -4048,
+npm WARN logfile   code: 'EPERM',
+npm WARN logfile   syscall: 'scandir',
+npm WARN logfile   path: 'C:\\Users\\herob\\AppData\\Local\\npm-cache\\_logs'
+npm WARN logfile }
+Node.js (v20.13.1) is outdated and unsupported. Please update to a newer Node.js LTS version (required: >=20.19.4)
+Go to: https://nodejs.org/en/download
+

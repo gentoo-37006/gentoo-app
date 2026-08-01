@@ -20,6 +20,7 @@ import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
+import { AutoGrowingTextInput } from '@/components/ui/auto-growing-text-input';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DeleteButton } from '@/components/ui/delete-button';
@@ -285,13 +286,14 @@ export default function TaskNotesScreen() {
           <Text variant="muted">Back</Text>
         </Pressable>
         <View className="flex-row items-start justify-between gap-4">
-          <View className="flex-1">
-            <Input
+          <View className="min-w-0 flex-1">
+            <AutoGrowingTextInput
+              minHeight={32}
               value={titleDraft}
               onChangeText={changeTitle}
               onBlur={finishTitleEditing}
               onSubmitEditing={finishTitleEditing}
-              className="h-auto min-h-8 rounded-none border-0 bg-transparent px-0 py-0 text-2xl font-bold tracking-tight outline-none focus:border-transparent"
+              className="min-h-8 rounded-none border-0 bg-transparent px-0 py-0 text-2xl font-bold tracking-tight outline-none focus:border-transparent"
             />
           </View>
           <DeleteButton

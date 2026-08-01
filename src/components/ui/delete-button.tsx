@@ -114,10 +114,15 @@ function useShiftPressed() {
   return pressed;
 }
 
-export function DeleteButton({
+type ConfirmationButtonProps = ButtonProps & {
+  confirmationAction: string;
+};
+
+export function ConfirmationButton({
+  confirmationAction,
   className,
   iconClassName,
-  icon = Trash2,
+  icon,
   variant,
   size,
   label,
@@ -128,7 +133,7 @@ export function DeleteButton({
   onHoverOut,
   onPress,
   ...pressableProps
-}: ButtonProps) {
+}: ConfirmationButtonProps) {
   const { width: viewportWidth } = useWindowDimensions();
   const dragOverlay = useDragOverlay();
   const shiftPressed = useShiftPressed();
@@ -143,13 +148,15 @@ export function DeleteButton({
   // Hold-Shift only where a keyboard is a safe assumption; touch web falls back
   // to press-again, or deleting would be impossible there.
   const shiftGate = isWeb && !coarsePointer;
-  const webDeleteEnabled = shiftGate && shiftPressed;
+  const webConfirmationEnabled = shiftGate && shiftPressed;
   const textClass = buttonTextVariants({ variant });
   const showTooltip =
     !isDisabled && ((shiftGate && hovered && !shiftPressed) || (!shiftGate && confirming));
   const showDangerIcon =
     !isDisabled && ((shiftGate && hovered && shiftPressed) || (!shiftGate && confirming));
-  const tooltipText = shiftGate ? 'Hold Shift to delete' : 'Press again to delete';
+  const tooltipText = shiftGate
+    ? `Hold Shift to ${confirmationAction}`
+    : `Press again to ${confirmationAction}`;
   const confirmationTextClass = cn(textClass, showDangerIcon && 'text-destructive');
 
   const measureTooltipAnchor = () =>
@@ -197,18 +204,18 @@ export function DeleteButton({
       {...pressableProps}
       className={cn(
         'relative',
-        isWeb && (!shiftGate || webDeleteEnabled ? 'cursor-pointer' : 'cursor-default'),
+        isWeb && (!shiftGate || webConfirmationEnabled ? 'cursor-pointer' : 'cursor-default'),
         className
       )}
       disabled={isDisabled}
       accessibilityRole="button"
       accessibilityState={{
         ...pressableProps.accessibilityState,
-        disabled: isDisabled || (shiftGate && !webDeleteEnabled),
+        disabled: isDisabled || (shiftGate && !webConfirmationEnabled),
       }}
       onPress={
         shiftGate
-          ? webDeleteEnabled
+          ? webConfirmationEnabled
             ? onPress
             : undefined
           : (event) => {
@@ -251,7 +258,7 @@ export function DeleteButton({
             className
           )}
           style={
-            shiftGate && !webDeleteEnabled && (variant === 'outline' || variant === 'ghost')
+            shiftGate && !webConfirmationEnabled && (variant === 'outline' || variant === 'ghost')
               ? { backgroundColor: 'transparent', opacity: isDisabled ? 0.5 : 1 }
               : undefined
           }
@@ -271,5 +278,15 @@ export function DeleteButton({
         </View>
       </TextClassContext.Provider>
     </Pressable>
+  );
+}
+
+export function DeleteButton(props: ButtonProps) {
+  return (
+    <ConfirmationButton
+      {...props}
+      confirmationAction="delete"
+      icon={props.icon ?? Trash2}
+    />
   );
 }

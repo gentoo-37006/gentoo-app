@@ -15,7 +15,16 @@ if (!globalThis.crypto.subtle) {
 /* eslint-disable import/first -- the crypto polyfill above must install before
    app modules are evaluated (Metro executes requires in source order). */
 import * as React from 'react';
-import { Animated, Easing, Image, Platform, View } from 'react-native';
+import {
+  Animated,
+  Appearance,
+  Easing,
+  Image,
+  type ImageSourcePropType,
+  Platform,
+  StyleSheet,
+  View,
+} from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Updates from 'expo-updates';
 import { Stack, ThemeProvider, usePathname, useRouter, useSegments } from 'expo-router';
@@ -30,89 +39,97 @@ import { UpdateBanner } from '@/components/update-banner';
 import { useAuth } from '@/lib/auth';
 import { useDatabaseRealtime } from '@/lib/use-database-realtime';
 
+const SPLASH_FADE_DURATION = 75;
+
 if (Platform.OS !== 'web') {
+  SplashScreen.setOptions({ duration: SPLASH_FADE_DURATION, fade: true });
   void SplashScreen.preventAutoHideAsync();
 }
 
 const LOADING_COLORS = {
-  light: { background: '#FAFAFA', spinner: '#9F63DE' },
-  dark: { background: '#0A0A0A', spinner: '#D8B4FE' },
+  light: { background: '#FAFAFA' },
+  dark: { background: '#0A0A0A' },
 } as const;
 
-function LoadingSpinner({ color }: { color: string }) {
-  const [rotation] = React.useState(() => new Animated.Value(0));
-  const rotate = React.useMemo(
-    () =>
-      rotation.interpolate({
-        inputRange: [0, 1],
-        outputRange: ['0deg', '360deg'],
-      }),
-    [rotation]
-  );
+function LoadingSplash({
+  visible,
+  backgroundColor,
+  imageSource,
+  onReady,
+}: {
+  visible: boolean;
+  backgroundColor: string;
+  imageSource: ImageSourcePropType;
+  onReady?: () => void;
+}) {
+  const [opacity] = React.useState(() => new Animated.Value(1));
 
   React.useEffect(() => {
-    const animation = Animated.loop(
-      Animated.timing(rotation, {
-        toValue: 1,
-        duration: 700,
-        easing: Easing.linear,
-        useNativeDriver: Platform.OS !== 'web',
-      })
-    );
+    if (visible) {
+      opacity.stopAnimation();
+      opacity.setValue(1);
+      return;
+    }
+
+    const animation = Animated.timing(opacity, {
+      toValue: 0,
+      duration: SPLASH_FADE_DURATION,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: Platform.OS !== 'web',
+    });
     animation.start();
     return () => animation.stop();
-  }, [rotation]);
+  }, [opacity, visible]);
 
   return (
-    <View
-      style={{ width: 105, height: 105, alignItems: 'center', justifyContent: 'center' }}
+    <Animated.View
+      pointerEvents={visible ? 'auto' : 'none'}
+      style={[
+        styles.loadingSplash,
+        { backgroundColor, opacity },
+      ]}
     >
-      <Animated.View
-        style={{
-          position: 'absolute',
-          inset: 0,
-          borderRadius: 52.5,
-          borderWidth: 3.125,
-          borderColor: `${color}38`,
-          borderTopColor: color,
-          transform: [
-            {
-              rotate,
-            },
-          ],
-        }}
-      />
-      <View
-        style={{
-          width: 92.5,
-          height: 92.5,
-          borderRadius: 46.25,
-          overflow: 'hidden',
-        }}
-      >
+      <View style={styles.loadingLogo}>
         <Image
-          source={require('../../assets/images/icon.png')}
+          source={imageSource}
           resizeMode="cover"
-          style={{ width: '100%', height: '100%' }}
+          style={styles.loadingLogoImage}
+          onLoad={onReady}
+          onError={onReady}
         />
       </View>
-    </View>
+    </Animated.View>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingSplash: {
+    alignItems: 'center',
+    bottom: 0,
+    justifyContent: 'center',
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
+  loadingLogo: {
+    height: 370,
+    width: 370,
+  },
+  loadingLogoImage: {
+    height: '100%',
+    width: '100%',
+  },
+});
 
 export default function RootLayout() {
   const { colorScheme } = useColorScheme();
   const theme = colorScheme === 'dark' ? NAV_THEME.dark : NAV_THEME.light;
   useRestoreThemeMode();
   useNativeUpdates();
-  const hideNativeSplash = React.useCallback(() => {
-    if (Platform.OS !== 'web') {
-      void SplashScreen.hideAsync();
-    }
-  }, []);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }} onLayout={hideNativeSplash}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider value={theme}>
           <Providers>
@@ -158,10 +175,20 @@ function useNativeUpdates() {
  * approved users in the app. The navigator stays mounted so redirects are safe.
  */
 function RootNavigator() {
-  const { colorScheme } = useColorScheme();
   const { initializing, isConfigured, session, profile } = useAuth();
   useDatabaseRealtime();
-  const loadingColors = LOADING_COLORS[colorScheme === 'dark' ? 'dark' : 'light'];
+  const [nativeSplashTheme] = React.useState<'light' | 'dark'>(() =>
+    Appearance.getColorScheme() === 'dark' ? 'dark' : 'light'
+  );
+  const nativeSplashBackground = LOADING_COLORS[nativeSplashTheme].background;
+  const nativeSplashImage =
+    nativeSplashTheme === 'dark'
+      ? require('../../assets/images/splash-icon-dark.png')
+      : require('../../assets/images/splash-icon-light.png');
+  const [nativeSplashImageReady, setNativeSplashImageReady] = React.useState(false);
+  const [nativeSplashReleased, setNativeSplashReleased] = React.useState(
+    Platform.OS === 'web'
+  );
   const segments = useSegments() as string[];
   const pathname = usePathname();
   const router = useRouter();
@@ -179,6 +206,43 @@ function RootNavigator() {
   else if (!profile) settled = false;
   else if (profile.status !== 'approved') settled = segments[1] === 'pending';
   else settled = !inAuthGroup;
+
+  React.useEffect(() => {
+    if (
+      Platform.OS === 'web' ||
+      !nativeSplashImageReady ||
+      nativeSplashReleased
+    ) {
+      return;
+    }
+
+    let releaseTimer: ReturnType<typeof setTimeout> | undefined;
+    let handoffFrame: number | undefined;
+    const paintFrame = requestAnimationFrame(() => {
+      handoffFrame = requestAnimationFrame(() => {
+        void SplashScreen.hideAsync();
+        releaseTimer = setTimeout(
+          () => setNativeSplashReleased(true),
+          SPLASH_FADE_DURATION
+        );
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(paintFrame);
+      if (handoffFrame !== undefined) cancelAnimationFrame(handoffFrame);
+      if (releaseTimer) clearTimeout(releaseTimer);
+    };
+  }, [nativeSplashImageReady, nativeSplashReleased]);
+
+  React.useEffect(() => {
+    if (Platform.OS !== 'web' || !settled) return;
+    const staticSplash = document.getElementById('gentoo-static-splash');
+    if (!staticSplash || staticSplash.dataset.hiding === 'true') return;
+    staticSplash.dataset.hiding = 'true';
+    staticSplash.style.opacity = '0';
+    window.setTimeout(() => staticSplash.remove(), SPLASH_FADE_DURATION);
+  }, [settled]);
 
   // The effect only issues redirects; `settled` above tracks when they land.
   React.useEffect(() => {
@@ -201,14 +265,14 @@ function RootNavigator() {
   return (
     <>
       <Stack screenOptions={{ headerShown: false }} />
-      {!settled && (
-        <View
-          className="absolute inset-0 items-center justify-center"
-          style={{ backgroundColor: loadingColors.background }}
-        >
-          <LoadingSpinner color={loadingColors.spinner} />
-        </View>
-      )}
+      {Platform.OS !== 'web' ? (
+        <LoadingSplash
+          visible={!settled || !nativeSplashReleased}
+          backgroundColor={nativeSplashBackground}
+          imageSource={nativeSplashImage}
+          onReady={() => setNativeSplashImageReady(true)}
+        />
+      ) : null}
     </>
   );
 }

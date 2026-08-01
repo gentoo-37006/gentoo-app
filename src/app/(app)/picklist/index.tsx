@@ -229,6 +229,7 @@ type WebPointerDrag = {
   ghost: HTMLElement | null;
   line: HTMLElement | null;
   dimmedList: HTMLElement | null;
+  previousBodyUserSelect: string | null;
   target: DropTarget | null;
   moveListener: ((event: PointerEvent) => void) | null;
   endListener: ((event: PointerEvent) => void) | null;
@@ -284,7 +285,7 @@ function PicklistTeamGhost({
   );
 }
 
-function TeamCard({
+const TeamCard = React.memo(function TeamCard({
   team,
   index,
   highlight,
@@ -309,7 +310,7 @@ function TeamCard({
     localX: number,
     localY: number
   ) => void;
-  onDragMove: (team: PicklistTeam, absX: number, absY: number) => void;
+  onDragMove: (absX: number, absY: number) => void;
   onDragEnd: (team: PicklistTeam, absX: number, absY: number) => void;
   onLayoutCard: (teamId: string, layout: CardLayout) => void;
   dragX: SharedValue<number>;
@@ -328,6 +329,7 @@ function TeamCard({
   const measuredNotesHeight = React.useRef(NOTES_MIN_HEIGHT);
   const notesInputRef = React.useRef<React.ElementRef<typeof Textarea>>(null);
   const notesSaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const targetUpdateTick = useSharedValue(0);
 
   React.useLayoutEffect(() => {
     if (Platform.OS !== 'web' || !notesInputRef.current) return;
@@ -375,6 +377,8 @@ function TeamCard({
         .enabled(Platform.OS !== 'web' && !notesFocused)
         .activateAfterLongPress(MOBILE_DRAG_HOLD_MS)
         .onStart((e) => {
+          // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
+          targetUpdateTick.value = 0;
           runOnJS(onDragStart)(team, e.absoluteX, e.absoluteY, e.x, e.y);
         })
         .onUpdate((e) => {
@@ -382,7 +386,14 @@ function TeamCard({
           dragX.value = e.absoluteX;
           // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
           dragY.value = e.absoluteY;
-          runOnJS(onDragMove)(team, e.absoluteX, e.absoluteY);
+          // The ghost stays at the gesture's full frame rate above. Drop-target
+          // resolution crosses to JS, so run it at half-rate to keep long
+          // picklists responsive without making the preview stutter.
+          // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
+          targetUpdateTick.value += 1;
+          if (targetUpdateTick.value % 2 === 0) {
+            runOnJS(onDragMove)(e.absoluteX, e.absoluteY);
+          }
         })
         .onEnd((e) => {
           runOnJS(onDragEnd)(team, e.absoluteX, e.absoluteY);
@@ -390,7 +401,16 @@ function TeamCard({
         .onTouchesCancelled(() => {
           runOnJS(onDragEnd)(team, -1, -1);
         }),
-    [team, notesFocused, onDragStart, onDragMove, onDragEnd, dragX, dragY]
+    [
+      team,
+      notesFocused,
+      onDragStart,
+      onDragMove,
+      onDragEnd,
+      dragX,
+      dragY,
+      targetUpdateTick,
+    ]
   );
 
   return (
@@ -491,7 +511,7 @@ function TeamCard({
       ) : null}
     </View>
   );
-}
+});
 
 export default function PicklistScreen() {
   const { data: teams, isLoading } = usePicklist();
@@ -568,7 +588,6 @@ export default function PicklistScreen() {
 
   // ---- Drag & drop ------------------------------------------------------------
 
-  const [dragTeam, setDragTeam] = React.useState<PicklistTeam | null>(null);
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
   const [dropTarget, setDropTarget] = React.useState<DropTarget | null>(null);
   const dropTargetRef = React.useRef<DropTarget | null>(null);
@@ -584,8 +603,9 @@ export default function PicklistScreen() {
   }));
   const pointerDrag = React.useRef<WebPointerDrag | null>(null);
   const suppressNextClick = React.useRef(false);
+  const activeNativeDragTeam = React.useRef<PicklistTeam | null>(null);
+  const suppressNextNativeTargetHaptic = React.useRef(false);
   const queuedNativeMove = React.useRef<{
-    team: PicklistTeam;
     absX: number;
     absY: number;
   } | null>(null);
@@ -730,10 +750,9 @@ export default function PicklistScreen() {
       dragOffsetY.value = localY;
       // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable.
       dragWidth.value = cardLayouts.current.get(team.id)?.w ?? 240;
-      setDragTeam(team);
+      activeNativeDragTeam.current = team;
+      suppressNextNativeTargetHaptic.current = true;
       setDraggingId(team.id);
-      hapticReorderPickup();
-      updateDropTarget(resolveDropPoint(team, absX, absY), false);
       const tierKey = team.tier ?? 'untiered';
       const index = tierLists
         .get(tierKey)!
@@ -756,22 +775,27 @@ export default function PicklistScreen() {
           />
         </Animated.View>
       );
+      requestAnimationFrame(hapticReorderPickup);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [measureBoard, resolveDropPoint, updateDropTarget, tierLists, filterCount, filters, dragOverlay]
+    [measureBoard, tierLists, filterCount, filters, dragOverlay]
   );
 
   const onDragMove = React.useCallback(
-    (team: PicklistTeam, absX: number, absY: number) => {
-      queuedNativeMove.current = { team, absX, absY };
+    (absX: number, absY: number) => {
+      queuedNativeMove.current = { absX, absY };
       if (nativeMoveFrame.current !== null) return;
       nativeMoveFrame.current = requestAnimationFrame(() => {
         nativeMoveFrame.current = null;
         const move = queuedNativeMove.current;
         queuedNativeMove.current = null;
-        if (!move) return;
+        const team = activeNativeDragTeam.current;
+        if (!move || !team) return;
+        const haptic = !suppressNextNativeTargetHaptic.current;
+        suppressNextNativeTargetHaptic.current = false;
         updateDropTarget(
-          resolveDropPoint(move.team, move.absX, move.absY)
+          resolveDropPoint(team, move.absX, move.absY),
+          haptic
         );
       });
     },
@@ -785,8 +809,8 @@ export default function PicklistScreen() {
         nativeMoveFrame.current = null;
       }
       queuedNativeMove.current = null;
+      activeNativeDragTeam.current = null;
       dragOverlay.hide();
-      setDragTeam(null);
       setDraggingId(null);
       const target = absX < 0 ? null : resolveDropPoint(team, absX, absY);
       updateDropTarget(null, false);
@@ -796,21 +820,14 @@ export default function PicklistScreen() {
     [commitDrop, dragOverlay, resolveDropPoint, updateDropTarget]
   );
 
-  React.useEffect(() => {
-    if (!draggingId || typeof document === 'undefined') return;
-    const previousUserSelect = document.body.style.userSelect;
-    document.body.style.userSelect = 'none';
-    document.getSelection()?.removeAllRanges();
-    return () => {
-      document.body.style.userSelect = previousUserSelect;
-    };
-  }, [draggingId]);
-
   const clearPointerDrag = React.useCallback(() => {
     const drag = pointerDrag.current;
     drag?.ghost?.remove();
     drag?.line?.remove();
     drag?.dimmedList?.style.removeProperty('opacity');
+    if (drag && drag.previousBodyUserSelect !== null) {
+      document.body.style.userSelect = drag.previousBodyUserSelect;
+    }
     if (drag?.moveListener) window.removeEventListener('pointermove', drag.moveListener);
     if (drag?.endListener) window.removeEventListener('pointerup', drag.endListener);
     if (drag?.cancelListener) window.removeEventListener('pointercancel', drag.cancelListener);
@@ -846,6 +863,9 @@ export default function PicklistScreen() {
         });
         document.body.appendChild(ghost);
         drag.ghost = ghost;
+        drag.previousBodyUserSelect = document.body.style.userSelect;
+        document.body.style.userSelect = 'none';
+        document.getSelection()?.removeAllRanges();
         drag.sourceElement.setPointerCapture(event.pointerId);
         setDraggingId(drag.team.id);
       }
@@ -988,6 +1008,7 @@ export default function PicklistScreen() {
         ghost: null,
         line: null,
         dimmedList: null,
+        previousBodyUserSelect: null,
         target: null,
         moveListener: null,
         endListener: null,
@@ -1037,7 +1058,7 @@ export default function PicklistScreen() {
             dropTarget.dimContents &&
             'opacity-60'
         )}
-        scrollEnabled={!dragTeam && !draggingId}
+        scrollEnabled={!draggingId}
         onScroll={(e) => {
           vScroll.current[col.key] = e.nativeEvent.contentOffset.y;
         }}
@@ -1213,7 +1234,7 @@ export default function PicklistScreen() {
             showsHorizontalScrollIndicator={false}
             className="flex-1"
             contentContainerClassName="gap-3 px-4 pb-4"
-            scrollEnabled={!dragTeam && !draggingId}
+            scrollEnabled={!draggingId}
             onScroll={(e) => {
               hScroll.current = e.nativeEvent.contentOffset.x;
             }}
