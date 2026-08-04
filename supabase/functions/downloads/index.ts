@@ -22,7 +22,7 @@ import {
   type GitHubRelease,
 } from './releases.ts';
 
-const REPO = Deno.env.get('GITHUB_REPO') ?? 'gentoo-34755/gentoo-app';
+const REPO = Deno.env.get('GITHUB_REPO') ?? 'gentoo-37006/gentoo-app';
 
 const CORS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
