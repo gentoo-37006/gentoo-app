@@ -24,6 +24,7 @@ import { Menu, ChevronDown, ClipboardList } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { cn } from '@/lib/utils';
+import { NAV_THEME } from '@/lib/theme';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useAuth } from '@/lib/auth';
 import { useUnreadCount } from '@/lib/queries/notifications';
@@ -420,7 +421,11 @@ function MobileHeader({
 
 function BottomSafeAreaFade() {
   const { colorScheme } = useColorScheme();
-  const backgroundColor = colorScheme === 'dark' ? '#121212' : '#FAFAFA';
+  // Sourced from the theme rather than repeated as literals: the gradient has
+  // to END on exactly the bg-background the shell paints around it, and a
+  // private copy silently drifts the moment --background is retuned.
+  const backgroundColor =
+    NAV_THEME[colorScheme === 'dark' ? 'dark' : 'light'].colors.background;
 
   return (
     <View

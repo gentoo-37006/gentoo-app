@@ -19,7 +19,10 @@ export const NAV_THEME: { light: NavTheme; dark: NavTheme } = {
     dark: false,
     colors: {
       primary: '#9f63de',
-      background: '#fafafa',
+      // hsl(0 0% 96%) — must track --background, or anything painting a
+      // "background" in JS (nav chrome, the bottom safe-area fade) lands on a
+      // slightly different grey than the NativeWind bg-background around it.
+      background: '#f5f5f5',
       card: '#ffffff',
       text: '#141414',
       border: '#dbdbdb',
