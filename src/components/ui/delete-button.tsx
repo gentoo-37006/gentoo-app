@@ -159,10 +159,20 @@ export function ConfirmationButton({
     : `Press again to ${confirmationAction}`;
   const confirmationTextClass = cn(textClass, showDangerIcon && 'text-destructive');
 
-  const measureTooltipAnchor = () =>
+  const measureTooltipAnchor = React.useCallback(() =>
     buttonRef.current?.measureInWindow((left, top, width, height) => {
-      setTooltipAnchor({ left, top, width, height });
-    });
+      setTooltipAnchor((current) => {
+        if (
+          current?.left === left &&
+          current.top === top &&
+          current.width === width &&
+          current.height === height
+        ) {
+          return current;
+        }
+        return { left, top, width, height };
+      });
+    }), []);
 
   React.useEffect(
     () => () => {
@@ -190,6 +200,18 @@ export function ConfirmationButton({
     tooltipText,
     viewportWidth,
   ]);
+
+  React.useEffect(() => {
+    if (shiftGate || !showTooltip) return;
+
+    let frame: number;
+    const trackAnchor = () => {
+      measureTooltipAnchor();
+      frame = requestAnimationFrame(trackAnchor);
+    };
+    frame = requestAnimationFrame(trackAnchor);
+    return () => cancelAnimationFrame(frame);
+  }, [measureTooltipAnchor, shiftGate, showTooltip]);
 
   const resetConfirming = () => {
     if (timer.current) clearTimeout(timer.current);

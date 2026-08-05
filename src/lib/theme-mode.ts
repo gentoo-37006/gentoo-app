@@ -55,15 +55,18 @@ async function saveThemeMode(mode: ThemeMode): Promise<void> {
  * Call once near the app root so the saved theme takes effect on every load.
  * On web it also tracks OS theme changes live while "system" is selected.
  */
-export function useRestoreThemeMode(): void {
+export function useRestoreThemeMode(): boolean {
   const { setColorScheme } = useColorScheme();
+  const [restored, setRestored] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
+    let readyFrame: number | undefined;
     loadThemeMode().then((mode) => {
       if (cancelled) return;
       currentMode = mode;
       setColorScheme(resolveScheme(mode));
+      readyFrame = requestAnimationFrame(() => setRestored(true));
     });
 
     // Follow the OS while in system mode (web/desktop; native handles this
@@ -80,9 +83,12 @@ export function useRestoreThemeMode(): void {
 
     return () => {
       cancelled = true;
+      if (readyFrame !== undefined) cancelAnimationFrame(readyFrame);
       unsubscribe?.();
     };
   }, [setColorScheme]);
+
+  return restored;
 }
 
 /**

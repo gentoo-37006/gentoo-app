@@ -1,5 +1,10 @@
 import * as React from 'react';
-import { Platform, type TextInput } from 'react-native';
+import {
+  Platform,
+  Text as NativeText,
+  type TextInput,
+  View,
+} from 'react-native';
 import { Textarea, type TextareaProps } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 
@@ -26,9 +31,10 @@ export function AutoGrowingTextInput({
 }: AutoGrowingTextInputProps) {
   const inputRef = React.useRef<TextInput>(null);
   const [height, setHeight] = React.useState(minHeight);
+  const isWeb = Platform.OS === 'web';
 
   React.useLayoutEffect(() => {
-    if (Platform.OS !== 'web') return;
+    if (!isWeb) return;
     const element = inputRef.current as unknown as HTMLTextAreaElement | null;
     if (!element?.style) return;
 
@@ -36,9 +42,9 @@ export function AutoGrowingTextInput({
     const nextHeight = Math.max(minHeight, element.scrollHeight);
     element.style.height = `${nextHeight}px`;
     setHeight((current) => (current === nextHeight ? current : nextHeight));
-  }, [minHeight, value]);
+  }, [isWeb, minHeight, value]);
 
-  return (
+  const input = (
     <Textarea
       {...props}
       ref={inputRef}
@@ -52,8 +58,11 @@ export function AutoGrowingTextInput({
       }}
       onContentSizeChange={(event) => {
         onContentSizeChange?.(event);
-        if (Platform.OS !== 'web') {
-          const nextHeight = Math.max(minHeight, event.nativeEvent.contentSize.height);
+        if (!isWeb) {
+          const nextHeight = Math.max(
+            minHeight,
+            Math.ceil(event.nativeEvent.contentSize.height)
+          );
           setHeight((current) => (current === nextHeight ? current : nextHeight));
         }
       }}
@@ -62,5 +71,27 @@ export function AutoGrowingTextInput({
       className={cn('overflow-hidden resize-none', className)}
       style={{ height }}
     />
+  );
+
+  if (isWeb) return input;
+
+  return (
+    <View className="relative w-full" style={{ height }}>
+      <NativeText
+        accessible={false}
+        pointerEvents="none"
+        className={cn('absolute w-full opacity-0', className)}
+        onLayout={(event) => {
+          const nextHeight = Math.max(
+            minHeight,
+            Math.ceil(event.nativeEvent.layout.height)
+          );
+          setHeight((current) => (current === nextHeight ? current : nextHeight));
+        }}
+      >
+        {value || ' '}
+      </NativeText>
+      {input}
+    </View>
   );
 }

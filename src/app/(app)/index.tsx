@@ -41,9 +41,8 @@ function MyTaskRow({ task, now }: { task: MyTask; now: number }) {
   const overdue = isPastDue(task.due_date, now);
   return (
     <Link href={`/projects/${task.project_id}` as any} asChild>
-      <Pressable className="active:opacity-75">
-        <Card className="hover:bg-accent/70">
-          <CardContent className="flex-row items-center gap-3 p-4">
+      <Pressable className="rounded-md border border-border bg-card active:opacity-75 hover:bg-accent/70">
+          <View className="flex-row items-center gap-3 p-4">
             <View className="flex-1 gap-0.5">
               <Text className="font-semibold" numberOfLines={1}>
                 {task.title}
@@ -67,8 +66,7 @@ function MyTaskRow({ task, now }: { task: MyTask; now: number }) {
               label={labelOf(PRIORITIES, task.priority)}
             />
             <Icon as={ChevronRight} size={18} className="text-muted-foreground" />
-          </CardContent>
-        </Card>
+          </View>
       </Pressable>
     </Link>
   );

@@ -17,7 +17,6 @@ if (!globalThis.crypto.subtle) {
 import * as React from 'react';
 import {
   Animated,
-  Appearance,
   Easing,
   Image,
   type ImageSourcePropType,
@@ -125,7 +124,7 @@ const styles = StyleSheet.create({
 export default function RootLayout() {
   const { colorScheme } = useColorScheme();
   const theme = colorScheme === 'dark' ? NAV_THEME.dark : NAV_THEME.light;
-  useRestoreThemeMode();
+  const themeRestored = useRestoreThemeMode();
   useNativeUpdates();
 
   return (
@@ -133,7 +132,10 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <ThemeProvider value={theme}>
           <Providers>
-            <RootNavigator />
+            <RootNavigator
+              themeRestored={themeRestored}
+              splashTheme={colorScheme === 'dark' ? 'dark' : 'light'}
+            />
             <UpdateBanner />
           </Providers>
           <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
@@ -174,18 +176,23 @@ function useNativeUpdates() {
  * on sign-in, signed-in-but-unapproved users on the pending screen, and
  * approved users in the app. The navigator stays mounted so redirects are safe.
  */
-function RootNavigator() {
+function RootNavigator({
+  themeRestored,
+  splashTheme,
+}: {
+  themeRestored: boolean;
+  splashTheme: 'light' | 'dark';
+}) {
   const { initializing, isConfigured, session, profile } = useAuth();
   useDatabaseRealtime();
-  const [nativeSplashTheme] = React.useState<'light' | 'dark'>(() =>
-    Appearance.getColorScheme() === 'dark' ? 'dark' : 'light'
-  );
-  const nativeSplashBackground = LOADING_COLORS[nativeSplashTheme].background;
+  const nativeSplashBackground = LOADING_COLORS[splashTheme].background;
   const nativeSplashImage =
-    nativeSplashTheme === 'dark'
+    splashTheme === 'dark'
       ? require('../../assets/images/splash-icon-dark.png')
       : require('../../assets/images/splash-icon-light.png');
-  const [nativeSplashImageReady, setNativeSplashImageReady] = React.useState(false);
+  const [nativeSplashImageReadyFor, setNativeSplashImageReadyFor] = React.useState<
+    'light' | 'dark' | null
+  >(null);
   const [nativeSplashReleased, setNativeSplashReleased] = React.useState(
     Platform.OS === 'web'
   );
@@ -198,19 +205,21 @@ function RootNavigator() {
   // Derived, not state: the overlay hides once the current route matches the
   // auth state, so there's never a flash of the wrong screen — including
   // mid-redirect frames, which the old setSettled(true) marker let through.
-  let settled: boolean;
-  if (initializing) settled = false;
-  else if (!isConfigured || !session) settled = inAuthGroup || onPublicDownloads;
+  let routeSettled: boolean;
+  if (initializing) routeSettled = false;
+  else if (!isConfigured || !session) routeSettled = inAuthGroup || onPublicDownloads;
   // profile can be stale-null while the fetch for the current session is still
   // in flight (auth.tsx nulls it on user change). Wait for it.
-  else if (!profile) settled = false;
-  else if (profile.status !== 'approved') settled = segments[1] === 'pending';
-  else settled = !inAuthGroup;
+  else if (!profile) routeSettled = false;
+  else if (profile.status !== 'approved') routeSettled = segments[1] === 'pending';
+  else routeSettled = !inAuthGroup;
+  const settled = themeRestored && routeSettled;
 
   React.useEffect(() => {
     if (
       Platform.OS === 'web' ||
-      !nativeSplashImageReady ||
+      !themeRestored ||
+      nativeSplashImageReadyFor !== splashTheme ||
       nativeSplashReleased
     ) {
       return;
@@ -233,7 +242,7 @@ function RootNavigator() {
       if (handoffFrame !== undefined) cancelAnimationFrame(handoffFrame);
       if (releaseTimer) clearTimeout(releaseTimer);
     };
-  }, [nativeSplashImageReady, nativeSplashReleased]);
+  }, [nativeSplashImageReadyFor, nativeSplashReleased, splashTheme, themeRestored]);
 
   React.useEffect(() => {
     if (Platform.OS !== 'web' || !settled) return;
@@ -267,10 +276,11 @@ function RootNavigator() {
       <Stack screenOptions={{ headerShown: false }} />
       {Platform.OS !== 'web' ? (
         <LoadingSplash
+          key={splashTheme}
           visible={!settled || !nativeSplashReleased}
           backgroundColor={nativeSplashBackground}
           imageSource={nativeSplashImage}
-          onReady={() => setNativeSplashImageReady(true)}
+          onReady={() => setNativeSplashImageReadyFor(splashTheme)}
         />
       ) : null}
     </>

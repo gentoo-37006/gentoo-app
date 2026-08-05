@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import { ClipboardList, Plus, SlidersHorizontal, Search } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -19,9 +18,11 @@ function TeamCard({ team }: { team: TeamScore }) {
   const router = useRouter();
   const official = officialSummary(team);
   return (
-    <Pressable className="active:opacity-75" onPress={() => router.push(`/scouting/pit/${team.team_id}` as any)}>
-        <Card className="hover:bg-accent/70">
-          <CardContent className="flex-row items-center justify-between gap-3 p-4">
+    <Pressable
+      className="rounded-md border border-border bg-card active:opacity-75 hover:bg-accent/70"
+      onPress={() => router.push(`/scouting/pit/${team.team_id}` as any)}
+    >
+          <View className="flex-row items-center justify-between gap-3 p-4">
             <View className="flex-1">
               <Text className="text-base font-bold">Team {team.team_number}</Text>
               <Text variant="muted" numberOfLines={1}>
@@ -33,8 +34,7 @@ function TeamCard({ team }: { team: TeamScore }) {
               variant="muted"
               label={`${team.entry_count} ${team.entry_count === 1 ? 'report' : 'reports'}`}
             />
-          </CardContent>
-        </Card>
+          </View>
     </Pressable>
   );
 }

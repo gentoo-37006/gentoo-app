@@ -121,21 +121,36 @@ Deno.serve(async (req: Request) => {
     return handleReleaseNotes(notesVersion, channel);
   }
 
-  // ---- Download: resolve an asset id to GitHub's short-lived signed URL ----
+  // ---- Download: stream an authenticated release asset --------------------
   if (assetId) {
     if (!/^\d+$/.test(assetId)) return new Response('Invalid asset id', { status: 400, headers: CORS });
     let res: Response;
     try {
       res = await fetch(`https://api.github.com/repos/${REPO}/releases/assets/${assetId}`, {
         headers: githubHeaders({ Accept: 'application/octet-stream' }),
-        redirect: 'manual',
+        // Keep GitHub's authenticated asset resolution on the server. Redirecting
+        // the client exposes a private API URL that native browsers cannot open.
+        redirect: 'follow',
       });
     } catch {
       return new Response('Failed to reach GitHub', { status: 502, headers: CORS });
     }
-    const location = res.headers.get('location');
-    if ((res.status === 301 || res.status === 302) && location) {
-      return Response.redirect(location, 302);
+    if (res.ok && res.body) {
+      const headers = new Headers(CORS);
+      for (const name of [
+        'content-disposition',
+        'content-length',
+        'content-type',
+        'etag',
+        'last-modified',
+      ]) {
+        const value = res.headers.get(name);
+        if (value) headers.set(name, value);
+      }
+      if (!headers.has('content-type')) {
+        headers.set('content-type', 'application/octet-stream');
+      }
+      return new Response(res.body, { status: 200, headers });
     }
     return new Response('Download not available', { status: 502, headers: CORS });
   }

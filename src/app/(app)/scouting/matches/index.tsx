@@ -3,7 +3,6 @@ import { useRouter } from 'expo-router';
 import { CalendarRange, Upload, Wand2, ChevronRight } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
@@ -51,15 +50,16 @@ function MatchCard({ match, uid }: { match: MatchWithAssignments; uid?: string }
   const total = match.assignments.length;
   const mine = match.assignments.find((a) => a.scouter_id === uid);
   return (
-    <Pressable className="active:opacity-75" onPress={() => router.push(`/scouting/matches/${match.id}` as any)}>
-        <Card
-          className={cn(
+    <Pressable
+      className={cn(
+        'rounded-md border border-border bg-card active:opacity-75',
             mine
               ? 'border-primary/40 bg-primary/5 hover:bg-accent/70'
               : 'hover:bg-accent/70'
-          )}
-        >
-          <CardContent className="flex-row items-center gap-3 p-4">
+      )}
+      onPress={() => router.push(`/scouting/matches/${match.id}` as any)}
+    >
+          <View className="flex-row items-center gap-3 p-4">
             <View className="flex-1 gap-1">
               <Text className="font-bold">{matchTitle(match)}</Text>
               <AllianceLine match={match} />
@@ -81,8 +81,7 @@ function MatchCard({ match, uid }: { match: MatchWithAssignments; uid?: string }
               />
             ) : null}
             <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
-          </CardContent>
-        </Card>
+          </View>
     </Pressable>
   );
 }

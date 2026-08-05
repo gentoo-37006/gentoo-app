@@ -652,10 +652,7 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SafeAreaView className="flex-1 bg-card" edges={['top']}>
-      <View
-        className="flex-1 bg-background"
-        {...(edgeSwipeEnabled ? edgeSwipeResponder.panHandlers : {})}
-      >
+      <View className="flex-1 bg-background">
         <MobileHeader
           pathname={pathname}
           unread={unread}
@@ -663,7 +660,17 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
           avatarUrl={profile?.avatar_url}
           onOpenMenu={openMenu}
         />
-        <View className="flex-1">{children}</View>
+        <View className="relative flex-1">
+          {children}
+          {edgeSwipeEnabled ? (
+            <View
+              pointerEvents="box-only"
+              className="absolute bottom-0 left-0 top-0 z-10"
+              style={{ width: MOBILE_EDGE_SWIPE_WIDTH }}
+              {...edgeSwipeResponder.panHandlers}
+            />
+          ) : null}
+        </View>
         <BottomSafeAreaFade />
       </View>
       <SafeAreaView className="bg-background" edges={['bottom']} />

@@ -110,9 +110,8 @@ const TALKIE_BADGE: Record<TalkieStatus, 'warning' | 'secondary' | 'success'> = 
 function TalkieRow({ talkie }: { talkie: TalkieWithPeople }) {
   return (
     <Link href={'/talkie' as any} asChild>
-      <Pressable className="active:opacity-75">
-        <Card className="hover:bg-accent/70">
-          <CardContent className="flex-row items-center gap-3 p-4">
+      <Pressable className="rounded-md border border-border bg-card active:opacity-75 hover:bg-accent/70">
+          <View className="flex-row items-center gap-3 p-4">
             <View className="flex-1 gap-0.5">
               <Text className="font-semibold">Team {talkie.team_number}</Text>
               <Text variant="small" numberOfLines={1}>
@@ -121,8 +120,7 @@ function TalkieRow({ talkie }: { talkie: TalkieWithPeople }) {
             </View>
             <Text variant="small">{timeAgo(talkie.created_at)}</Text>
             <Badge variant={TALKIE_BADGE[talkie.status]} label={talkie.status} />
-          </CardContent>
-        </Card>
+          </View>
       </Pressable>
     </Link>
   );
@@ -141,11 +139,10 @@ function QuickLinkCard({ link }: { link: QuickLink }) {
   const router = useRouter();
   return (
     <Pressable
-      className="flex-1 basis-full active:opacity-75 md:basis-[48%]"
+      className="flex-1 basis-full rounded-md border border-border bg-card active:opacity-75 hover:bg-accent/70 md:basis-[48%]"
       onPress={() => router.push(link.href as any)}
     >
-      <Card className="hover:bg-accent/70">
-        <CardContent className="flex-row items-center gap-4 p-4">
+        <View className="flex-row items-center gap-4 p-4">
           <View className="h-11 w-11 items-center justify-center rounded-md bg-accent">
             <Icon as={link.icon} size={22} className="text-primary" />
           </View>
@@ -154,8 +151,7 @@ function QuickLinkCard({ link }: { link: QuickLink }) {
             <Text variant="muted">{link.description}</Text>
           </View>
           <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
-        </CardContent>
-      </Card>
+        </View>
     </Pressable>
   );
 }

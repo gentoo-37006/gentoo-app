@@ -7,7 +7,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Badge } from '@/components/ui/badge';
@@ -37,9 +37,8 @@ const SECTIONS: Section[] = [
 
 function SectionCard({ section }: { section: Section }) {
   const router = useRouter();
-  const card = (
-    <Card className={!section.href ? 'opacity-70' : 'hover:bg-accent/70'}>
-      <CardContent className="flex-row items-center gap-4 p-4">
+  const content = (
+      <View className="flex-row items-center gap-4 p-4">
         <View className="h-11 w-11 items-center justify-center rounded-xl bg-accent">
           <Icon as={section.icon} size={22} className="text-primary" />
         </View>
@@ -51,14 +50,18 @@ function SectionCard({ section }: { section: Section }) {
           <Text variant="muted">{section.description}</Text>
         </View>
         {section.href ? <Icon as={ChevronRight} size={20} className="text-muted-foreground" /> : null}
-      </CardContent>
-    </Card>
+      </View>
   );
 
-  if (!section.href) return card;
+  if (!section.href) {
+    return <Card className="opacity-70">{content}</Card>;
+  }
   return (
-    <Pressable className="active:opacity-75" onPress={() => router.push(section.href as any)}>
-      {card}
+    <Pressable
+      className="rounded-md border border-border bg-card active:opacity-75 hover:bg-accent/70"
+      onPress={() => router.push(section.href as any)}
+    >
+      {content}
     </Pressable>
   );
 }
