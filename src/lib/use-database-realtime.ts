@@ -22,6 +22,8 @@ const REALTIME_QUERY_ROOTS = {
   projects: ['projects', 'project', 'tasks', 'my_open_tasks', 'my_tasks'],
   tasks: ['projects', 'project', 'tasks', 'my_open_tasks', 'my_tasks'],
   pit_shifts: ['pit_shifts'],
+  inventory_parts: ['inventory_parts', 'inventory_part'],
+  inventory_checkouts: ['inventory_parts', 'inventory_part', 'my_checkouts'],
   app_settings: [
     'app_settings',
     'matches',

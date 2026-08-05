@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react-native';
 import {
   LayoutDashboard,
+  Boxes,
   ClipboardList,
   CalendarRange,
   Radio,
@@ -32,6 +33,7 @@ export type NavSection = { label: string; items: NavItem[] };
 export const GENERAL_NAV: NavItem[] = [
   { name: 'index', label: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'projects', label: 'Projects', href: '/projects', icon: ListChecks },
+  { name: 'inventory', label: 'Inventory', href: '/inventory', icon: Boxes },
   { name: 'cables', label: 'Cables', href: '/cables', icon: Cable },
 ];
 

@@ -275,7 +275,7 @@ function TopNav({
         <NavDivider />
 
         {/* General */}
-        {[GENERAL_NAV[0], GENERAL_NAV[1]].map((item) => (
+        {[GENERAL_NAV[0], GENERAL_NAV[1], GENERAL_NAV[2]].map((item) => (
           <NavBarLink key={item.name} item={item} active={isActiveRoute(item.href, pathname)} />
         ))}
         <NavDivider />

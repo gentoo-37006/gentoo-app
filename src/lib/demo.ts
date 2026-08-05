@@ -5,6 +5,8 @@ import type {
   CapabilityQuestion,
   Match,
   MatchReport,
+  Part,
+  PartCheckout,
   PicklistTier,
   PitAnswer,
   PitEntry,
@@ -24,7 +26,7 @@ import type {
 import type { ParsedMatch } from '@/lib/csv';
 import type { GeneratedShift } from '@/lib/scheduler';
 
-const STORAGE_KEY = 'gentoo.demo.workspace.v2';
+const STORAGE_KEY = 'gentoo.demo.workspace.v3';
 const AUTH_KEY = 'gentoo.demo.enabled.v1';
 
 export const DEMO_USER_ID = 'demo-user';
@@ -50,6 +52,8 @@ type DemoWorkspace = {
   projects: Project[];
   tasks: Task[];
   pitShifts: PitShift[];
+  parts: Part[];
+  checkouts: PartCheckout[];
   seededAt: string;
 };
 
@@ -196,6 +200,20 @@ function seedWorkspace(): DemoWorkspace {
     { id: 'task-3', project_id: 'project-scouting', title: 'Import qualification schedule', notes: null, status: 'todo', assignee_ids: [DEMO_STRATEGIST_ID], blocked_by: null, blocked_by_project: null, due_date: null, priority: 'medium', tags: ['scouting'], sort_order: 10, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
   ];
 
+  const parts: Part[] = [
+    { id: 'part-motor', name: 'REV HD Hex Motor (40:1)', part_number: 'REV-41-1301', category: 'motor', location: 'Bin A2', notes: null, quantity: 8, consumable: false, unit: null, low_stock_at: 2, sort_order: 10, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'part-servo', name: 'goBILDA Torque Servo', part_number: '2000-0025-0002', category: 'servo', location: 'Bin A3', notes: null, quantity: 6, consumable: false, unit: null, low_stock_at: 2, sort_order: 20, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'part-hub', name: 'REV Control Hub', part_number: 'REV-31-1595', category: 'electronics', location: 'Shelf B', notes: 'Keep the spare flashed to the current firmware.', quantity: 2, consumable: false, unit: null, low_stock_at: null, sort_order: 30, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'part-filament', name: 'PLA filament — black', part_number: null, category: 'material', location: 'Printer cart', notes: null, quantity: 1400, consumable: true, unit: 'g', low_stock_at: 500, sort_order: 40, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'part-screws', name: 'M4 x 10mm socket screws', part_number: null, category: 'hardware', location: 'Drawer 4', notes: null, quantity: 60, consumable: true, unit: 'screws', low_stock_at: 100, sort_order: 50, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+  ];
+
+  const checkouts: PartCheckout[] = [
+    { id: 'checkout-1', part_id: 'part-motor', user_id: DEMO_PIT_ID, quantity: 4, consumed: false, purpose: 'Competition robot drivetrain', checked_out_at: daysFromNow(-2), returned_at: null, returned_by: null },
+    { id: 'checkout-2', part_id: 'part-servo', user_id: DEMO_ADMIN_ID, quantity: 2, consumed: false, purpose: 'Intake prototype', checked_out_at: daysFromNow(-1), returned_at: null, returned_by: null },
+    { id: 'checkout-3', part_id: 'part-filament', user_id: DEMO_ADMIN_ID, quantity: 320, consumed: true, purpose: 'Intake side plates', checked_out_at: daysFromNow(-3), returned_at: null, returned_by: null },
+  ];
+
   return {
     profiles: [
       makeProfile({ id: DEMO_ADMIN_ID, full_name: 'Alex Rivera', email: 'alex.rivera@gentoorobotics.org', role: 'admin', functional_roles: ['scouter', 'pit', 'strategist'] }),
@@ -224,6 +242,8 @@ function seedWorkspace(): DemoWorkspace {
       { id: 'shift-1', start_time: hoursFromNow(-1), end_time: hoursFromNow(1), assignee_id: DEMO_PIT_ID, generated: true, created_at: timestamp },
       { id: 'shift-2', start_time: hoursFromNow(1), end_time: hoursFromNow(3), assignee_id: DEMO_ADMIN_ID, generated: true, created_at: timestamp },
     ],
+    parts,
+    checkouts,
     seededAt: timestamp,
   };
 }
@@ -934,5 +954,120 @@ export async function demoClearNotification(idValue: string) {
 export async function demoClearAllNotifications(uid = DEMO_USER_ID) {
   const db = await getDemoWorkspace();
   db.notifications = db.notifications.filter((n) => n.user_id !== uid);
+  await persist();
+}
+
+const isOpenCheckout = (c: PartCheckout) => !c.consumed && !c.returned_at;
+
+export async function demoParts() {
+  const db = await getDemoWorkspace();
+  return db.parts
+    .slice()
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name))
+    .map((part) => ({
+      ...part,
+      open: db.checkouts
+        .filter((c) => c.part_id === part.id && isOpenCheckout(c))
+        .map(({ id: checkoutId, quantity, user_id }) => ({ id: checkoutId, quantity, user_id })),
+    }));
+}
+
+export async function demoPart(partId: string) {
+  const db = await getDemoWorkspace();
+  const profileOf = (uid: string | null) => {
+    const profile = uid ? db.profiles.find((p) => p.id === uid) : null;
+    return profile
+      ? { id: profile.id, full_name: profile.full_name, avatar_url: profile.avatar_url }
+      : null;
+  };
+  return {
+    part: db.parts.find((p) => p.id === partId) ?? null,
+    checkouts: db.checkouts
+      .filter((c) => c.part_id === partId)
+      .sort((a, b) => b.checked_out_at.localeCompare(a.checked_out_at))
+      .map((c) => ({ ...c, user: profileOf(c.user_id) })),
+  };
+}
+
+export async function demoMyOpenCheckoutCount(uid = DEMO_USER_ID) {
+  const db = await getDemoWorkspace();
+  return db.checkouts.filter((c) => c.user_id === uid && isOpenCheckout(c)).length;
+}
+
+export async function demoCreatePart(
+  vars: Omit<Part, 'id' | 'sort_order' | 'created_by' | 'created_at' | 'updated_at'> & {
+    sort_order?: number;
+  }
+) {
+  const db = await getDemoWorkspace();
+  const partId = id('part');
+  const sortOrder =
+    vars.sort_order ?? Math.max(0, ...db.parts.map((part) => part.sort_order ?? 0)) + 10;
+  db.parts.push({
+    ...vars,
+    id: partId,
+    sort_order: sortOrder,
+    created_by: DEMO_USER_ID,
+    created_at: now(),
+    updated_at: now(),
+  });
+  await persist();
+  return partId;
+}
+
+export async function demoReorderParts(partIds: string[]) {
+  const db = await getDemoWorkspace();
+  const positions = new Map(partIds.map((idValue, index) => [idValue, (index + 1) * 10]));
+  db.parts = db.parts.map((part) => {
+    const sortOrder = positions.get(part.id);
+    return sortOrder === undefined ? part : { ...part, sort_order: sortOrder };
+  });
+  await persist();
+}
+
+export async function demoUpdatePart(idValue: string, patch: Partial<Part>) {
+  const db = await getDemoWorkspace();
+  db.parts = db.parts.map((p) => (p.id === idValue ? { ...p, ...patch, updated_at: now() } : p));
+  await persist();
+}
+
+export async function demoDeletePart(idValue: string) {
+  const db = await getDemoWorkspace();
+  db.parts = db.parts.filter((p) => p.id !== idValue);
+  db.checkouts = db.checkouts.filter((c) => c.part_id !== idValue);
+  await persist();
+}
+
+/** Mirrors the inventory_checkouts stock trigger: consuming deducts stock. */
+export async function demoCheckoutPart(vars: {
+  part_id: string;
+  quantity: number;
+  consumed: boolean;
+  purpose: string | null;
+}) {
+  const db = await getDemoWorkspace();
+  db.checkouts.push({
+    ...vars,
+    id: id('checkout'),
+    user_id: DEMO_USER_ID,
+    checked_out_at: now(),
+    returned_at: null,
+    returned_by: null,
+  });
+  if (vars.consumed) {
+    db.parts = db.parts.map((p) =>
+      p.id === vars.part_id
+        ? { ...p, quantity: Math.max(0, p.quantity - vars.quantity), updated_at: now() }
+        : p
+    );
+  }
+  await persist();
+}
+
+export async function demoReturnCheckout(idValue: string) {
+  const db = await getDemoWorkspace();
+  db.checkouts = db.checkouts.map((c) =>
+    c.id === idValue ? { ...c, returned_at: now(), returned_by: DEMO_USER_ID } : c
+  );
   await persist();
 }

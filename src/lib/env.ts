@@ -10,6 +10,12 @@ export const GROQ_API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY ?? '';
  *  builds that don't provide it — callers fall back to the app version. */
 export const COMMIT_SHA = process.env.EXPO_PUBLIC_COMMIT_SHA ?? '';
 
+/** Origin the printed inventory QR codes point at. The web build reads its own
+ *  origin instead; this is the fallback for native builds. */
+export const WEB_APP_URL = (
+  process.env.EXPO_PUBLIC_WEB_URL ?? 'https://gentoo.ethanyanxu.com'
+).replace(/\/+$/, '');
+
 export type ReleaseChannel = 'beta' | 'release';
 
 /** The beta website requests beta-only artifacts; production requests releases. */

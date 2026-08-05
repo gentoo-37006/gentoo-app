@@ -3,6 +3,7 @@ import { Link } from 'expo-router';
 import {
   ListChecks,
   FolderKanban,
+  Boxes,
   Cable,
   Download,
   ChevronRight,
@@ -16,6 +17,7 @@ import { Icon } from '@/components/ui/icon';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { useProjects, useMyTasks, useMyOpenTaskCount, type MyTask } from '@/lib/queries/tasks';
+import { useMyOpenCheckoutCount } from '@/lib/queries/inventory';
 import { priorityVariant, taskStatusVariant, labelOf } from '@/lib/task-style';
 import { PRIORITIES, TASK_STATUSES } from '@/lib/types';
 import { formatDate, isPastDue } from '@/lib/format';
@@ -82,6 +84,7 @@ type QuickAction = {
 
 const QUICK_ACTIONS: QuickAction[] = [
   { label: 'View projects', description: 'Projects and to-dos', href: '/projects', icon: ListChecks },
+  { label: 'Inventory', description: 'Sign parts in and out', href: '/inventory', icon: Boxes },
   { label: 'Count cables', description: 'AI-identify cables from a photo', href: '/cables', icon: Cable },
   {
     label: 'Downloads',
@@ -115,6 +118,7 @@ export default function DashboardScreen() {
   const projects = useProjects();
   const myTasks = useMyTasks(uid);
   const myTaskCount = useMyOpenTaskCount(uid);
+  const myCheckoutCount = useMyOpenCheckoutCount(uid);
   const now = useNow();
 
   const firstName = profile?.full_name?.split(' ')[0];
@@ -131,6 +135,12 @@ export default function DashboardScreen() {
       value: projects.isLoading ? '—' : String((projects.data ?? []).filter((p) => p.status === 'active').length),
       icon: FolderKanban,
       tint: 'text-success',
+    },
+    {
+      label: 'Parts I have out',
+      value: myCheckoutCount.isLoading ? '—' : String(myCheckoutCount.data ?? 0),
+      icon: Boxes,
+      tint: 'text-warning',
     },
   ];
 

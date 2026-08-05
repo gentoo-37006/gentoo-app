@@ -307,6 +307,76 @@ export type Task = {
   deleted_at: string | null;
 };
 
+// ---- Inventory --------------------------------------------------------------
+
+export type PartCategory =
+  | 'motor'
+  | 'servo'
+  | 'electronics'
+  | 'wiring'
+  | 'structure'
+  | 'motion'
+  | 'hardware'
+  | 'material'
+  | 'tool'
+  | 'other';
+
+export const PART_CATEGORIES: { value: PartCategory; label: string }[] = [
+  { value: 'motor', label: 'Motors' },
+  { value: 'servo', label: 'Servos' },
+  { value: 'electronics', label: 'Electronics' },
+  { value: 'wiring', label: 'Wiring' },
+  { value: 'structure', label: 'Structure' },
+  { value: 'motion', label: 'Motion' },
+  { value: 'hardware', label: 'Hardware' },
+  { value: 'material', label: 'Materials' },
+  { value: 'tool', label: 'Tools' },
+  { value: 'other', label: 'Other' },
+];
+
+export type Part = {
+  id: string;
+  name: string;
+  part_number: string | null;
+  category: PartCategory;
+  location: string | null;
+  notes: string | null;
+  /** Units owned (durable) or units still in stock (consumable). */
+  quantity: number;
+  /** Consumables are used up instead of returned. */
+  consumable: boolean;
+  /** Unit label for consumables, e.g. "g" or "spools". */
+  unit: string | null;
+  /** Warn at or below this quantity; null disables the warning. */
+  low_stock_at: number | null;
+  /** Manual position in the inventory list; lower values appear first. */
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PartCheckout = {
+  id: string;
+  part_id: string;
+  user_id: string | null;
+  quantity: number;
+  consumed: boolean;
+  purpose: string | null;
+  checked_out_at: string;
+  returned_at: string | null;
+  returned_by: string | null;
+};
+
+/** Units of a part that are signed out and not back yet. */
+export function checkedOutQuantity(open: { quantity: number }[]): number {
+  return open.reduce((total, row) => total + row.quantity, 0);
+}
+
+export function isLowStock(part: Part, available: number): boolean {
+  return part.low_stock_at != null && available <= part.low_stock_at;
+}
+
 // ---- Pit-duty schedule ------------------------------------------------------
 
 export type PitShift = {
