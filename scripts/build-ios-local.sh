@@ -72,6 +72,17 @@ xcodebuild -version | head -2
 
 mkdir -p "$(dirname "$OUT")"
 
+# `eas` is a global install on the release machines; fall back to npx elsewhere.
+# Same resolution as publish-ios.sh / publish-android.sh — without it a Mac that
+# has Xcode and fastlane but no global CLI dies here with "eas: command not
+# found", after the toolchain checks above have already passed.
+if command -v eas >/dev/null 2>&1; then
+  eas_cmd=(eas)
+else
+  echo "[ios] 'eas' is not on PATH — running it through npx."
+  eas_cmd=(npx --yes eas-cli)
+fi
+
 # Build on this machine, then submit the resulting .ipa.
-eas build --platform ios --profile production --local --output "$OUT" --non-interactive
-eas submit --platform ios --profile production --path "$OUT" --non-interactive
+"${eas_cmd[@]}" build --platform ios --profile production --local --output "$OUT" --non-interactive
+"${eas_cmd[@]}" submit --platform ios --profile production --path "$OUT" --non-interactive
