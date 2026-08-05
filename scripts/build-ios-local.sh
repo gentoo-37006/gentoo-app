@@ -39,6 +39,21 @@ EOF
   exit 1
 fi
 
+# Checked here for the same reason as fastlane: the pod install happens deep
+# inside the local build plugin, so without this the run first authenticates,
+# resolves remote credentials and BURNS A BUILD NUMBER, then dies on
+# "spawn pod ENOENT" minutes later.
+if ! command -v pod >/dev/null 2>&1; then
+  cat >&2 <<'EOF'
+'pod' (CocoaPods) not found on PATH — 'eas build --local' needs it to install
+the native pods for iOS.
+
+Install it, then rerun:
+  brew install cocoapods
+EOF
+  exit 1
+fi
+
 # Build with a STABLE Xcode. Expo SDK 56 / RN 0.85 don't compile under beta
 # Xcode toolchains (Swift errors deep in the pods), so prefer /Applications/
 # Xcode.app and fail fast if only a beta is available. DEVELOPER_DIR is honored
