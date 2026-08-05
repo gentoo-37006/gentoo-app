@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# Build the iOS app LOCALLY (no EAS cloud build) and submit it to App Store
-# Connect / TestFlight. Signing credentials + the ASC API key are pulled from
-# EAS, same as the cloud build. Requires Xcode and fastlane on this machine.
+# Build the iOS app LOCALLY (no EAS cloud build) and stop at the .ipa — the
+# upload to App Store Connect / TestFlight is done by hand with Transporter,
+# which skips EAS's submitter queue. Signing credentials are still pulled from
+# EAS, same as the cloud build. Requires Xcode, fastlane and CocoaPods here.
+#
+# SUBMIT=1 restores the old auto-submit-through-EAS behaviour.
 set -euo pipefail
 
 # fastlane (and CocoaPods) require a UTF-8 locale; don't depend on the shell's.
@@ -98,6 +101,42 @@ else
   eas_cmd=(npx --yes eas-cli)
 fi
 
-# Build on this machine, then submit the resulting .ipa.
+# Build on this machine. The upload is deliberately NOT run here: `eas submit`
+# queues on EAS's shared submitter pool ("waiting for an available submitter"),
+# which routinely takes longer than the build did, and it stalls the rest of
+# `release:all` behind it. Uploading the same .ipa with Transporter is faster
+# and hands the wait to a human who can walk away from it.
+#
+# Set SUBMIT=1 to restore the old behaviour (useful when nobody is at the Mac).
 "${eas_cmd[@]}" build --platform ios --profile production --local --output "$OUT" --non-interactive
-"${eas_cmd[@]}" submit --platform ios --profile production --path "$OUT" --non-interactive
+
+if [[ "${SUBMIT:-0}" == "1" ]]; then
+  echo "[ios] SUBMIT=1 — submitting through EAS instead of Transporter."
+  "${eas_cmd[@]}" submit --platform ios --profile production --path "$OUT" --non-interactive
+  exit 0
+fi
+
+IPA_PATH="$(cd "$(dirname "$OUT")" && pwd)/$(basename "$OUT")"
+
+cat <<EOF
+
+────────────────────────────────────────────────────────────────────────
+[ios] Build complete — upload is a manual step.
+
+  ${IPA_PATH}
+
+Open Transporter, sign in with the Apple ID for team 29LT93G54W, drag the
+.ipa in, and Deliver. It lands in TestFlight the same as an EAS submit.
+
+  Transporter: https://apps.apple.com/app/transporter/id1450874784
+
+The build number was already incremented by EAS, so this .ipa is unique and
+can be uploaded as-is. To submit through EAS instead: SUBMIT=1 npm run ios:publish
+────────────────────────────────────────────────────────────────────────
+EOF
+
+# Reveal it in Finder so the next step is a drag, not a path hunt. Interactive
+# runs only — a CI/non-tty run must not try to open a GUI.
+if [[ -t 1 ]] && command -v open >/dev/null 2>&1; then
+  open -R "$IPA_PATH" 2>/dev/null || true
+fi

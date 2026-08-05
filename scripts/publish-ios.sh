@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Build and submit the iOS app with whichever toolchain this machine can run.
+# Build the iOS app with whichever toolchain this machine can run.
 #
 # Xcode is macOS-only, so a local build is possible on a Mac and nowhere else.
-# On Linux (or anywhere else) this falls through to EAS's macOS workers, which
-# produce and submit the same TestFlight build — no local Xcode required.
+# On a Mac this builds the .ipa and leaves the upload to Transporter (see
+# build-ios-local.sh). On Linux (or anywhere else) it falls through to EAS's
+# macOS workers, which DO submit for you — Transporter is macOS-only, so
+# there is no hand-off available there.
 # `npm run release:all` goes through here so the release works from any machine.
 #
 # Force one or the other with the explicit scripts:

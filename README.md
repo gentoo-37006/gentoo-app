@@ -36,13 +36,17 @@ npm start              # then press w (web), i (iOS), a (Android)
 | `npm run web` / `ios` / `android` | Start on a specific platform |
 | `npm run typecheck` | Run `tsc --noEmit` |
 | `npm run lint` | Run Expo lint |
-| `npm run release:all` | Build + submit iOS, build the Android APK, collect artifacts |
+| `npm run release:all` | Build iOS (upload by hand), build the Android APK, collect artifacts |
 
 > **`release:all` runs anywhere.** Each platform picks the toolchain the machine
 > can actually run, so a release works from a Mac or from Linux:
 >
 > - **iOS** — a local Xcode build on macOS; EAS's macOS workers elsewhere, since
->   Xcode is macOS-only. Either way it submits to TestFlight.
+>   Xcode is macOS-only. A local build stops at `ios-build/Gentoo.ipa` and you
+>   upload it with [Transporter](https://apps.apple.com/app/transporter/id1450874784),
+>   which avoids EAS's submitter queue (often slower than the build itself).
+>   `SUBMIT=1 npm run ios:publish` submits through EAS instead. Off macOS there
+>   is no Transporter, so the EAS route submits to TestFlight for you.
 > - **Android** — a local Gradle build when a JDK 17/21 and the Android SDK are
 >   installed; otherwise EAS, and the finished APK is downloaded to
 >   `android-build/` so `release:collect` still finds it.

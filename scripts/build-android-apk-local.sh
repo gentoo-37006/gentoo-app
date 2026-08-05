@@ -129,17 +129,17 @@ if [[ -z "${ANDROID_HOME:-}" ]]; then
 fi
 echo "Using ANDROID_HOME=$ANDROID_HOME"
 
-if [[ "$CHECK_ONLY" == "1" ]]; then
-  echo "Local Android toolchain is usable."
-  exit 0
-fi
-
 # The RN gradle plugin compiles with a Java 17 toolchain. Expose every local
 # JDK to Gradle and disable toolchain auto-download: without a matching local
 # JDK, Gradle 9 would invoke the bundled foojay resolver, which crashes with
 # "JvmVendorSpec ... IBM_SEMERU" (removed in Gradle 9). These must live in
 # ~/.gradle/gradle.properties — GRADLE_OPTS system properties don't reach the
 # daemon, and EAS runs gradlew itself so CLI flags aren't an option.
+#
+# Computed BEFORE --check answers: a box with 21 but no 17 satisfies the
+# JAVA_HOME search above and used to be reported usable, so publish-android.sh
+# chose the local route and the build then died in :compileKotlin. Missing 17
+# means not usable, and the caller should fall back to EAS.
 jdk_paths="$JAVA_HOME"
 has_jdk17=0
 [[ "$(java_major "$JAVA_HOME")" == "17" ]] && has_jdk17=1
@@ -155,15 +155,25 @@ while IFS= read -r extra; do
 done < <(jdk_search_paths)
 
 if [[ "$has_jdk17" -eq 0 ]]; then
-  echo "warning: no JDK 17 found. React Native's Gradle plugin compiles with a" >&2
-  echo "Java 17 toolchain, and auto-provisioning is off, so the build will fail" >&2
-  echo "with \"Cannot find a Java installation ... languageVersion=17\"." >&2
+  echo "No JDK 17 found. React Native's Gradle plugin compiles with a Java 17" >&2
+  echo "toolchain, and auto-provisioning is off, so the build would fail with" >&2
+  echo "\"Cannot find a Java installation ... languageVersion=17\"." >&2
+  echo >&2
   if [[ "$(uname -s)" == "Darwin" ]]; then
     echo "Install one with: brew install openjdk@17" >&2
   else
     echo "Install one with: sudo apt install openjdk-17-jdk" >&2
   fi
+  echo >&2
+  echo "Or skip the local toolchain entirely: npm run android:apk:cloud" >&2
+  exit 1
 fi
+
+if [[ "$CHECK_ONLY" == "1" ]]; then
+  echo "Local Android toolchain is usable."
+  exit 0
+fi
+
 # Expo's generated android/gradle.properties gives the daemon 2 GiB heap and
 # only 512 MiB metaspace, which KSP (:expo-updates:kspReleaseKotlin) and lint
 # both exhaust — "OutOfMemoryError: Metaspace" partway through the build. The
