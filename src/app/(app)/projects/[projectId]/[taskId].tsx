@@ -2,6 +2,7 @@ import * as React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
+  BellRing,
   CalendarDays,
   ChevronLeft,
   CircleDot,
@@ -38,6 +39,8 @@ import {
   useUpdateTask,
 } from '@/lib/queries/tasks';
 import { useProfiles } from '@/lib/queries/profiles';
+import { useAuth } from '@/lib/auth';
+import { pingAssignees, pingCooldownRemaining } from '@/lib/ping-task';
 import { PRIORITIES, TASK_STATUSES, type Profile, type TaskStatus } from '@/lib/types';
 import { priorityVariant, taskStatusVariant } from '@/lib/task-style';
 import { cn } from '@/lib/utils';
@@ -120,6 +123,83 @@ function AssigneeDropdown({
   );
 }
 
+/**
+ * Nudges the task's assignees on Discord. Disabled when the only assignee is
+ * you (pressing it would ping yourself) or when the per-task cooldown is still
+ * running — see lib/ping-task.ts for why that cooldown is per-device.
+ */
+function PingButton({
+  taskId,
+  projectId,
+  taskTitle,
+  projectName,
+  assigneeIds,
+  onNotice,
+}: {
+  taskId: string;
+  projectId: string;
+  taskTitle: string;
+  projectName?: string | null;
+  assigneeIds: string[];
+  onNotice: (message: string | null) => void;
+}) {
+  const { session } = useAuth();
+  const actorId = session?.user?.id ?? null;
+  const [pending, setPending] = React.useState(false);
+  // Re-render when the cooldown lapses so the button re-enables on its own.
+  const [, setTick] = React.useState(0);
+
+  const others = assigneeIds.filter((id) => id && id !== actorId);
+  const cooling = pingCooldownRemaining(taskId) > 0;
+  const disabled = pending || cooling || others.length === 0;
+
+  React.useEffect(() => {
+    const remaining = pingCooldownRemaining(taskId);
+    if (remaining === 0) return;
+    const timer = setTimeout(() => setTick((n) => n + 1), remaining + 50);
+    return () => clearTimeout(timer);
+  });
+
+  const label =
+    others.length === 0
+      ? 'Nobody else is assigned to this task.'
+      : `Remind ${others.length === 1 ? 'the assignee' : `${others.length} assignees`} on Discord`;
+
+  return (
+    <Button
+      variant="outline"
+      size="icon"
+      icon={BellRing}
+      accessibilityLabel={label}
+      disabled={disabled}
+      onPress={async () => {
+        setPending(true);
+        onNotice(null);
+        const result = await pingAssignees({
+          taskId,
+          projectId,
+          taskTitle,
+          projectName,
+          assigneeIds,
+          actorId,
+        });
+        setPending(false);
+        setTick((n) => n + 1);
+        if (result.ok) {
+          onNotice(`Pinged ${result.pinged === 1 ? 'them' : `${result.pinged} people`} on Discord.`);
+        } else if (result.reason === 'cooldown') {
+          const mins = Math.ceil(result.retryInMs / 60000);
+          onNotice(`Already pinged — try again in ${mins} min.`);
+        } else if (result.reason === 'no-recipients') {
+          onNotice('Nobody else is assigned to this task.');
+        } else {
+          onNotice("Couldn't send the reminder. Try again.");
+        }
+      }}
+    />
+  );
+}
+
 export default function TaskNotesScreen() {
   const router = useRouter();
   const { projectId, taskId } = useLocalSearchParams<{ projectId: string; taskId: string }>();
@@ -138,6 +218,7 @@ export default function TaskNotesScreen() {
   const [editingField, setEditingField] = React.useState<string | null>(null);
   const [titleDraft, setTitleDraft] = React.useState('');
   const [tagsDraft, setTagsDraft] = React.useState('');
+  const [pingNotice, setPingNotice] = React.useState<string | null>(null);
   const [blockerError, setBlockerError] = React.useState<string | null>(null);
   const [projectHovered, setProjectHovered] = React.useState(false);
   const [tagsHovered, setTagsHovered] = React.useState(false);
@@ -296,18 +377,33 @@ export default function TaskNotesScreen() {
               className="min-h-8 rounded-none border-0 bg-transparent px-0 py-0 text-2xl font-bold tracking-tight outline-none focus:border-transparent"
             />
           </View>
-          <DeleteButton
-            variant="outline"
-            size="icon"
-            icon={Trash2}
-            accessibilityLabel="Delete task"
-            disabled={deleteTask.isPending}
-            onPress={() => {
-              deleteTask.mutate(task.id);
-              router.replace(backHref as any);
-            }}
-          />
+          <View className="flex-row items-center gap-2">
+            <PingButton
+              taskId={task.id}
+              projectId={projectId}
+              taskTitle={task.title}
+              projectName={data?.project?.name}
+              assigneeIds={task.assignee_ids ?? []}
+              onNotice={setPingNotice}
+            />
+            <DeleteButton
+              variant="outline"
+              size="icon"
+              icon={Trash2}
+              accessibilityLabel="Delete task"
+              disabled={deleteTask.isPending}
+              onPress={() => {
+                deleteTask.mutate(task.id);
+                router.replace(backHref as any);
+              }}
+            />
+          </View>
         </View>
+        {pingNotice ? (
+          <Text variant="muted" className="text-right text-xs">
+            {pingNotice}
+          </Text>
+        ) : null}
       </View>
 
       <View className="flex-row flex-wrap gap-x-10 gap-y-6">

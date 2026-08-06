@@ -10,11 +10,19 @@ export type NotifyPayload = {
 
 /**
  * Create in-app notifications for the given users. Inserting a row also fires
- * the send-push Edge Function (via DB webhook) to deliver a push notification.
+ * the send-push Edge Function (via DB webhook) to deliver a push notification,
+ * and the Discord bot's ping loop picks up `task` rows within ~15s.
+ *
+ * Returns whether the rows were written. Callers that only fire-and-forget can
+ * ignore it; anything that records "we notified them" (see pingAssignees) must
+ * not do so when the insert failed.
  */
-export async function notifyUsers(userIds: string[], payload: NotifyPayload): Promise<void> {
+export async function notifyUsers(
+  userIds: string[],
+  payload: NotifyPayload
+): Promise<boolean> {
   const ids = Array.from(new Set(userIds)).filter(Boolean);
-  if (ids.length === 0) return;
+  if (ids.length === 0) return false;
   const rows = ids.map((user_id) => ({
     user_id,
     type: payload.type,
@@ -23,7 +31,11 @@ export async function notifyUsers(userIds: string[], payload: NotifyPayload): Pr
     data: payload.data ?? {},
   }));
   const { error } = await supabase.from('notifications').insert(rows);
-  if (error) console.warn('[notify] failed to insert notifications:', error.message);
+  if (error) {
+    console.warn('[notify] failed to insert notifications:', error.message);
+    return false;
+  }
+  return true;
 }
 
 async function approvedIdsWhere(build: (q: any) => any): Promise<string[]> {
