@@ -2,8 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // notify.ts pulls in the Supabase client, which needs env this suite doesn't
 // have; the contract under test is "which rows would we insert", so stub it.
-const notifyUsers = vi.fn<(ids: string[], payload: unknown) => Promise<boolean>>();
-vi.mock('@/lib/notify', () => ({ notifyUsers: (...a: never[]) => notifyUsers(...a) }));
+// vi.hoisted, because vi.mock is lifted above every const — referencing a
+// plain const from the factory would throw at import time.
+const { notifyUsers } = vi.hoisted(() => ({
+  notifyUsers: vi.fn<(ids: string[], payload: unknown) => Promise<boolean>>(),
+}));
+vi.mock('@/lib/notify', () => ({ notifyUsers }));
 
 const {
   PING_COOLDOWN_MS,
