@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { FadeModal } from '@/components/ui/fade-modal';
 import { APP_VERSION } from '@/lib/app-version';
+import { parseNotes, type NotesLine } from '@/lib/notes-markdown';
 import { useReleaseNotes, shouldShowWhatsNew, markWhatsNewSeen } from '@/lib/release-notes';
 
 // Release notes carry long unbroken tokens — migration names like
@@ -16,41 +17,60 @@ const WRAP_ANYWHERE = (Platform.OS === 'web' ? { overflowWrap: 'anywhere' } : un
   | TextStyle
   | undefined;
 
-/** Just enough markdown for GitHub release notes: headings, bullets, and
- *  stripped bold/inline-code markers. Keeps us dependency-free. */
+/** One parsed line. Quotes recurse once, so `> - item` is a quoted bullet
+ *  rather than a line that literally reads "- item". */
+function NotesLineView({ node }: { node: NotesLine }) {
+  switch (node.kind) {
+    case 'heading':
+      return (
+        <Text className="pt-2 font-bold" style={WRAP_ANYWHERE}>
+          {node.text}
+        </Text>
+      );
+    case 'bullet':
+      return (
+        <View className="w-full flex-row gap-2 pl-1">
+          <Text variant="muted">•</Text>
+          {/* min-w-0 lets the flex child shrink below its content width —
+              without it a long token widens the row instead of wrapping. */}
+          <Text className="min-w-0 flex-1 text-sm" style={WRAP_ANYWHERE}>
+            {node.text}
+          </Text>
+        </View>
+      );
+    case 'blank':
+      return <View className="h-1" />;
+    case 'quote':
+      return (
+        <View className="w-full flex-row gap-2">
+          {/* One bar per nesting level; the default stretch alignment makes
+              each bar match the height of the text beside it. */}
+          {Array.from({ length: node.depth }, (_, d) => (
+            <View key={d} className="w-0.5 rounded-full bg-border" />
+          ))}
+          <View className="min-w-0 flex-1 opacity-70">
+            <NotesLineView node={node.inner} />
+          </View>
+        </View>
+      );
+    default:
+      return (
+        <Text className="text-sm" style={WRAP_ANYWHERE}>
+          {node.text}
+        </Text>
+      );
+  }
+}
+
+/** Just enough markdown for GitHub release notes: headings, bullets,
+ *  blockquotes, and stripped bold/inline-code markers. Parsing lives in
+ *  lib/notes-markdown.ts so it is covered by `npm test`. */
 function NotesBody({ notes }: { notes: string }) {
-  const lines = notes.replace(/\r\n/g, '\n').split('\n');
   return (
     <View className="w-full gap-1.5">
-      {lines.map((raw, i) => {
-        const line = raw.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/`([^`]+)`/g, '$1');
-        if (/^#{1,6}\s/.test(line)) {
-          return (
-            <Text key={i} className="pt-2 font-bold" style={WRAP_ANYWHERE}>
-              {line.replace(/^#{1,6}\s*/, '')}
-            </Text>
-          );
-        }
-        const bullet = line.match(/^\s*[-*•]\s+(.*)$/);
-        if (bullet) {
-          return (
-            <View key={i} className="w-full flex-row gap-2 pl-1">
-              <Text variant="muted">•</Text>
-              {/* min-w-0 lets the flex child shrink below its content width —
-                  without it a long token widens the row instead of wrapping. */}
-              <Text className="min-w-0 flex-1 text-sm" style={WRAP_ANYWHERE}>
-                {bullet[1]}
-              </Text>
-            </View>
-          );
-        }
-        if (!line.trim()) return <View key={i} className="h-1" />;
-        return (
-          <Text key={i} className="text-sm" style={WRAP_ANYWHERE}>
-            {line}
-          </Text>
-        );
-      })}
+      {parseNotes(notes).map((node, i) => (
+        <NotesLineView key={i} node={node} />
+      ))}
     </View>
   );
 }
