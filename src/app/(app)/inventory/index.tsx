@@ -16,9 +16,10 @@ import { groupPartsByCategory } from '@/lib/inventory-sort';
 import { useParts, type PartWithOpen } from '@/lib/queries/inventory';
 import { printLabels } from '@/lib/inventory-label';
 import { labelOf } from '@/lib/task-style';
-import { PART_CATEGORIES, checkedOutQuantity, isLowStock } from '@/lib/types';
+import { PART_CATEGORIES, checkedOutQuantity, isLowStock, type PartCategory } from '@/lib/types';
 
 type Filter = 'all' | 'out' | 'low';
+type CategoryFilter = PartCategory | 'all';
 
 const FILTERS: { value: Filter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -80,17 +81,33 @@ export default function InventoryScreen() {
   const { data: parts, isLoading } = useParts();
   const [query, setQuery] = React.useState('');
   const [filter, setFilter] = React.useState<Filter>('all');
+  const [category, setCategory] = React.useState<CategoryFilter>('all');
   const [creating, setCreating] = React.useState(false);
 
   const all = parts ?? [];
   const search = query.trim().toLowerCase();
   const filtered = all.filter((part) => {
     if (search && !matchesQuery(part, search)) return false;
+    if (category !== 'all' && part.category !== category) return false;
     const out = checkedOutQuantity(part.open);
     if (filter === 'out') return out > 0;
     if (filter === 'low') return isLowStock(part, Math.max(0, part.quantity - out));
     return true;
   });
+
+  /**
+   * Built from every part, never from `filtered` — deriving them from the
+   * filtered set would collapse the row to just the chosen category and strand
+   * the user there. Only categories that actually hold parts are offered, and
+   * groupPartsByCategory already returns them A-Z by label.
+   */
+  const categoryOptions: { value: CategoryFilter; label: string }[] = [
+    { value: 'all', label: 'All categories' },
+    ...groupPartsByCategory(all).map((group) => ({
+      value: group.category as CategoryFilter,
+      label: group.label,
+    })),
+  ];
 
   // Ordering is derived, not stored: categories A-Z, parts A-Z within each.
   const groups = groupPartsByCategory(filtered);
@@ -121,6 +138,9 @@ export default function InventoryScreen() {
               {filtered.length} of {all.length}
             </Text>
           </View>
+          {categoryOptions.length > 2 ? (
+            <OptionChips options={categoryOptions} value={category} onChange={setCategory} />
+          ) : null}
         </View>
       ) : null}
 
