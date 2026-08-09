@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { ActivityIndicator, Platform, View } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Boxes,
@@ -13,7 +14,7 @@ import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
-import { Input } from '@/components/ui/input';
+import { InventoryInput } from '@/components/inventory-input';
 import { Button } from '@/components/ui/button';
 import { DeleteButton } from '@/components/ui/delete-button';
 import { Badge } from '@/components/ui/badge';
@@ -34,13 +35,17 @@ import { partUrl, printLabels } from '@/lib/inventory-label';
 import { labelOf } from '@/lib/task-style';
 import { timeAgo } from '@/lib/format';
 import { PART_CATEGORIES, checkedOutQuantity, isLowStock, type Part } from '@/lib/types';
+import { NAV_THEME, useColorScheme } from '@/lib/theme';
 
 type Dialog = 'take' | 'stock' | 'edit' | null;
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value, unit }: { label: string; value: number; unit?: string | null }) {
   return (
     <View className="min-w-[100px] flex-1 rounded-md border border-border bg-card p-4">
-      <Text className="text-2xl font-extrabold">{value}</Text>
+      <View className="flex-row items-baseline gap-1">
+        <Text className="text-2xl font-extrabold">{value}</Text>
+        {unit ? <Text variant="small">{unit}</Text> : null}
+      </View>
       <Text variant="small">{label}</Text>
     </View>
   );
@@ -77,24 +82,60 @@ function QuantityDialog({
   onSubmit: (quantity: number, purpose: string | null) => void;
   onCancel: () => void;
 }) {
+  const { colorScheme } = useColorScheme();
   const [quantity, setQuantity] = React.useState('1');
   const [purpose, setPurpose] = React.useState('');
   const amount = Math.max(0, Math.round(Number(quantity) || 0));
   const invalid = amount < 1 || (max !== undefined && amount > max);
+  const sliderTheme = NAV_THEME[colorScheme === 'dark' ? 'dark' : 'light'];
+  const sliderPrimary = sliderTheme.colors.primary as string;
+  const sliderTrack = sliderTheme.colors.border as string;
 
   return (
-    <Card className="border-primary/40">
+    <Card className="select-none border-primary/40">
       <CardContent className="gap-3 p-4">
         <Text variant="title">{title}</Text>
         <Text variant="muted">{description}</Text>
         <View className="gap-1.5">
-          <Text variant="label">Quantity</Text>
-          <Input value={quantity} onChangeText={setQuantity} keyboardType="number-pad" autoFocus />
+          <View className="flex-row items-center justify-between gap-3">
+            <Text variant="label">Quantity</Text>
+            {max !== undefined ? <Text className="font-semibold tabular-nums">{amount}</Text> : null}
+          </View>
+          {max !== undefined ? (
+            <View className="gap-1">
+              <Slider
+                style={{ width: '100%', height: 40 }}
+                accessibilityLabel="Quantity"
+                accessibilityValue={{ min: 1, max, now: amount }}
+                minimumValue={1}
+                maximumValue={Math.max(1, max)}
+                step={1}
+                value={amount}
+                disabled={max <= 1}
+                tapToSeek
+                minimumTrackTintColor={sliderPrimary}
+                maximumTrackTintColor={sliderTrack}
+                thumbTintColor={sliderPrimary}
+                onValueChange={(value) => setQuantity(String(value))}
+              />
+              <View className="flex-row justify-between">
+                <Text variant="small">1</Text>
+                <Text variant="small">{max} available</Text>
+              </View>
+            </View>
+          ) : (
+            <InventoryInput
+              value={quantity}
+              onChangeText={setQuantity}
+              keyboardType="number-pad"
+              autoFocus
+            />
+          )}
         </View>
         {withPurpose ? (
           <View className="gap-1.5">
             <Text variant="label">What for</Text>
-            <Input value={purpose} onChangeText={setPurpose} placeholder="Competition robot, prototype…" />
+            <InventoryInput value={purpose} onChangeText={setPurpose} placeholder="Competition robot, prototype…" />
           </View>
         ) : null}
         <View className="flex-row gap-2">
@@ -178,7 +219,7 @@ function PartDetail({ part, checkouts }: { part: Part; checkouts: CheckoutWithUs
     ...(part.manufacturer ? [{ label: 'Manufacturer', value: part.manufacturer }] : []),
     ...(part.part_number ? [{ label: 'Part number', value: part.part_number }] : []),
     ...(part.location ? [{ label: 'Location', value: part.location }] : []),
-    ...(part.low_stock_at != null
+    ...(part.consumable && part.low_stock_at != null
       ? [{ label: 'Low stock at', value: `${part.low_stock_at}${part.unit ? ` ${part.unit}` : ''}` }]
       : []),
     ...(part.notes ? [{ label: 'Notes', value: part.notes }] : []),
@@ -188,7 +229,7 @@ function PartDetail({ part, checkouts }: { part: Part; checkouts: CheckoutWithUs
     <Screen maxWidth="max-w-3xl">
       <ScreenHeader
         title={part.name}
-        description={part.consumable ? 'Consumable — logged usage lowers stock.' : 'Signed out and returned by the team.'}
+        description={part.consumable ? 'Consumable — logged usage lowers stock.' : undefined}
         backHref="/inventory"
       >
         <Button
@@ -210,14 +251,26 @@ function PartDetail({ part, checkouts }: { part: Part; checkouts: CheckoutWithUs
         />
       </ScreenHeader>
 
+      <Card>
+        <CardContent className="gap-2.5 p-4">
+          {details.map((row) => (
+            <DetailRow key={row.label} label={row.label} value={row.value} />
+          ))}
+        </CardContent>
+      </Card>
+
       <View className="flex-row flex-wrap gap-3">
-        <Stat label={part.consumable ? 'In stock' : 'Available'} value={available} />
+        <Stat
+          label={part.consumable ? 'In stock' : 'Available'}
+          value={available}
+          unit={part.unit}
+        />
         {part.consumable ? (
-          <Stat label="Used to date" value={used} />
+          <Stat label="Used to date" value={used} unit={part.unit} />
         ) : (
           <>
-            <Stat label="Checked out" value={out} />
-            <Stat label="Owned" value={part.quantity} />
+            <Stat label="Checked out" value={out} unit={part.unit} />
+            <Stat label="Owned" value={part.quantity} unit={part.unit} />
           </>
         )}
       </View>
@@ -251,14 +304,6 @@ function PartDetail({ part, checkouts }: { part: Part; checkouts: CheckoutWithUs
       </View>
 
       <PartPhotoCard part={part} />
-
-      <Card>
-        <CardContent className="gap-2.5 p-4">
-          {details.map((row) => (
-            <DetailRow key={row.label} label={row.label} value={row.value} />
-          ))}
-        </CardContent>
-      </Card>
 
       {open.length > 0 ? (
         <View className="gap-3">

@@ -22,7 +22,6 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { AutoGrowingTextInput } from '@/components/ui/auto-growing-text-input';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DeleteButton } from '@/components/ui/delete-button';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +30,7 @@ import { Icon } from '@/components/ui/icon';
 import { Markdown } from '@/components/ui/markdown';
 import { MultiSelect, Select } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
+import { TaskTagsSelect } from '@/components/task-tags-select';
 import {
   useAllTasks,
   useDeleteTask,
@@ -215,13 +215,10 @@ export default function TaskNotesScreen() {
   const [loadedId, setLoadedId] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState('');
   const [editing, setEditing] = React.useState(false);
-  const [editingField, setEditingField] = React.useState<string | null>(null);
   const [titleDraft, setTitleDraft] = React.useState('');
-  const [tagsDraft, setTagsDraft] = React.useState('');
   const [pingNotice, setPingNotice] = React.useState<string | null>(null);
   const [blockerError, setBlockerError] = React.useState<string | null>(null);
   const [projectHovered, setProjectHovered] = React.useState(false);
-  const [tagsHovered, setTagsHovered] = React.useState(false);
   const titleSaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const notesSaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -236,9 +233,7 @@ export default function TaskNotesScreen() {
     setLoadedId(task.id);
     setDraft(task.notes ?? '');
     setEditing(false);
-    setEditingField(null);
     setTitleDraft(task.title);
-    setTagsDraft(task.tags.join(', '));
   }
 
   const backHref = `/projects/${projectId}`;
@@ -337,19 +332,6 @@ export default function TaskNotesScreen() {
     if (editing) flushNotes();
     setEditing((value) => !value);
   };
-  const saveTags = () => {
-    const tags = Array.from(
-      new Set(
-        tagsDraft
-          .split(',')
-          .map((tag) => tag.trim().toLowerCase())
-          .filter(Boolean)
-      )
-    );
-    update.mutate({ id: task.id, tags });
-    setEditingField(null);
-  };
-
   return (
     <Screen maxWidth="max-w-6xl" contentClassName="gap-7">
       <View className="gap-2">
@@ -531,39 +513,12 @@ export default function TaskNotesScreen() {
         </TaskField>
 
         <TaskField icon={Tag} label="Tags">
-          {editingField === 'tags' ? (
-            <Input
-              autoFocus
-              value={tagsDraft}
-              onChangeText={setTagsDraft}
-              onBlur={saveTags}
-              onSubmitEditing={saveTags}
-              placeholder="Comma-separated tags"
-              autoCapitalize="none"
-              className="h-10 rounded-md border-transparent bg-transparent px-2 outline-none focus:border-transparent"
-            />
-          ) : (
-            <Pressable
-              onHoverIn={() => setTagsHovered(true)}
-              onHoverOut={() => setTagsHovered(false)}
-              className={cn(
-                'min-h-10 w-full justify-center rounded-md px-2 active:bg-accent',
-                tagsHovered && 'bg-accent'
-              )}
-              onPress={() => {
-                setTagsDraft(task.tags.join(', '));
-                setEditingField('tags');
-              }}
-            >
-              {task.tags.length > 0 ? (
-                <View className="flex-row flex-wrap gap-2">
-                  {task.tags.map((tag) => <Badge key={tag} variant="secondary" label={tag} />)}
-                </View>
-              ) : (
-                <Text variant="muted">No tags</Text>
-              )}
-            </Pressable>
-          )}
+          <TaskTagsSelect
+            values={task.tags}
+            availableTags={(allTasks ?? []).flatMap((candidate) => candidate.tags)}
+            onChange={(tags) => update.mutate({ id: task.id, tags })}
+            className="h-auto min-h-10 rounded-md border-transparent bg-transparent px-2 py-1"
+          />
         </TaskField>
       </View>
 

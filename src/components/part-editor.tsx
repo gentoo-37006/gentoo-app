@@ -1,9 +1,11 @@
 import * as React from 'react';
 import { View } from 'react-native';
+import { Plus } from 'lucide-react-native';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
-import { Input } from '@/components/ui/input';
+import { InventoryInput } from '@/components/inventory-input';
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { Select } from '@/components/ui/select';
 import { OptionChips } from '@/components/ui/option-chips';
 import { useCreatePart, useParts, useUpdatePart, type PartInput } from '@/lib/queries/inventory';
@@ -14,6 +16,8 @@ const KIND_OPTIONS: { value: 'durable' | 'consumable'; label: string }[] = [
   { value: 'durable', label: 'Durable' },
   { value: 'consumable', label: 'Consumable' },
 ];
+
+const ADD_MANUFACTURER = '__add_manufacturer__';
 
 const toCount = (value: string) => Math.max(0, Math.round(Number(value) || 0));
 
@@ -28,7 +32,6 @@ export function PartEditor({
 }) {
   const create = useCreatePart();
   const { data: allParts } = useParts();
-  const suggestions = distinctManufacturers(allParts ?? []);
   const update = useUpdatePart();
   const [name, setName] = React.useState(initial?.name ?? '');
   const [category, setCategory] = React.useState<PartCategory>(initial?.category ?? 'other');
@@ -39,11 +42,28 @@ export function PartEditor({
   const [consumable, setConsumable] = React.useState(initial?.consumable ?? false);
   const [unit, setUnit] = React.useState(initial?.unit ?? '');
   const [lowStock, setLowStock] = React.useState(
-    initial?.low_stock_at == null ? '' : String(initial.low_stock_at)
+    !initial?.consumable || initial.low_stock_at == null ? '' : String(initial.low_stock_at)
   );
   const [notes, setNotes] = React.useState(initial?.notes ?? '');
   const [error, setError] = React.useState<string | null>(null);
   const busy = create.isPending || update.isPending;
+  const manufacturerOptions = React.useMemo(() => {
+    const existing = distinctManufacturers(allParts ?? [], allParts?.length ?? 0);
+    const current = manufacturer.trim();
+    if (current && !existing.some((value) => value.toLowerCase() === current.toLowerCase())) {
+      existing.push(current);
+    }
+
+    return [
+      { value: ADD_MANUFACTURER, label: 'Add new manufacturer' },
+      ...existing.map((value) => ({ value, label: value })),
+    ];
+  }, [allParts, manufacturer]);
+  const selectedManufacturer = manufacturerOptions.find(
+    (option) =>
+      option.value !== ADD_MANUFACTURER &&
+      option.value.toLowerCase() === manufacturer.trim().toLowerCase()
+  )?.value;
 
   const onSave = async () => {
     if (!name.trim()) {
@@ -59,7 +79,7 @@ export function PartEditor({
       quantity: toCount(quantity),
       consumable,
       unit: consumable ? unit.trim() || null : null,
-      low_stock_at: lowStock.trim() ? toCount(lowStock) : null,
+      low_stock_at: consumable && lowStock.trim() ? toCount(lowStock) : null,
       notes: notes.trim() || null,
       // Photos are managed on the part's own page; carry the existing one
       // through so saving an edit here never silently drops it.
@@ -74,19 +94,24 @@ export function PartEditor({
   };
 
   return (
-    <Card className="border-primary/40">
+    <Card className="select-none border-primary/40">
       <CardContent className="gap-3 p-4">
         <Text variant="title">{initial ? 'Edit part' : 'New part'}</Text>
-        <Input value={name} onChangeText={setName} placeholder="Part name" />
+        <InventoryInput value={name} onChangeText={setName} placeholder="Part name" />
 
         <View className="flex-row gap-2">
           <View className="flex-1 gap-1.5">
             <Text variant="label">Category</Text>
-            <Select options={PART_CATEGORIES} value={category} onChange={setCategory} />
+            <Select
+              options={PART_CATEGORIES}
+              value={category}
+              onChange={setCategory}
+              className="h-11 rounded-md border-transparent bg-transparent px-2"
+            />
           </View>
           <View className="flex-1 gap-1.5">
             <Text variant="label">Part number</Text>
-            <Input
+            <InventoryInput
               value={partNumber}
               onChangeText={setPartNumber}
               placeholder="REV-41-1301"
@@ -97,28 +122,32 @@ export function PartEditor({
 
         <View className="gap-1.5">
           <Text variant="label">Manufacturer</Text>
-          <Input
-            value={manufacturer}
-            onChangeText={setManufacturer}
-            placeholder="goBILDA, REV Robotics…"
-            autoCapitalize="words"
-            autoCorrect={false}
+          <Select
+            options={manufacturerOptions}
+            value={selectedManufacturer ?? null}
+            onChange={(value, query) => {
+              if (value === ADD_MANUFACTURER) {
+                const nextManufacturer = query?.trim();
+                if (!nextManufacturer) return false;
+                setManufacturer(nextManufacturer);
+                return;
+              }
+              setManufacturer(value);
+            }}
+            placeholder="No manufacturer"
+            className="h-11 rounded-md border-transparent bg-transparent px-2"
+            pinnedValues={[ADD_MANUFACTURER]}
+            renderValue={(option) =>
+              option.value === ADD_MANUFACTURER ? (
+                <View className="flex-row items-center gap-2">
+                  <Icon as={Plus} size={16} className="text-primary" />
+                  <Text className="text-sm font-medium text-primary">{option.label}</Text>
+                </View>
+              ) : (
+                <Text className="text-sm font-medium">{option.label}</Text>
+              )
+            }
           />
-          {/* Suggestions come from what the team already owns, so "goBILDA"
-              does not end up alongside "Gobilda" and "go bilda". */}
-          {suggestions.length > 0 ? (
-            <View className="flex-row flex-wrap gap-2">
-              {suggestions.map((name) => (
-                <Button
-                  key={name}
-                  variant="outline"
-                  size="sm"
-                  label={name}
-                  onPress={() => setManufacturer(name)}
-                />
-              ))}
-            </View>
-          ) : null}
         </View>
 
         <View className="gap-1.5">
@@ -126,7 +155,11 @@ export function PartEditor({
           <OptionChips
             options={KIND_OPTIONS}
             value={consumable ? 'consumable' : 'durable'}
-            onChange={(value) => setConsumable(value === 'consumable')}
+            onChange={(value) => {
+              const nextConsumable = value === 'consumable';
+              setConsumable(nextConsumable);
+              if (!nextConsumable) setLowStock('');
+            }}
           />
           <Text variant="small">
             {consumable
@@ -138,33 +171,35 @@ export function PartEditor({
         <View className="flex-row gap-2">
           <View className="flex-1 gap-1.5">
             <Text variant="label">{consumable ? 'In stock' : 'Quantity'}</Text>
-            <Input value={quantity} onChangeText={setQuantity} keyboardType="number-pad" />
+            <InventoryInput value={quantity} onChangeText={setQuantity} keyboardType="number-pad" />
           </View>
           {consumable ? (
             <View className="flex-1 gap-1.5">
               <Text variant="label">Unit</Text>
-              <Input value={unit} onChangeText={setUnit} placeholder="g, spools…" autoCapitalize="none" />
+              <InventoryInput value={unit} onChangeText={setUnit} placeholder="g, spools…" autoCapitalize="none" />
             </View>
           ) : null}
-          <View className="flex-1 gap-1.5">
-            <Text variant="label">Low at</Text>
-            <Input
-              value={lowStock}
-              onChangeText={setLowStock}
-              placeholder="Off"
-              keyboardType="number-pad"
-            />
-          </View>
+          {consumable ? (
+            <View className="flex-1 gap-1.5">
+              <Text variant="label">Low at</Text>
+              <InventoryInput
+                value={lowStock}
+                onChangeText={setLowStock}
+                placeholder="Off"
+                keyboardType="number-pad"
+              />
+            </View>
+          ) : null}
         </View>
 
         <View className="gap-1.5">
           <Text variant="label">Location</Text>
-          <Input value={location} onChangeText={setLocation} placeholder="Bin A2, shelf B…" />
+          <InventoryInput value={location} onChangeText={setLocation} placeholder="Bin A2, shelf B…" />
         </View>
 
         <View className="gap-1.5">
           <Text variant="label">Notes</Text>
-          <Input value={notes} onChangeText={setNotes} placeholder="Optional" />
+          <InventoryInput value={notes} onChangeText={setNotes} placeholder="Optional" />
         </View>
 
         {error ? <Text className="text-destructive">{error}</Text> : null}

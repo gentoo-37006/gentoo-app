@@ -1,11 +1,12 @@
 import * as React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { Image } from 'expo-image';
-import { Camera, ImagePlus, Trash2 } from 'lucide-react-native';
+import { Camera, ImagePlus, X } from 'lucide-react-native';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
+import { DeleteButton } from '@/components/ui/delete-button';
 import { usePartPhotoUrl, useUpdatePart } from '@/lib/queries/inventory';
 import {
   pickPhotoFromLibrary,
@@ -65,35 +66,33 @@ export function PartPhotoCard({ part }: { part: Part }) {
   return (
     <Card>
       <CardContent className="gap-3 p-4">
-        <View className="flex-row items-center justify-between gap-3">
-          <Text variant="title">Reference photo</Text>
-          {part.image_path ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              icon={Trash2}
-              accessibilityLabel="Remove photo"
-              disabled={busy}
-              onPress={clear}
-            />
-          ) : null}
-        </View>
-
         {part.image_path ? (
-          <View className="aspect-[4/3] w-full overflow-hidden rounded-md bg-muted">
-            {isLoading || !url ? (
-              <View className="flex-1 items-center justify-center">
-                <ActivityIndicator />
-              </View>
-            ) : (
-              <Image
-                source={url}
-                contentFit="cover"
-                transition={150}
-                style={{ width: '100%', height: '100%' }}
-                accessibilityLabel={`Photo of ${part.name}`}
+          <View className="relative aspect-square w-full">
+            <View className="absolute inset-0 overflow-hidden rounded-md bg-muted">
+              {isLoading || !url ? (
+                <View className="flex-1 items-center justify-center">
+                  <ActivityIndicator />
+                </View>
+              ) : (
+                <Image
+                  source={url}
+                  contentFit="cover"
+                  transition={150}
+                  style={{ width: '100%', height: '100%' }}
+                  accessibilityLabel={`Photo of ${part.name}`}
+                />
+              )}
+            </View>
+            <View className="absolute right-2 top-2 z-10 rounded-md bg-background/80">
+              <DeleteButton
+                variant="ghost"
+                size="icon"
+                icon={X}
+                accessibilityLabel="Remove photo"
+                disabled={busy}
+                onPress={clear}
               />
-            )}
+            </View>
           </View>
         ) : (
           <View className="items-center gap-1 rounded-md border border-dashed border-border py-6">

@@ -379,7 +379,7 @@ export function checkedOutQuantity(open: { quantity: number }[]): number {
 }
 
 export function isLowStock(part: Part, available: number): boolean {
-  return part.low_stock_at != null && available <= part.low_stock_at;
+  return part.consumable && part.low_stock_at != null && available <= part.low_stock_at;
 }
 
 // ---- Pit-duty schedule ------------------------------------------------------

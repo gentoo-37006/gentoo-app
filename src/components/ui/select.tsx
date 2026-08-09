@@ -71,10 +71,11 @@ function OptionDropdown<T extends string>({
   selectedOptions,
   onRemove,
   renderSelectedOption,
+  pinnedValues,
 }: {
   options: SelectOption<T>[];
   isActive: (value: T) => boolean;
-  onPick: (value: T) => void;
+  onPick: (value: T, query: string) => void | boolean;
   onClose: () => void;
   onDismiss: () => void;
   anchor: Anchor;
@@ -84,12 +85,20 @@ function OptionDropdown<T extends string>({
   selectedOptions: SelectOption<T>[];
   onRemove?: (value: T) => void;
   renderSelectedOption?: (option: SelectOption<T>) => React.ReactNode;
+  pinnedValues?: T[];
 }) {
   const frame = getMenuFrame(anchor);
   const [query, setQuery] = React.useState('');
-  const filteredOptions = options.filter((option) =>
-    option.label.toLowerCase().includes(query.trim().toLowerCase())
-  );
+  const normalizedQuery = query.trim().toLowerCase();
+  const pinnedOptions = options.filter((option) => pinnedValues?.includes(option.value));
+  const filteredOptions = [
+    ...pinnedOptions,
+    ...options.filter(
+      (option) =>
+        !pinnedValues?.includes(option.value) &&
+        option.label.toLowerCase().includes(normalizedQuery)
+    ),
+  ];
 
   const removeLast = () => {
     if (query || !onRemove || selectedOptions.length === 0) return;
@@ -148,12 +157,11 @@ function OptionDropdown<T extends string>({
                 }
                 const firstOption = filteredOptions[0];
                 if (!firstOption) return;
-                onPick(firstOption.value);
-                setQuery('');
+                if (onPick(firstOption.value, query) !== false) setQuery('');
               }}
               blurOnSubmit={false}
               placeholder={selectedOptions.length > 0 ? '' : 'Search...'}
-              placeholderTextColor="hsl(215 16% 47%)"
+              placeholderTextColor="hsl(0 0% 47%)"
               className="h-8 min-w-16 flex-1 bg-transparent px-1 text-sm text-foreground outline-none"
             />
           </View>
@@ -171,8 +179,7 @@ function OptionDropdown<T extends string>({
                 <Pressable
                   key={o.value}
                   onPress={() => {
-                    onPick(o.value);
-                    setQuery('');
+                    if (onPick(o.value, query) !== false) setQuery('');
                   }}
                   className={cn(
                     'flex-row items-center gap-2 px-3.5 py-2.5 hover:bg-accent',
@@ -212,14 +219,16 @@ export function Select<T extends string>({
   className,
   renderValue,
   onOpenChange,
+  pinnedValues,
 }: {
   options: SelectOption<T>[];
   value: T | null;
-  onChange: (value: T) => void;
+  onChange: (value: T, query?: string) => void | boolean;
   placeholder?: string;
   className?: string;
   renderValue?: (option: SelectOption<T>) => React.ReactNode;
   onOpenChange?: (open: boolean) => void;
+  pinnedValues?: T[];
 }) {
   const [open, setOpen] = React.useState(false);
   const [anchor, setAnchor] = React.useState<Anchor | null>(null);
@@ -250,15 +259,17 @@ export function Select<T extends string>({
           visible={open}
           options={options}
           isActive={(v) => v === value}
-          onPick={(v) => {
-            onChange(v);
+          onPick={(v, query) => {
+            if (onChange(v, query) === false) return false;
             closeDropdown();
+            return true;
           }}
           onClose={closeDropdown}
           onDismiss={() => setAnchor(null)}
           anchor={anchor}
           renderOption={renderValue}
           selectedOptions={current ? [current] : []}
+          pinnedValues={pinnedValues}
         />
       ) : null}
     </View>
@@ -275,16 +286,18 @@ export function MultiSelect<T extends string>({
   renderOption,
   renderSelectedOption,
   onOpenChange,
+  pinnedValues,
 }: {
   options: SelectOption<T>[];
   values: T[];
-  onChange: (values: T[]) => void;
+  onChange: (values: T[], query?: string) => void | boolean;
   placeholder?: string;
   className?: string;
   renderValue?: (options: SelectOption<T>[]) => React.ReactNode;
   renderOption?: (option: SelectOption<T>) => React.ReactNode;
   renderSelectedOption?: (option: SelectOption<T>) => React.ReactNode;
   onOpenChange?: (open: boolean) => void;
+  pinnedValues?: T[];
 }) {
   const [open, setOpen] = React.useState(false);
   const [anchor, setAnchor] = React.useState<Anchor | null>(null);
@@ -324,7 +337,12 @@ export function MultiSelect<T extends string>({
           visible={open}
           options={options}
           isActive={(v) => values.includes(v)}
-          onPick={(v) => onChange(values.includes(v) ? values.filter((x) => x !== v) : [...values, v])}
+          onPick={(v, query) =>
+            onChange(
+              values.includes(v) ? values.filter((x) => x !== v) : [...values, v],
+              query
+            )
+          }
           onClose={closeDropdown}
           onDismiss={() => setAnchor(null)}
           anchor={anchor}
@@ -334,6 +352,7 @@ export function MultiSelect<T extends string>({
             onChange(values.filter((item) => item !== value));
           }}
           renderSelectedOption={renderSelectedOption}
+          pinnedValues={pinnedValues}
         />
       ) : null}
     </View>

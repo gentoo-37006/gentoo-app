@@ -52,6 +52,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { OptionChips } from '@/components/ui/option-chips';
 import { MultiSelect, Select } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
+import { TaskTagsSelect } from '@/components/task-tags-select';
 import { FadeModal, FADE_DURATION_MS } from '@/components/ui/fade-modal';
 import { MobileDragSurface } from '@/components/mobile-drag-surface';
 import { cn } from '@/lib/utils';
@@ -59,6 +60,7 @@ import { useColorScheme } from '@/lib/theme';
 import { useProfiles } from '@/lib/queries/profiles';
 import {
   useProject,
+  useAllTasks,
   useCreateTask,
   useUpdateTask,
   useDeleteTask,
@@ -526,81 +528,17 @@ function TaskCard({
   );
 }
 
-function InlineTagsEditor({
-  tags,
-  onChange,
-  onOpenChange,
-}: {
-  tags: string[];
-  onChange: (tags: string[]) => void;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const joined = tags.join(', ');
-  const [editing, setEditing] = React.useState(false);
-  const [hovered, setHovered] = React.useState(false);
-  const [draft, setDraft] = React.useState(joined);
-
-  const save = () => {
-    const next = Array.from(
-      new Set(
-        draft
-          .split(',')
-          .map((tag) => tag.trim().toLowerCase())
-          .filter(Boolean)
-      )
-    );
-    if (next.join(', ') !== joined) onChange(next);
-    setEditing(false);
-    onOpenChange(false);
-  };
-
-  if (editing) {
-    return (
-      <Input
-        autoFocus
-        value={draft}
-        onChangeText={setDraft}
-        onBlur={save}
-        onSubmitEditing={save}
-        placeholder="Comma-separated tags"
-        autoCapitalize="none"
-        className="h-10 rounded-md border-transparent bg-transparent px-1 outline-none focus:border-transparent"
-      />
-    );
-  }
-
-  return (
-    <Pressable
-      onPress={() => {
-        setDraft(joined);
-        setEditing(true);
-        onOpenChange(true);
-      }}
-      onHoverIn={() => setHovered(true)}
-      onHoverOut={() => setHovered(false)}
-      className={cn(
-        'min-h-10 w-full flex-row flex-wrap content-center gap-1 rounded-md px-1 py-1 active:bg-accent',
-        hovered && 'bg-accent'
-      )}
-    >
-      {tags.length > 0 ? (
-        tags.map((tag) => <Badge key={tag} variant="muted" label={tag} />)
-      ) : (
-        <Text variant="small">No tags</Text>
-      )}
-    </Pressable>
-  );
-}
-
 function TaskTableRow({
   task,
   profiles,
+  availableTags,
   highlighted = false,
   onMetadataOpenChange,
   onOpen,
 }: {
   task: Task;
   profiles: Profile[];
+  availableTags: string[];
   highlighted?: boolean;
   onMetadataOpenChange: (open: boolean) => void;
   onOpen: () => void;
@@ -818,10 +756,12 @@ function TaskTableRow({
           completedCellClass
         )}
       >
-        <InlineTagsEditor
-          tags={task.tags}
+        <TaskTagsSelect
+          values={task.tags}
+          availableTags={availableTags}
           onChange={(tags) => update.mutate({ id: task.id, tags })}
           onOpenChange={onMetadataOpenChange}
+          className="h-auto min-h-10 rounded-md border-transparent bg-transparent px-1 py-1"
         />
       </View>
 
@@ -910,12 +850,14 @@ function NativeCompletedTaskLine({
 function TaskTable({
   tasks,
   profiles,
+  availableTags,
   focusTaskId,
   onReorder,
   onOpenTask,
 }: {
   tasks: Task[];
   profiles: Profile[];
+  availableTags: string[];
   focusTaskId: string | null;
   onReorder: (taskIds: string[]) => void;
   onOpenTask: (task: Task) => void;
@@ -1360,6 +1302,7 @@ function TaskTable({
                   <TaskTableRow
                   task={task}
                   profiles={profiles}
+                  availableTags={availableTags}
                   highlighted={task.id === focusTaskId}
                   onOpen={() => onOpenTask(task)}
                   onMetadataOpenChange={(open) => {
@@ -1404,6 +1347,7 @@ function TaskTable({
                     <TaskTableRow
                       task={task}
                       profiles={profiles}
+                      availableTags={availableTags}
                       highlighted={task.id === focusTaskId}
                       onOpen={() => onOpenTask(task)}
                       onMetadataOpenChange={(open) => {
@@ -1458,6 +1402,7 @@ export default function ProjectDetailScreen() {
     task?: string;
   }>();
   const { data, isLoading } = useProject(projectId);
+  const { data: allTasks } = useAllTasks();
   const { data: profiles } = useProfiles();
   const createTask = useCreateTask();
   const reorderTasks = useReorderTasks();
@@ -1543,6 +1488,7 @@ export default function ProjectDetailScreen() {
   const members = allProfiles.filter((p) => p.status === 'approved');
   const tasks = data?.tasks ?? [];
   const allTags = Array.from(new Set(tasks.flatMap((t) => t.tags)));
+  const allTaskTags = Array.from(new Set((allTasks ?? []).flatMap((task) => task.tags)));
 
   const filtered = tasks.filter((t) => {
     if (fAssignee === 'unassigned' && t.assignee_ids.length > 0) return false;
@@ -1749,6 +1695,7 @@ export default function ProjectDetailScreen() {
         <TaskTable
           tasks={filtered}
           profiles={members}
+          availableTags={allTaskTags}
           focusTaskId={focusTaskId}
           onReorder={reorderVisibleTasks}
           onOpenTask={(task) =>

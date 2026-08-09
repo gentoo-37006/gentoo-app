@@ -3,7 +3,7 @@ import { APP_VERSION } from '@/lib/app-version';
 import { WEB_URL_OVERRIDE } from '@/lib/env';
 import { labelOrigin } from '@/lib/label-origin';
 import { qrPath } from '@/lib/qr';
-import type { Part } from '@/lib/types';
+import { PART_CATEGORIES, type Part } from '@/lib/types';
 
 /** Where a scanned label lands: the part's page in the web app. */
 export function partUrl(partId: string): string {
@@ -27,14 +27,23 @@ const ESCAPES: Record<string, string> = {
 
 const escapeHtml = (value: string) => value.replace(/[&<>"]/g, (c) => ESCAPES[c]);
 
+const CATEGORY_LABELS = new Map(
+  PART_CATEGORIES.map((category) => [category.value, category.label])
+);
+
 function labelHtml(part: Part): string {
   const { path, size } = qrPath(partUrl(part.id));
-  const meta = [part.part_number, part.location].filter(Boolean).join(' · ');
+  const meta = part.part_number;
+  const details = [
+    CATEGORY_LABELS.get(part.category) ?? part.category,
+    part.manufacturer,
+  ].filter(Boolean).join(' | ');
   return `<div class="label">
     <svg viewBox="0 0 ${size} ${size}"><path d="${path}" fill="#000"/></svg>
     <div class="text">
       <div class="name">${escapeHtml(part.name)}</div>
       ${meta ? `<div class="meta">${escapeHtml(meta)}</div>` : ''}
+      <div class="meta">${escapeHtml(details)}</div>
       <div class="meta">Scan to sign in / out</div>
     </div>
   </div>`;
