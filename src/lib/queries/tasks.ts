@@ -23,6 +23,8 @@ import {
   isDemoMode,
 } from '@/lib/demo';
 import { notifyUsers } from '@/lib/notify';
+import { removeById, removeTaskFromProject, updateById, updateTaskInProject } from '@/lib/optimistic-patch';
+import { applyOptimistic, rollback, type Snapshot } from '@/lib/queries/optimistic';
 import type { Priority, Project, ProjectStatus, Task, TaskStatus } from '@/lib/types';
 
 export const taskKeys = {
@@ -195,11 +197,67 @@ export function useAllTasks() {
   });
 }
 
-function useProjectsMutation<TVars, TData = unknown>(fn: (vars: TVars) => Promise<TData>) {
+type ProjectDetail = { project: Project | null; tasks: Task[] };
+
+/**
+ * Optional optimistic patches, one per cache SHAPE.
+ *
+ * Only the lists a user is looking at are patched. The derived caches —
+ * `my_open_tasks` (a count) and `my_tasks` (a top-N slice) — are deliberately
+ * left to refetch: predicting them means re-deriving "is this still due today"
+ * and "does this still make the top 6" client-side, and a wrong guess shows up
+ * as a badge that disagrees with the list under it.
+ */
+type TaskOptimistic<TVars> = {
+  /** ['project', id] — the detail screen's { project, tasks }. */
+  projectDetail?: (data: ProjectDetail, vars: TVars) => ProjectDetail;
+  /** ['projects'] and ['projects','trashed'] — both are Project lists. */
+  projects?: (list: ProjectWithTasks[], vars: TVars) => ProjectWithTasks[];
+  /** ['tasks','all'] */
+  allTasks?: (list: Task[], vars: TVars) => Task[];
+};
+
+function useProjectsMutation<TVars, TData = unknown>(
+  fn: (vars: TVars) => Promise<TData>,
+  optimistic?: TaskOptimistic<TVars>
+) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: fn,
-    onSuccess: () => {
+    onMutate: optimistic
+      ? async (vars: TVars) => {
+          const snapshot: Snapshot = [];
+          if (optimistic.projectDetail) {
+            snapshot.push(
+              ...(await applyOptimistic(qc, [['project']], (data, key) =>
+                // A prefix match on ['project'] also hits
+                // ['project', id, 'trashed-tasks'], which is a bare Task[].
+                // Only the two-segment key holds { project, tasks }.
+                key.length === 2 ? optimistic.projectDetail!(data, vars) : data
+              ))
+            );
+          }
+          if (optimistic.projects) {
+            snapshot.push(
+              ...(await applyOptimistic(qc, [taskKeys.projects], (data) =>
+                optimistic.projects!(data, vars)
+              ))
+            );
+          }
+          if (optimistic.allTasks) {
+            snapshot.push(
+              ...(await applyOptimistic(qc, [taskKeys.allTasks], (data) =>
+                optimistic.allTasks!(data, vars)
+              ))
+            );
+          }
+          return snapshot;
+        }
+      : undefined,
+    onError: (_error, _vars, context) => rollback(qc, context as Snapshot),
+    // onSettled, not onSuccess: a failed mutation must also resync, otherwise a
+    // rolled-back cache keeps whatever the server actually did out of view.
+    onSettled: () => {
       // Prefix match also covers taskKeys.trashed (['projects', 'trashed']).
       qc.invalidateQueries({ queryKey: taskKeys.projects });
       qc.invalidateQueries({ queryKey: ['project'] });
@@ -281,6 +339,11 @@ export function useUpdateProject() {
         .update({ ...patch, updated_at: new Date().toISOString() })
         .eq('id', id);
       if (error) throw error;
+    },
+    {
+      projects: (list, { id, ...patch }) => updateById(list, id, patch) ?? list,
+      projectDetail: (data, { id, ...patch }) =>
+        data.project?.id === id ? { ...data, project: { ...data.project, ...patch } } : data,
     }
   );
 }
@@ -294,7 +357,7 @@ export function useTrashProject() {
       .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', id);
     if (error) throw error;
-  });
+  }, { projects: (list, id) => removeById(list, id) ?? list });
 }
 
 /** Restore a trashed project back to the active list. */
@@ -315,7 +378,7 @@ export function useDeleteProject() {
     if (isDemoMode()) return demoDeleteProject(id);
     const { error } = await supabase.from('projects').delete().eq('id', id);
     if (error) throw error;
-  });
+  }, { projects: (list, id) => removeById(list, id) ?? list });
 }
 
 // ---- Tasks ------------------------------------------------------------------
@@ -394,6 +457,12 @@ export function useUpdateTask() {
           data: { projectId: prev.project_id, taskId: id },
         });
       }
+    },
+    {
+      // The server may ALSO unblock dependent tasks (process_unblocks); those
+      // land on the refetch. Only the edited row is predicted here.
+      projectDetail: (data, { id, ...patch }) => updateTaskInProject(data, id, patch) ?? data,
+      allTasks: (list, { id, ...patch }) => updateById(list, id, patch) ?? list,
     }
   );
 }
@@ -449,14 +518,20 @@ export function useReorderTasks() {
 
 /** Move a task to its project's trash. */
 export function useDeleteTask() {
-  return useProjectsMutation<string>(async (id) => {
-    if (isDemoMode()) return demoDeleteTask(id);
-    const { error } = await supabase
-      .from('tasks')
-      .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-      .eq('id', id);
-    if (error) throw error;
-  });
+  return useProjectsMutation<string>(
+    async (id) => {
+      if (isDemoMode()) return demoDeleteTask(id);
+      const { error } = await supabase
+        .from('tasks')
+        .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    {
+      projectDetail: (data, id) => removeTaskFromProject(data, id) ?? data,
+      allTasks: (list, id) => removeById(list, id) ?? list,
+    }
+  );
 }
 
 /** Restore a trashed task to its project. */
@@ -473,9 +548,15 @@ export function useRestoreTask() {
 
 /** Permanently delete a trashed task. */
 export function useDeleteTaskForever() {
-  return useProjectsMutation<string>(async (id) => {
-    if (isDemoMode()) return demoDeleteTaskForever(id);
-    const { error } = await supabase.from('tasks').delete().eq('id', id);
-    if (error) throw error;
-  });
+  return useProjectsMutation<string>(
+    async (id) => {
+      if (isDemoMode()) return demoDeleteTaskForever(id);
+      const { error } = await supabase.from('tasks').delete().eq('id', id);
+      if (error) throw error;
+    },
+    {
+      projectDetail: (data, id) => removeTaskFromProject(data, id) ?? data,
+      allTasks: (list, id) => removeById(list, id) ?? list,
+    }
+  );
 }

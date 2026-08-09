@@ -12,6 +12,8 @@ import {
   demoUpdatePart,
   isDemoMode,
 } from '@/lib/demo';
+import { removeById, updateById } from '@/lib/optimistic-patch';
+import { applyOptimistic, rollback, type Snapshot } from '@/lib/queries/optimistic';
 import type { Part, PartCheckout, Profile } from '@/lib/types';
 
 export const inventoryKeys = {
@@ -96,11 +98,29 @@ export function useMyOpenCheckoutCount(uid?: string) {
   });
 }
 
-function useInventoryMutation<TVars, TData = unknown>(fn: (vars: TVars) => Promise<TData>) {
+/**
+ * Optional optimistic patch of the parts LIST. `my_checkouts` is a derived
+ * count and is left to refetch; the part detail cache carries checkout history
+ * the client cannot predict, so it refetches too.
+ */
+type InventoryOptimistic<TVars> = {
+  parts?: (list: PartWithOpen[], vars: TVars) => PartWithOpen[];
+};
+
+function useInventoryMutation<TVars, TData = unknown>(
+  fn: (vars: TVars) => Promise<TData>,
+  optimistic?: InventoryOptimistic<TVars>
+) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: fn,
-    onSuccess: () => {
+    onMutate: optimistic
+      ? (vars: TVars) =>
+          applyOptimistic(qc, [inventoryKeys.parts], (data) => optimistic.parts!(data, vars))
+      : undefined,
+    onError: (_error, _vars, context) => rollback(qc, context as Snapshot),
+    // onSettled so a failed mutation resyncs after its rollback.
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: inventoryKeys.parts });
       qc.invalidateQueries({ queryKey: ['inventory_part'] });
       qc.invalidateQueries({ queryKey: ['my_checkouts'] });
@@ -144,7 +164,7 @@ export function useUpdatePart() {
       .update({ ...patch, updated_at: new Date().toISOString() })
       .eq('id', id);
     if (error) throw error;
-  });
+  }, { parts: (list, { id, ...patch }) => updateById(list, id, patch) ?? list });
 }
 
 export function useDeletePart() {
@@ -152,7 +172,7 @@ export function useDeletePart() {
     if (isDemoMode()) return demoDeletePart(id);
     const { error } = await supabase.from('inventory_parts').delete().eq('id', id);
     if (error) throw error;
-  });
+  }, { parts: (list, id) => removeById(list, id) ?? list });
 }
 
 /** Signs a part out, or logs consumable usage when `consumed` is set. */

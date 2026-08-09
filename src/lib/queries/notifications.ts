@@ -9,6 +9,8 @@ import {
   demoNotifications,
   isDemoMode,
 } from '@/lib/demo';
+import { removeById, updateAll, updateById } from '@/lib/optimistic-patch';
+import { applyOptimistic, rollback, type Snapshot } from '@/lib/queries/optimistic';
 import type { AppNotification } from '@/lib/types';
 
 export function notificationsKey(uid?: string) {
@@ -49,7 +51,12 @@ export function useMarkNotificationRead() {
       const { error } = await supabase.from('notifications').update({ read: true }).eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: notificationsKey(uid) }),
+    onMutate: (id) =>
+      applyOptimistic(qc, [notificationsKey(uid)], (list: AppNotification[]) =>
+        updateById(list, id, { read: true })
+      ),
+    onError: (_error, _id, snapshot) => rollback(qc, snapshot as Snapshot),
+    onSettled: () => qc.invalidateQueries({ queryKey: notificationsKey(uid) }),
   });
 }
 
@@ -68,7 +75,12 @@ export function useMarkAllNotificationsRead() {
         .eq('read', false);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: notificationsKey(uid) }),
+    onMutate: () =>
+      applyOptimistic(qc, [notificationsKey(uid)], (list: AppNotification[]) =>
+        updateAll(list, { read: true })
+      ),
+    onError: (_error, _vars, snapshot) => rollback(qc, snapshot as Snapshot),
+    onSettled: () => qc.invalidateQueries({ queryKey: notificationsKey(uid) }),
   });
 }
 
@@ -82,7 +94,12 @@ export function useClearNotification() {
       const { error } = await supabase.from('notifications').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: notificationsKey(uid) }),
+    onMutate: (id) =>
+      applyOptimistic(qc, [notificationsKey(uid)], (list: AppNotification[]) =>
+        removeById(list, id)
+      ),
+    onError: (_error, _id, snapshot) => rollback(qc, snapshot as Snapshot),
+    onSettled: () => qc.invalidateQueries({ queryKey: notificationsKey(uid) }),
   });
 }
 
@@ -97,6 +114,8 @@ export function useClearAllNotifications() {
       const { error } = await supabase.from('notifications').delete().eq('user_id', uid);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: notificationsKey(uid) }),
+    onMutate: () => applyOptimistic(qc, [notificationsKey(uid)], () => []),
+    onError: (_error, _vars, snapshot) => rollback(qc, snapshot as Snapshot),
+    onSettled: () => qc.invalidateQueries({ queryKey: notificationsKey(uid) }),
   });
 }
