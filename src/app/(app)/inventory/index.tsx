@@ -13,6 +13,7 @@ import { OptionChips } from '@/components/ui/option-chips';
 import { ModalSheet } from '@/components/ui/modal-sheet';
 import { PartEditor } from '@/components/part-editor';
 import { groupPartsByCategory } from '@/lib/inventory-sort';
+import { matchesSearch } from '@/lib/search';
 import { useParts, type PartWithOpen } from '@/lib/queries/inventory';
 import { printLabels } from '@/lib/inventory-label';
 import { labelOf } from '@/lib/task-style';
@@ -69,11 +70,10 @@ function PartRow({ part, onPress }: { part: PartWithOpen; onPress: () => void })
 }
 
 function matchesQuery(part: PartWithOpen, query: string) {
-  const haystack = [part.name, part.part_number, part.location, labelOf(PART_CATEGORIES, part.category)]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-  return haystack.includes(query);
+  return matchesSearch(
+    [part.name, part.part_number, part.location, labelOf(PART_CATEGORIES, part.category)],
+    query
+  );
 }
 
 export default function InventoryScreen() {
@@ -85,7 +85,9 @@ export default function InventoryScreen() {
   const [creating, setCreating] = React.useState(false);
 
   const all = parts ?? [];
-  const search = query.trim().toLowerCase();
+  // matchesSearch normalises case and punctuation on both sides; the trim only
+  // keeps the short-circuit below from running the tokeniser on whitespace.
+  const search = query.trim();
   const filtered = all.filter((part) => {
     if (search && !matchesQuery(part, search)) return false;
     if (category !== 'all' && part.category !== category) return false;
@@ -131,7 +133,18 @@ export default function InventoryScreen() {
 
       {all.length > 0 ? (
         <View className="gap-3">
-          <Input value={query} onChangeText={setQuery} placeholder="Search parts, numbers, bins…" />
+          {/* Part names and SKUs are not prose: iOS autocorrect rewrites
+              "odom" to "Odin" and sentence-cases the first letter, so a search
+              box over this data has to opt out of both. */}
+          <Input
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search parts, numbers, bins…"
+            autoCorrect={false}
+            autoCapitalize="none"
+            spellCheck={false}
+            returnKeyType="search"
+          />
           <View className="flex-row items-center justify-between gap-3">
             <OptionChips options={FILTERS} value={filter} onChange={setFilter} />
             <Text variant="small">
