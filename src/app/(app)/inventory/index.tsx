@@ -61,6 +61,7 @@ function PartRow({ part, onPress }: { part: PartWithOpen; onPress: () => void })
       </View>
       <View className="flex-row flex-wrap gap-2">
         <Badge variant="muted" label={labelOf(PART_CATEGORIES, part.category)} />
+        {part.manufacturer ? <Badge variant="outline" label={part.manufacturer} /> : null}
         {part.consumable ? <Badge variant="secondary" label="Consumable" /> : null}
         {out > 0 ? <Badge variant="taskInProgress" label={`${out} out`} /> : null}
         {low ? <Badge variant="warning" label="Low stock" /> : null}
@@ -71,7 +72,13 @@ function PartRow({ part, onPress }: { part: PartWithOpen; onPress: () => void })
 
 function matchesQuery(part: PartWithOpen, query: string) {
   return matchesSearch(
-    [part.name, part.part_number, part.location, labelOf(PART_CATEGORIES, part.category)],
+    [
+      part.name,
+      part.part_number,
+      part.manufacturer,
+      part.location,
+      labelOf(PART_CATEGORIES, part.category),
+    ],
     query
   );
 }

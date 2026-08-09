@@ -134,6 +134,7 @@ export type PartInput = Pick<
   Part,
   | 'name'
   | 'part_number'
+  | 'manufacturer'
   | 'category'
   | 'location'
   | 'notes'

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupPartsByCategory } from '@/lib/inventory-sort';
+import { distinctManufacturers, groupPartsByCategory } from '@/lib/inventory-sort';
 import type { PartCategory } from '@/lib/types';
 
 const part = (name: string, category: PartCategory) => ({ name, category });
@@ -98,5 +98,35 @@ describe('groupPartsByCategory', () => {
     groupPartsByCategory(input);
 
     expect(input.map((p) => p.name)).toEqual(before);
+  });
+});
+
+describe('distinctManufacturers', () => {
+  const parts = (...names: (string | null)[]) => names.map((manufacturer) => ({ manufacturer }));
+
+  it('lists each manufacturer once, alphabetically', () => {
+    expect(
+      distinctManufacturers(parts('REV Robotics', 'goBILDA', 'AndyMark', 'goBILDA'))
+    ).toEqual(['AndyMark', 'goBILDA', 'REV Robotics']);
+  });
+
+  it('dedupes case and whitespace differences, keeping the first spelling', () => {
+    // Free text drifts; three spellings of one maker must not become three tags.
+    expect(distinctManufacturers(parts('goBILDA', 'Gobilda', '  GOBILDA  '))).toEqual(['goBILDA']);
+  });
+
+  it('skips parts with no manufacturer', () => {
+    expect(distinctManufacturers(parts(null, '', '   ', 'REV Robotics'))).toEqual(['REV Robotics']);
+  });
+
+  it('caps the suggestion list', () => {
+    const many = parts(...Array.from({ length: 20 }, (_, i) => `Maker ${i}`));
+
+    expect(distinctManufacturers(many)).toHaveLength(8);
+    expect(distinctManufacturers(many, 3)).toHaveLength(3);
+  });
+
+  it('returns nothing for an empty inventory', () => {
+    expect(distinctManufacturers([])).toEqual([]);
   });
 });

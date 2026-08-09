@@ -1,7 +1,9 @@
 import { PART_CATEGORIES, type Part, type PartCategory } from '@/lib/types';
 
 /**
- * Inventory ordering. Parts used to carry a hand-dragged `sort_order`; the list
+ * Inventory ordering and lists derived from the parts a team already owns.
+ *
+ * Ordering: parts used to carry a hand-dragged `sort_order`; the list
  * is now derived entirely from the data:
  *
  *   1. grouped by category
@@ -50,4 +52,26 @@ export function groupPartsByCategory<T extends Sortable>(
       parts: [...group].sort((a, b) => compareNames(a.name, b.name)),
     }))
     .sort((a, b) => compareNames(a.label, b.label));
+}
+
+/**
+ * Manufacturers already in use, A-Z, deduplicated case-insensitively.
+ *
+ * Offered as suggestions when adding a part so the field stays consistent —
+ * free text otherwise drifts into "goBILDA", "Gobilda" and "go bilda" sitting
+ * beside each other as three different makers. The first spelling entered for
+ * a given maker wins.
+ */
+export function distinctManufacturers(
+  parts: readonly { manufacturer?: string | null }[],
+  limit = 8
+): string[] {
+  const seen = new Map<string, string>();
+  for (const part of parts) {
+    const name = part.manufacturer?.trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (!seen.has(key)) seen.set(key, name);
+  }
+  return [...seen.values()].sort(compareNames).slice(0, limit);
 }

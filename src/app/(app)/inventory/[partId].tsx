@@ -175,6 +175,7 @@ function PartDetail({ part, checkouts }: { part: Part; checkouts: CheckoutWithUs
 
   const details = [
     { label: 'Category', value: labelOf(PART_CATEGORIES, part.category) },
+    ...(part.manufacturer ? [{ label: 'Manufacturer', value: part.manufacturer }] : []),
     ...(part.part_number ? [{ label: 'Part number', value: part.part_number }] : []),
     ...(part.location ? [{ label: 'Location', value: part.location }] : []),
     ...(part.low_stock_at != null

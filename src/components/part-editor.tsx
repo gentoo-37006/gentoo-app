@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { OptionChips } from '@/components/ui/option-chips';
-import { useCreatePart, useUpdatePart, type PartInput } from '@/lib/queries/inventory';
+import { useCreatePart, useParts, useUpdatePart, type PartInput } from '@/lib/queries/inventory';
+import { distinctManufacturers } from '@/lib/inventory-sort';
 import { PART_CATEGORIES, type Part, type PartCategory } from '@/lib/types';
 
 const KIND_OPTIONS: { value: 'durable' | 'consumable'; label: string }[] = [
@@ -26,10 +27,13 @@ export function PartEditor({
   onDone: (createdId?: string) => void;
 }) {
   const create = useCreatePart();
+  const { data: allParts } = useParts();
+  const suggestions = distinctManufacturers(allParts ?? []);
   const update = useUpdatePart();
   const [name, setName] = React.useState(initial?.name ?? '');
   const [category, setCategory] = React.useState<PartCategory>(initial?.category ?? 'other');
   const [partNumber, setPartNumber] = React.useState(initial?.part_number ?? '');
+  const [manufacturer, setManufacturer] = React.useState(initial?.manufacturer ?? '');
   const [location, setLocation] = React.useState(initial?.location ?? '');
   const [quantity, setQuantity] = React.useState(String(initial?.quantity ?? 0));
   const [consumable, setConsumable] = React.useState(initial?.consumable ?? false);
@@ -50,6 +54,7 @@ export function PartEditor({
       name: name.trim(),
       category,
       part_number: partNumber.trim() || null,
+      manufacturer: manufacturer.trim() || null,
       location: location.trim() || null,
       quantity: toCount(quantity),
       consumable,
@@ -88,6 +93,32 @@ export function PartEditor({
               autoCapitalize="characters"
             />
           </View>
+        </View>
+
+        <View className="gap-1.5">
+          <Text variant="label">Manufacturer</Text>
+          <Input
+            value={manufacturer}
+            onChangeText={setManufacturer}
+            placeholder="goBILDA, REV Robotics…"
+            autoCapitalize="words"
+            autoCorrect={false}
+          />
+          {/* Suggestions come from what the team already owns, so "goBILDA"
+              does not end up alongside "Gobilda" and "go bilda". */}
+          {suggestions.length > 0 ? (
+            <View className="flex-row flex-wrap gap-2">
+              {suggestions.map((name) => (
+                <Button
+                  key={name}
+                  variant="outline"
+                  size="sm"
+                  label={name}
+                  onPress={() => setManufacturer(name)}
+                />
+              ))}
+            </View>
+          ) : null}
         </View>
 
         <View className="gap-1.5">

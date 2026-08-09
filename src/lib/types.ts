@@ -338,6 +338,8 @@ export type Part = {
   id: string;
   name: string;
   part_number: string | null;
+  /** Who makes it — free text, e.g. "goBILDA", "REV Robotics". */
+  manufacturer: string | null;
   category: PartCategory;
   location: string | null;
   notes: string | null;
