@@ -6,6 +6,10 @@ vi.mock('react-native', () => ({
   Platform: { OS: 'web' },
 }));
 
+vi.mock('@/lib/app-version', () => ({
+  APP_VERSION: '1.0.0',
+}));
+
 const part = (overrides: Partial<Part> = {}): Part => ({
   id: 'part-1',
   name: 'HD Hex Motor',
