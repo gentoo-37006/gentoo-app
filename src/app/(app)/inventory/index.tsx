@@ -11,9 +11,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { OptionChips } from '@/components/ui/option-chips';
 import { ModalSheet } from '@/components/ui/modal-sheet';
-import { ReorderableList } from '@/components/reorderable-list';
 import { PartEditor } from '@/components/part-editor';
-import { useParts, useReorderParts, type PartWithOpen } from '@/lib/queries/inventory';
+import { groupPartsByCategory } from '@/lib/inventory-sort';
+import { useParts, type PartWithOpen } from '@/lib/queries/inventory';
 import { printLabels } from '@/lib/inventory-label';
 import { labelOf } from '@/lib/task-style';
 import { PART_CATEGORIES, checkedOutQuantity, isLowStock } from '@/lib/types';
@@ -78,7 +78,6 @@ function matchesQuery(part: PartWithOpen, query: string) {
 export default function InventoryScreen() {
   const router = useRouter();
   const { data: parts, isLoading } = useParts();
-  const reorderParts = useReorderParts();
   const [query, setQuery] = React.useState('');
   const [filter, setFilter] = React.useState<Filter>('all');
   const [creating, setCreating] = React.useState(false);
@@ -93,17 +92,8 @@ export default function InventoryScreen() {
     return true;
   });
 
-  /**
-   * Dragging reorders what's on screen, so a filtered drag only shuffles the
-   * visible rows: hidden parts keep the slots they already hold.
-   */
-  const onReorder = (visibleIds: string[]) => {
-    const visible = new Set(visibleIds);
-    let next = 0;
-    reorderParts.mutate({
-      partIds: all.map((part) => (visible.has(part.id) ? visibleIds[next++] : part.id)),
-    });
-  };
+  // Ordering is derived, not stored: categories A-Z, parts A-Z within each.
+  const groups = groupPartsByCategory(filtered);
 
   return (
     <Screen>
@@ -149,18 +139,29 @@ export default function InventoryScreen() {
       ) : filtered.length === 0 ? (
         <EmptyState icon={Boxes} title="No matches" description="Try a different search or filter." />
       ) : (
-        <ReorderableList
-          items={filtered}
-          onReorder={onReorder}
-          renderItem={(part) => (
-            <PartRow part={part} onPress={() => router.push(`/inventory/${part.id}` as any)} />
-          )}
-        />
+        <View className="gap-6">
+          {groups.map((group) => (
+            <View key={group.category} className="gap-3">
+              <View className="flex-row items-baseline justify-between gap-3">
+                <Text variant="title">{group.label}</Text>
+                <Text variant="small">{group.parts.length}</Text>
+              </View>
+              <View className="gap-3">
+                {group.parts.map((part) => (
+                  <PartRow
+                    key={part.id}
+                    part={part}
+                    onPress={() => router.push(`/inventory/${part.id}` as any)}
+                  />
+                ))}
+              </View>
+            </View>
+          ))}
+        </View>
       )}
 
       <ModalSheet visible={creating} onClose={() => setCreating(false)}>
         <PartEditor
-          sortOrder={Math.max(0, ...all.map((part) => part.sort_order ?? 0)) + 10}
           onDone={(createdId) => {
             setCreating(false);
             if (createdId) router.push(`/inventory/${createdId}` as any);

@@ -19,12 +19,10 @@ const toCount = (value: string) => Math.max(0, Math.round(Number(value) || 0));
 /** Create/edit form for a part. `initial` omitted means a new part. */
 export function PartEditor({
   initial,
-  sortOrder,
   onDone,
 }: {
   initial?: Part;
   /** Position a newly created part lands at; ignored when editing. */
-  sortOrder?: number;
   onDone: (createdId?: string) => void;
 }) {
   const create = useCreatePart();
@@ -63,7 +61,7 @@ export function PartEditor({
       await update.mutateAsync({ id: initial.id, ...fields });
       onDone();
     } else {
-      onDone(await create.mutateAsync({ ...fields, sort_order: sortOrder }));
+      onDone(await create.mutateAsync(fields));
     }
   };
 

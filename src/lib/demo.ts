@@ -25,6 +25,7 @@ import type {
 } from '@/lib/types';
 import type { ParsedMatch } from '@/lib/csv';
 import type { GeneratedShift } from '@/lib/scheduler';
+import { nextTaskSortOrder } from '@/lib/task-order';
 
 const STORAGE_KEY = 'gentoo.demo.workspace.v3';
 const AUTH_KEY = 'gentoo.demo.enabled.v1';
@@ -201,11 +202,11 @@ function seedWorkspace(): DemoWorkspace {
   ];
 
   const parts: Part[] = [
-    { id: 'part-motor', name: 'REV HD Hex Motor (40:1)', part_number: 'REV-41-1301', category: 'motor', location: 'Bin A2', notes: null, quantity: 8, consumable: false, unit: null, low_stock_at: 2, sort_order: 10, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
-    { id: 'part-servo', name: 'goBILDA Torque Servo', part_number: '2000-0025-0002', category: 'servo', location: 'Bin A3', notes: null, quantity: 6, consumable: false, unit: null, low_stock_at: 2, sort_order: 20, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
-    { id: 'part-hub', name: 'REV Control Hub', part_number: 'REV-31-1595', category: 'electronics', location: 'Shelf B', notes: 'Keep the spare flashed to the current firmware.', quantity: 2, consumable: false, unit: null, low_stock_at: null, sort_order: 30, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
-    { id: 'part-filament', name: 'PLA filament — black', part_number: null, category: 'material', location: 'Printer cart', notes: null, quantity: 1400, consumable: true, unit: 'g', low_stock_at: 500, sort_order: 40, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
-    { id: 'part-screws', name: 'M4 x 10mm socket screws', part_number: null, category: 'hardware', location: 'Drawer 4', notes: null, quantity: 60, consumable: true, unit: 'screws', low_stock_at: 100, sort_order: 50, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'part-motor', name: 'REV HD Hex Motor (40:1)', part_number: 'REV-41-1301', category: 'motor', location: 'Bin A2', notes: null, quantity: 8, consumable: false, unit: null, low_stock_at: 2, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'part-servo', name: 'goBILDA Torque Servo', part_number: '2000-0025-0002', category: 'servo', location: 'Bin A3', notes: null, quantity: 6, consumable: false, unit: null, low_stock_at: 2, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'part-hub', name: 'REV Control Hub', part_number: 'REV-31-1595', category: 'electronics', location: 'Shelf B', notes: 'Keep the spare flashed to the current firmware.', quantity: 2, consumable: false, unit: null, low_stock_at: null, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'part-filament', name: 'PLA filament — black', part_number: null, category: 'material', location: 'Printer cart', notes: null, quantity: 1400, consumable: true, unit: 'g', low_stock_at: 500, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'part-screws', name: 'M4 x 10mm socket screws', part_number: null, category: 'hardware', location: 'Drawer 4', notes: null, quantity: 60, consumable: true, unit: 'screws', low_stock_at: 100, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
   ];
 
   const checkouts: PartCheckout[] = [
@@ -828,12 +829,9 @@ export async function demoCreateTask(vars: { project_id: string; title: string; 
   const taskId = id('task');
   const sortOrder =
     vars.sort_order ??
-    Math.max(
-      0,
-      ...db.tasks
-        .filter((task) => task.project_id === vars.project_id && !task.deleted_at)
-        .map((task) => task.sort_order ?? 0)
-    ) + 10;
+    nextTaskSortOrder(
+      db.tasks.filter((task) => task.project_id === vars.project_id && !task.deleted_at)
+    );
   db.tasks.push({ id: taskId, created_by: DEMO_USER_ID, created_at: now(), updated_at: now(), deleted_at: null, ...vars, sort_order: sortOrder });
   syncDemoProjectStatus(db, vars.project_id, true);
   await persist();
@@ -963,7 +961,7 @@ export async function demoParts() {
   const db = await getDemoWorkspace();
   return db.parts
     .slice()
-    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name))
+    .sort((a, b) => a.name.localeCompare(b.name))
     .map((part) => ({
       ...part,
       open: db.checkouts
@@ -995,18 +993,13 @@ export async function demoMyOpenCheckoutCount(uid = DEMO_USER_ID) {
 }
 
 export async function demoCreatePart(
-  vars: Omit<Part, 'id' | 'sort_order' | 'created_by' | 'created_at' | 'updated_at'> & {
-    sort_order?: number;
-  }
+  vars: Omit<Part, 'id' | 'created_by' | 'created_at' | 'updated_at'>
 ) {
   const db = await getDemoWorkspace();
   const partId = id('part');
-  const sortOrder =
-    vars.sort_order ?? Math.max(0, ...db.parts.map((part) => part.sort_order ?? 0)) + 10;
   db.parts.push({
     ...vars,
     id: partId,
-    sort_order: sortOrder,
     created_by: DEMO_USER_ID,
     created_at: now(),
     updated_at: now(),
@@ -1015,15 +1008,6 @@ export async function demoCreatePart(
   return partId;
 }
 
-export async function demoReorderParts(partIds: string[]) {
-  const db = await getDemoWorkspace();
-  const positions = new Map(partIds.map((idValue, index) => [idValue, (index + 1) * 10]));
-  db.parts = db.parts.map((part) => {
-    const sortOrder = positions.get(part.id);
-    return sortOrder === undefined ? part : { ...part, sort_order: sortOrder };
-  });
-  await persist();
-}
 
 export async function demoUpdatePart(idValue: string, patch: Partial<Part>) {
   const db = await getDemoWorkspace();

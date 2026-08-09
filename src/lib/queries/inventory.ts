@@ -8,7 +8,6 @@ import {
   demoMyOpenCheckoutCount,
   demoPart,
   demoParts,
-  demoReorderParts,
   demoReturnCheckout,
   demoUpdatePart,
   isDemoMode,
@@ -45,7 +44,6 @@ export function useParts() {
         .select('*, open:inventory_checkouts(id, quantity, user_id, returned_at, consumed)')
         .is('open.returned_at', null)
         .eq('open.consumed', false)
-        .order('sort_order', { ascending: true })
         .order('name', { ascending: true });
       if (error) throw error;
       return (data ?? []) as unknown as PartWithOpen[];
@@ -121,7 +119,7 @@ export type PartInput = Pick<
   | 'consumable'
   | 'unit'
   | 'low_stock_at'
-> & { sort_order?: number };
+> ;
 
 /** Resolves to the new part's id so callers can open its page. */
 export function useCreatePart() {
@@ -146,48 +144,6 @@ export function useUpdatePart() {
       .update({ ...patch, updated_at: new Date().toISOString() })
       .eq('id', id);
     if (error) throw error;
-  });
-}
-
-export function useReorderParts() {
-  const qc = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ partIds }: { partIds: string[] }) => {
-      if (isDemoMode()) return demoReorderParts(partIds);
-      const results = await Promise.all(
-        partIds.map((id, index) =>
-          supabase
-            .from('inventory_parts')
-            .update({ sort_order: (index + 1) * 10 })
-            .eq('id', id)
-        )
-      );
-      const error = results.find((result) => result.error)?.error;
-      if (error) throw error;
-    },
-    onMutate: async ({ partIds }) => {
-      await qc.cancelQueries({ queryKey: inventoryKeys.parts });
-      const previous = qc.getQueryData<PartWithOpen[]>(inventoryKeys.parts);
-      if (previous) {
-        const positions = new Map(partIds.map((id, index) => [id, index]));
-        qc.setQueryData(
-          inventoryKeys.parts,
-          [...previous].sort(
-            (a, b) =>
-              (positions.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
-              (positions.get(b.id) ?? Number.MAX_SAFE_INTEGER)
-          )
-        );
-      }
-      return { previous };
-    },
-    onError: (_error, _variables, context) => {
-      if (context?.previous) qc.setQueryData(inventoryKeys.parts, context.previous);
-    },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: inventoryKeys.parts });
-    },
   });
 }
 

@@ -67,6 +67,7 @@ import {
   useTrashProject,
 } from '@/lib/queries/tasks';
 import { priorityVariant, projectStatusVariant, taskStatusVariant, labelOf } from '@/lib/task-style';
+import { nextTaskSortOrder } from '@/lib/task-order';
 import {
   PRIORITIES,
   PROJECT_STATUSES,
@@ -309,7 +310,18 @@ function TaskEditor({
         await update.mutateAsync({ id: initial.id, ...fields });
         onDone(openNotes ? initial.id : undefined);
       } else {
-        onDone(await create.mutateAsync({ project_id: projectId, projectName, notes: null, ...fields }));
+        // Same top-of-list rule as the quick "Add task" button. Without an
+        // explicit value the row falls back to the column default of 0, which
+        // sits below anything already created this way.
+        onDone(
+          await create.mutateAsync({
+            project_id: projectId,
+            projectName,
+            notes: null,
+            ...fields,
+            sort_order: nextTaskSortOrder(siblings),
+          })
+        );
       }
     } finally {
       submitting.current = false;
@@ -1465,7 +1477,7 @@ export default function ProjectDetailScreen() {
       due_date: null,
       priority: 'medium',
       tags: [],
-      sort_order: Math.max(0, ...(data?.tasks ?? []).map((task) => task.sort_order ?? 0)) + 10,
+      sort_order: nextTaskSortOrder(data?.tasks ?? []),
     });
   };
 

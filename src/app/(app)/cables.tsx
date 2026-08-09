@@ -22,6 +22,14 @@ const PROMPT =
   'Return only a JSON object where keys are item type names and values are integer counts. ' +
   'Example: {"zip ties": 25, "JST-PH sensor cable": 6, "XT30 power cable": 3, "servo extension cable": 4, "connector housing": 8, "unidentified small wiring part": 6}.';
 
+// Groq retires models on a schedule and the endpoint then answers "model does
+// not exist or you do not have access", which surfaces here as a failed count
+// with no other symptom. meta-llama/llama-4-scout-17b-16e-instruct died that
+// way. Must be a VISION model — a text-only one accepts the request shape and
+// fails on the image. Check https://console.groq.com/docs/vision before
+// changing, and https://console.groq.com/docs/deprecations when it breaks.
+const GROQ_VISION_MODEL = 'qwen/qwen3.6-27b';
+
 type CableCounts = Record<string, number>;
 
 const EXCLUDED_RESULT_NAMES = [/relay/i, /ferrule/i];
@@ -34,7 +42,7 @@ async function countCablesWithGroq(base64: string, mimeType: string): Promise<Ca
       Authorization: `Bearer ${GROQ_API_KEY}`,
     },
     body: JSON.stringify({
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      model: GROQ_VISION_MODEL,
       max_tokens: 2048,
       temperature: 0,
       seed: 42,

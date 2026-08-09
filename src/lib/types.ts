@@ -349,8 +349,6 @@ export type Part = {
   unit: string | null;
   /** Warn at or below this quantity; null disables the warning. */
   low_stock_at: number | null;
-  /** Manual position in the inventory list; lower values appear first. */
-  sort_order: number;
   created_by: string | null;
   created_at: string;
   updated_at: string;

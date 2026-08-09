@@ -660,16 +660,24 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
           avatarUrl={profile?.avatar_url}
           onOpenMenu={openMenu}
         />
-        <View className="relative flex-1">
+        {/* Edge-swipe handlers go on the CONTENT container, never on an
+            absolutely-positioned strip. An overlay with pointerEvents="box-only"
+            becomes the hit target for its whole box and forwards nothing, so a
+            64pt-wide strip down the left edge silently ate every tap in it —
+            including ScreenHeader's Back button, which sits at x≈15-59. It only
+            bit top-level nav routes, because edgeSwipeEnabled is false anywhere
+            else, which is why Back worked from Trash and Notes but not Cables.
+
+            On the container the responder still gets the gesture:
+            onMoveShouldSetPanResponderCapture steals an in-progress touch once
+            it turns into a horizontal drag, and the handler already requires the
+            touch to have STARTED within MOBILE_EDGE_SWIPE_WIDTH of the edge, so
+            the geometry gate survives without blocking anything. */}
+        <View
+          className="flex-1"
+          {...(edgeSwipeEnabled ? edgeSwipeResponder.panHandlers : {})}
+        >
           {children}
-          {edgeSwipeEnabled ? (
-            <View
-              pointerEvents="box-only"
-              className="absolute bottom-0 left-0 top-0 z-10"
-              style={{ width: MOBILE_EDGE_SWIPE_WIDTH }}
-              {...edgeSwipeResponder.panHandlers}
-            />
-          ) : null}
         </View>
         <BottomSafeAreaFade />
       </View>

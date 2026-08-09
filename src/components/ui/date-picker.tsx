@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { FadeModal } from '@/components/ui/fade-modal';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { calendarWeeks } from '@/lib/calendar';
 import { cn } from '@/lib/utils';
 
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
@@ -30,17 +31,6 @@ function dateLabel(value: string | null) {
   return date
     ? date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
     : 'No due date';
-}
-
-function calendarDays(month: Date) {
-  const first = new Date(month.getFullYear(), month.getMonth(), 1);
-  const start = new Date(first);
-  start.setDate(1 - first.getDay());
-  return Array.from({ length: 42 }, (_, index) => {
-    const date = new Date(start);
-    date.setDate(start.getDate() + index);
-    return date;
-  });
 }
 
 function menuPosition(anchor: Anchor) {
@@ -154,38 +144,44 @@ export function DatePicker({
                 ))}
               </View>
 
-              <View className="flex-row flex-wrap">
-                {calendarDays(month).map((date) => {
-                  const dateString = dateValue(date);
-                  const isSelected = selected ? dateValue(selected) === dateString : false;
-                  const inMonth = date.getMonth() === month.getMonth();
-                  const isToday = dateValue(new Date()) === dateString;
-                  return (
-                    <Pressable
-                      key={dateString}
-                      onPress={() => {
-                        onChange(dateString);
-                        closePicker();
-                      }}
-                      className={cn(
-                        'h-9 w-[14.2857%] items-center justify-center rounded-sm hover:bg-accent',
-                        isSelected ? 'bg-primary' : 'active:bg-accent'
-                      )}
-                    >
-                      <Text
+              {/* One flex-row per week with flex-1 cells, matching the weekday
+                  header above. A single wrapping row of percentage-width cells
+                  cannot hold 7 across once each width rounds up a pixel, and
+                  the overflow silently shifts every date a column left. */}
+              {calendarWeeks(month).map((week) => (
+                <View key={dateValue(week[0])} className="flex-row">
+                  {week.map((date) => {
+                    const dateString = dateValue(date);
+                    const isSelected = selected ? dateValue(selected) === dateString : false;
+                    const inMonth = date.getMonth() === month.getMonth();
+                    const isToday = dateValue(new Date()) === dateString;
+                    return (
+                      <Pressable
+                        key={dateString}
+                        onPress={() => {
+                          onChange(dateString);
+                          closePicker();
+                        }}
                         className={cn(
-                          'text-sm',
-                          !inMonth && 'text-muted-foreground opacity-50',
-                          isToday && !isSelected && 'font-bold text-primary',
-                          isSelected && 'font-semibold text-primary-foreground'
+                          'h-9 flex-1 items-center justify-center rounded-sm hover:bg-accent',
+                          isSelected ? 'bg-primary' : 'active:bg-accent'
                         )}
                       >
-                        {date.getDate()}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+                        <Text
+                          className={cn(
+                            'text-sm',
+                            !inMonth && 'text-muted-foreground opacity-50',
+                            isToday && !isSelected && 'font-bold text-primary',
+                            isSelected && 'font-semibold text-primary-foreground'
+                          )}
+                        >
+                          {date.getDate()}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))}
 
               <View className="flex-row justify-end border-t border-border pt-2">
                 <Button
