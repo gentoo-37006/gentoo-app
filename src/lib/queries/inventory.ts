@@ -14,11 +14,13 @@ import {
 } from '@/lib/demo';
 import { removeById, updateById } from '@/lib/optimistic-patch';
 import { applyOptimistic, rollback, type Snapshot } from '@/lib/queries/optimistic';
+import { signedPhotoUrl } from '@/lib/part-photo';
 import type { Part, PartCheckout, Profile } from '@/lib/types';
 
 export const inventoryKeys = {
   parts: ['inventory_parts'] as const,
   part: (id: string) => ['inventory_part', id] as const,
+  photo: (path: string) => ['inventory_photo', path] as const,
 };
 
 async function currentUserId(): Promise<string | undefined> {
@@ -139,9 +141,25 @@ export type PartInput = Pick<
   | 'consumable'
   | 'unit'
   | 'low_stock_at'
+  | 'image_path'
 > ;
 
 /** Resolves to the new part's id so callers can open its page. */
+/**
+ * Signed URL for a part photo. Cached under the object path and refreshed well
+ * inside the signature's lifetime, so a screen left open does not start showing
+ * broken images.
+ */
+export function usePartPhotoUrl(path: string | null | undefined) {
+  return useQuery({
+    queryKey: inventoryKeys.photo(path ?? ''),
+    enabled: !!path,
+    // Signatures last an hour; re-sign at 45 minutes.
+    staleTime: 45 * 60 * 1000,
+    queryFn: () => signedPhotoUrl(path!),
+  });
+}
+
 export function useCreatePart() {
   return useInventoryMutation<PartInput, string>(async (vars) => {
     if (isDemoMode()) return demoCreatePart(vars);

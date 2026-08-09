@@ -21,6 +21,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { QrCode } from '@/components/ui/qr-code';
 import { ModalSheet } from '@/components/ui/modal-sheet';
 import { PartEditor } from '@/components/part-editor';
+import { PartPhotoCard } from '@/components/part-photo-card';
 import {
   usePart,
   useCheckoutPart,
@@ -247,6 +248,8 @@ function PartDetail({ part, checkouts }: { part: Part; checkouts: CheckoutWithUs
           onPress={() => setDialog('stock')}
         />
       </View>
+
+      <PartPhotoCard part={part} />
 
       <Card>
         <CardContent className="gap-2.5 p-4">

@@ -349,6 +349,11 @@ export type Part = {
   unit: string | null;
   /** Warn at or below this quantity; null disables the warning. */
   low_stock_at: number | null;
+  /**
+   * Object path inside the private `inventory-photos` bucket, not a URL —
+   * viewing needs a freshly signed URL (see lib/part-photo.ts).
+   */
+  image_path: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

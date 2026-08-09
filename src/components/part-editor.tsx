@@ -56,6 +56,9 @@ export function PartEditor({
       unit: consumable ? unit.trim() || null : null,
       low_stock_at: lowStock.trim() ? toCount(lowStock) : null,
       notes: notes.trim() || null,
+      // Photos are managed on the part's own page; carry the existing one
+      // through so saving an edit here never silently drops it.
+      image_path: initial?.image_path ?? null,
     };
     if (initial) {
       await update.mutateAsync({ id: initial.id, ...fields });

@@ -202,11 +202,11 @@ function seedWorkspace(): DemoWorkspace {
   ];
 
   const parts: Part[] = [
-    { id: 'part-motor', name: 'REV HD Hex Motor (40:1)', part_number: 'REV-41-1301', category: 'motor', location: 'Bin A2', notes: null, quantity: 8, consumable: false, unit: null, low_stock_at: 2, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
-    { id: 'part-servo', name: 'goBILDA Torque Servo', part_number: '2000-0025-0002', category: 'servo', location: 'Bin A3', notes: null, quantity: 6, consumable: false, unit: null, low_stock_at: 2, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
-    { id: 'part-hub', name: 'REV Control Hub', part_number: 'REV-31-1595', category: 'electronics', location: 'Shelf B', notes: 'Keep the spare flashed to the current firmware.', quantity: 2, consumable: false, unit: null, low_stock_at: null, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
-    { id: 'part-filament', name: 'PLA filament — black', part_number: null, category: 'material', location: 'Printer cart', notes: null, quantity: 1400, consumable: true, unit: 'g', low_stock_at: 500, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
-    { id: 'part-screws', name: 'M4 x 10mm socket screws', part_number: null, category: 'hardware', location: 'Drawer 4', notes: null, quantity: 60, consumable: true, unit: 'screws', low_stock_at: 100, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'part-motor', name: 'REV HD Hex Motor (40:1)', part_number: 'REV-41-1301', category: 'motor', location: 'Bin A2', notes: null, quantity: 8, consumable: false, unit: null, low_stock_at: 2, image_path: null, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'part-servo', name: 'goBILDA Torque Servo', part_number: '2000-0025-0002', category: 'servo', location: 'Bin A3', notes: null, quantity: 6, consumable: false, unit: null, low_stock_at: 2, image_path: null, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'part-hub', name: 'REV Control Hub', part_number: 'REV-31-1595', category: 'electronics', location: 'Shelf B', notes: 'Keep the spare flashed to the current firmware.', quantity: 2, consumable: false, unit: null, low_stock_at: null, image_path: null, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'part-filament', name: 'PLA filament — black', part_number: null, category: 'material', location: 'Printer cart', notes: null, quantity: 1400, consumable: true, unit: 'g', low_stock_at: 500, image_path: null, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
+    { id: 'part-screws', name: 'M4 x 10mm socket screws', part_number: null, category: 'hardware', location: 'Drawer 4', notes: null, quantity: 60, consumable: true, unit: 'screws', low_stock_at: 100, image_path: null, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp },
   ];
 
   const checkouts: PartCheckout[] = [
