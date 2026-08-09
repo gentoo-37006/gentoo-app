@@ -16,6 +16,13 @@ services:
       - path: /version.json
         name: Cache-Control
         value: no-store
+      # Universal Links: Apple fetches this extensionless file and REQUIRES
+      # application/json. Without the override Render serves it as
+      # octet-stream and iOS silently declines to associate the domain, so
+      # scanned QR codes keep opening Safari instead of the app.
+      - path: /.well-known/apple-app-site-association
+        name: Content-Type
+        value: application/json
     # SPA fallback so client-side routes (incl. /tasks/[projectId],
     # /scouting/pit/[teamId], /scouting/matches/[matchId]) resolve to the app.
     routes:
@@ -53,6 +60,13 @@ services:
       - path: /version.json
         name: Cache-Control
         value: no-store
+      # Universal Links: Apple fetches this extensionless file and REQUIRES
+      # application/json. Without the override Render serves it as
+      # octet-stream and iOS silently declines to associate the domain, so
+      # scanned QR codes keep opening Safari instead of the app.
+      - path: /.well-known/apple-app-site-association
+        name: Content-Type
+        value: application/json
     domains:
       - beta.gentoo.ethanyanxu.com
     routes:

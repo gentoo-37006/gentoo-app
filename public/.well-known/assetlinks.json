@@ -1,0 +1,22 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.gentoo.app",
+      "sha256_cert_fingerprints": [
+        "E8:B6:EC:7F:C5:26:E9:34:A3:DD:64:04:54:7E:89:3B:DC:B4:56:44:27:EF:24:8C:02:7D:D7:BC:7E:F6:9B:C9"
+      ]
+    }
+  },
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.gentoo.app.beta",
+      "sha256_cert_fingerprints": [
+        "9F:C1:A1:25:18:87:CF:30:A5:6F:91:CA:C0:0C:61:10:8C:64:2D:2E:19:A5:73:0F:20:D7:88:10:B0:12:35:9C"
+      ]
+    }
+  }
+]

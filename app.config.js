@@ -23,6 +23,12 @@ const appVersion = packageJson.version;
 // com.gentoo.app regardless of the tree's prerelease tag.
 const isBeta = appVersion.includes('-beta');
 
+// Universal / App Link hosts. iOS keeps one bundle id across both channels, so
+// app.json claims both domains there; Android splits into two packages, so the
+// host is swapped per build below.
+const PRODUCTION_HOST = 'gentoo.ethanyanxu.com';
+const BETA_HOST = 'beta.gentoo.ethanyanxu.com';
+
 module.exports = ({ config }) => {
   const android = { ...config.android };
   const plugins = [...(config.plugins ?? [])];
@@ -32,6 +38,16 @@ module.exports = ({ config }) => {
     // The launcher label comes from the Expo `name`, which also names the iOS
     // app — so override Android's strings.xml directly instead.
     plugins.push(['./plugins/withAndroidAppName', { name: 'Gentoo Beta' }]);
+    // App Links follow the package: beta is a SEPARATE Android app, so it must
+    // claim the beta domain. Leaving it on the production host would put two
+    // installed apps in a chooser for the same scanned QR code.
+    android.intentFilters = (android.intentFilters ?? []).map((filter) => ({
+      ...filter,
+      data: (filter.data ?? []).map((entry) => ({
+        ...entry,
+        host: entry.host === PRODUCTION_HOST ? BETA_HOST : entry.host,
+      })),
+    }));
   }
 
   if (fs.existsSync(GOOGLE_SERVICES_FILE)) {

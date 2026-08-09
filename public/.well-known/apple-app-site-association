@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["29LT93G54W.com.gentoo.app"],
+        "components": [
+          {
+            "/": "/inventory/*",
+            "comment": "Printed QR labels open the part in the app when installed."
+          }
+        ]
+      }
+    ]
+  }
+}
