@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
-import { WEB_APP_URL } from '@/lib/env';
+import { APP_VERSION } from '@/lib/app-version';
+import { WEB_URL_OVERRIDE } from '@/lib/env';
+import { labelOrigin } from '@/lib/label-origin';
 import { qrPath } from '@/lib/qr';
 import type { Part } from '@/lib/types';
 
@@ -8,7 +10,11 @@ export function partUrl(partId: string): string {
   const origin =
     Platform.OS === 'web' && typeof window !== 'undefined'
       ? window.location.origin
-      : WEB_APP_URL;
+      : labelOrigin({
+          platform: Platform.OS,
+          appVersion: APP_VERSION,
+          override: WEB_URL_OVERRIDE,
+        });
   return `${origin}/inventory/${partId}`;
 }
 

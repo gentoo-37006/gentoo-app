@@ -2,6 +2,7 @@
  * Public runtime config. All values come from `EXPO_PUBLIC_*` env vars (safe to
  * ship in the client bundle) and are read from a local `.env` — see `.env.example`.
  */
+import { PRODUCTION_WEB_URL } from '@/lib/label-origin';
 export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 export const GROQ_API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY ?? '';
@@ -10,11 +11,14 @@ export const GROQ_API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY ?? '';
  *  builds that don't provide it — callers fall back to the app version. */
 export const COMMIT_SHA = process.env.EXPO_PUBLIC_COMMIT_SHA ?? '';
 
+/** Set only when a deployment overrides the origin, null otherwise. Kept apart
+ *  from WEB_APP_URL so label routing can tell an explicit choice from the
+ *  default — see lib/label-origin.ts. */
+export const WEB_URL_OVERRIDE = process.env.EXPO_PUBLIC_WEB_URL?.replace(/\/+$/, '') || null;
+
 /** Origin the printed inventory QR codes point at. The web build reads its own
  *  origin instead; this is the fallback for native builds. */
-export const WEB_APP_URL = (
-  process.env.EXPO_PUBLIC_WEB_URL ?? 'https://gentoo.ethanyanxu.com'
-).replace(/\/+$/, '');
+export const WEB_APP_URL = WEB_URL_OVERRIDE ?? PRODUCTION_WEB_URL;
 
 export type ReleaseChannel = 'beta' | 'release';
 
