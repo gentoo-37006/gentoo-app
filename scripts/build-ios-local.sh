@@ -101,6 +101,24 @@ else
   eas_cmd=(npx --yes eas-cli)
 fi
 
+# --non-interactive keeps `release:all` unattended, but it has one sharp edge:
+# eas-cli's bestEffortAppStoreAuthenticateAsync() returns immediately in that
+# mode, so it never logs in to the Apple Developer Portal and therefore never
+# runs its "Syncing capabilities" step. Adding an iOS capability to app.json
+# (associatedDomains, HealthKit, App Groups, …) then fails at the archive with
+#   Provisioning Profile "…" does not support the <X> capability
+# because the profile on file predates the entitlement. Fix it once with an
+# interactive credentials run, which enables the capability on the App ID and
+# regenerates the profile:
+#   npx eas credentials -p ios      # production -> Build Credentials
+# INTERACTIVE=1 does the same sync as part of the build instead.
+build_args=(--platform ios --profile production --local --output "$OUT")
+if [[ "${INTERACTIVE:-0}" == "1" ]]; then
+  echo "[ios] INTERACTIVE=1 — Apple login enabled so EAS can sync capabilities."
+else
+  build_args+=(--non-interactive)
+fi
+
 # Build on this machine. The upload is deliberately NOT run here: `eas submit`
 # queues on EAS's shared submitter pool ("waiting for an available submitter"),
 # which routinely takes longer than the build did, and it stalls the rest of
@@ -108,7 +126,7 @@ fi
 # and hands the wait to a human who can walk away from it.
 #
 # Set SUBMIT=1 to restore the old behaviour (useful when nobody is at the Mac).
-"${eas_cmd[@]}" build --platform ios --profile production --local --output "$OUT" --non-interactive
+"${eas_cmd[@]}" build "${build_args[@]}"
 
 if [[ "${SUBMIT:-0}" == "1" ]]; then
   echo "[ios] SUBMIT=1 — submitting through EAS instead of Transporter."
