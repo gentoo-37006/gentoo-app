@@ -8,6 +8,7 @@ export type DeleteTooltipAnchor = {
 export function DeleteTooltipPortal(_: {
   visible: boolean;
   anchor: DeleteTooltipAnchor | null;
+  anchorName: string;
   text: string;
 }) {
   return null;

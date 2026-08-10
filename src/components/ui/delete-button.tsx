@@ -1,6 +1,7 @@
 import * as React from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Platform,
   Pressable,
   useWindowDimensions,
@@ -19,6 +20,7 @@ import {
   type DeleteTooltipAnchor,
 } from '@/components/ui/delete-tooltip-portal';
 import { useDragOverlay } from '@/components/drag-overlay';
+import { useScreenScrollTracker } from '@/components/ui/screen';
 import { cn } from '@/lib/utils';
 
 const TOOLTIP_VIEWPORT_MARGIN = 8;
@@ -28,10 +30,14 @@ function NativeDeleteTooltip({
   anchor,
   text,
   viewportWidth,
+  scrollY,
+  scrollStart,
 }: {
   anchor: DeleteTooltipAnchor;
   text: string;
   viewportWidth: number;
+  scrollY: Animated.Value;
+  scrollStart: number;
 }) {
   const [size, setSize] = React.useState({ width: 0, height: 0 });
   const isMeasured = size.width > 0 && size.height > 0;
@@ -44,7 +50,7 @@ function NativeDeleteTooltip({
   );
 
   return (
-    <View
+    <Animated.View
       pointerEvents="none"
       onLayout={(event) => {
         const { width, height } = event.nativeEvent.layout;
@@ -58,6 +64,7 @@ function NativeDeleteTooltip({
         top: anchor.top - size.height - TOOLTIP_ANCHOR_GAP,
         maxWidth: viewportWidth - TOOLTIP_VIEWPORT_MARGIN * 2,
         opacity: isMeasured ? 1 : 0,
+        transform: [{ translateY: Animated.subtract(scrollStart, scrollY) }],
       }}
     >
       <Text
@@ -67,7 +74,7 @@ function NativeDeleteTooltip({
       >
         {text}
       </Text>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -136,13 +143,16 @@ export function ConfirmationButton({
 }: ConfirmationButtonProps) {
   const { width: viewportWidth } = useWindowDimensions();
   const dragOverlay = useDragOverlay();
+  const screenScroll = useScreenScrollTracker();
   const shiftPressed = useShiftPressed();
   const coarsePointer = useCoarsePointer();
   const [hovered, setHovered] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
   const [tooltipAnchor, setTooltipAnchor] = React.useState<DeleteTooltipAnchor | null>(null);
+  const [tooltipScrollStart, setTooltipScrollStart] = React.useState(0);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const buttonRef = React.useRef<View>(null);
+  const tooltipAnchorName = `--delete-tooltip-${React.useId().replace(/[^a-z0-9_-]/gi, '')}`;
   const isDisabled = disabled || loading;
   const isWeb = Platform.OS === 'web';
   // Hold-Shift only where a keyboard is a safe assumption; touch web falls back
@@ -161,6 +171,7 @@ export function ConfirmationButton({
 
   const measureTooltipAnchor = React.useCallback(() =>
     buttonRef.current?.measureInWindow((left, top, width, height) => {
+      if (!isWeb) setTooltipScrollStart(screenScroll.getOffset());
       setTooltipAnchor((current) => {
         if (
           current?.left === left &&
@@ -172,7 +183,16 @@ export function ConfirmationButton({
         }
         return { left, top, width, height };
       });
-    }), []);
+    }), [isWeb, screenScroll]);
+
+  React.useEffect(() => {
+    if (!isWeb || !buttonRef.current) return;
+    const element = buttonRef.current as unknown as HTMLElement;
+    element.style.setProperty('anchor-name', tooltipAnchorName);
+    return () => {
+      element.style.removeProperty('anchor-name');
+    };
+  }, [isWeb, tooltipAnchorName]);
 
   React.useEffect(
     () => () => {
@@ -189,6 +209,8 @@ export function ConfirmationButton({
         anchor={tooltipAnchor}
         text={tooltipText}
         viewportWidth={viewportWidth}
+        scrollY={screenScroll.scrollY}
+        scrollStart={tooltipScrollStart}
       />
     );
     return () => dragOverlay.hide();
@@ -198,20 +220,26 @@ export function ConfirmationButton({
     showTooltip,
     tooltipAnchor,
     tooltipText,
+    tooltipScrollStart,
     viewportWidth,
+    screenScroll.scrollY,
   ]);
 
   React.useEffect(() => {
-    if (shiftGate || !showTooltip) return;
+    if (!showTooltip) return;
 
-    let frame: number;
-    const trackAnchor = () => {
-      measureTooltipAnchor();
-      frame = requestAnimationFrame(trackAnchor);
-    };
-    frame = requestAnimationFrame(trackAnchor);
-    return () => cancelAnimationFrame(frame);
-  }, [measureTooltipAnchor, shiftGate, showTooltip]);
+    if (isWeb && typeof window !== 'undefined') {
+      const trackAnchor = () => measureTooltipAnchor();
+      window.addEventListener('scroll', trackAnchor, true);
+      window.addEventListener('resize', trackAnchor);
+      return () => {
+        window.removeEventListener('scroll', trackAnchor, true);
+        window.removeEventListener('resize', trackAnchor);
+      };
+    }
+
+    return;
+  }, [isWeb, measureTooltipAnchor, screenScroll, showTooltip]);
 
   const resetConfirming = () => {
     if (timer.current) clearTimeout(timer.current);
@@ -269,7 +297,12 @@ export function ConfirmationButton({
         onHoverOut?.(event);
       }}
     >
-      <DeleteTooltipPortal visible={isWeb && showTooltip} anchor={tooltipAnchor} text={tooltipText} />
+      <DeleteTooltipPortal
+        visible={isWeb && showTooltip}
+        anchor={tooltipAnchor}
+        anchorName={tooltipAnchorName}
+        text={tooltipText}
+      />
       <TextClassContext.Provider value={confirmationTextClass}>
         <View
           pointerEvents="none"

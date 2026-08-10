@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ActivityIndicator, Platform, View } from 'react-native';
+import { ActivityIndicator, Platform, useWindowDimensions, View } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -8,9 +8,10 @@ import {
   PackagePlus,
   Pencil,
   Printer,
+  Trash2,
   Undo2,
 } from 'lucide-react-native';
-import { Screen, ScreenHeader } from '@/components/ui/screen';
+import { Screen, ScreenBackButton, ScreenHeader } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
@@ -68,6 +69,8 @@ function QuantityDialog({
   description,
   confirmLabel,
   max,
+  unit,
+  useSlider,
   withPurpose,
   busy,
   onSubmit,
@@ -77,6 +80,8 @@ function QuantityDialog({
   description: string;
   confirmLabel: string;
   max?: number;
+  unit?: string | null;
+  useSlider?: boolean;
   withPurpose?: boolean;
   busy: boolean;
   onSubmit: (quantity: number, purpose: string | null) => void;
@@ -99,9 +104,11 @@ function QuantityDialog({
         <View className="gap-1.5">
           <View className="flex-row items-center justify-between gap-3">
             <Text variant="label">Quantity</Text>
-            {max !== undefined ? <Text className="font-semibold tabular-nums">{amount}</Text> : null}
+            {useSlider && max !== undefined ? (
+              <Text className="font-semibold tabular-nums">{amount}</Text>
+            ) : null}
           </View>
-          {max !== undefined ? (
+          {useSlider && max !== undefined ? (
             <View className="gap-1">
               <Slider
                 style={{ width: '100%', height: 40 }}
@@ -124,12 +131,18 @@ function QuantityDialog({
               </View>
             </View>
           ) : (
-            <InventoryInput
-              value={quantity}
-              onChangeText={setQuantity}
-              keyboardType="number-pad"
-              autoFocus
-            />
+            <View className="h-11 flex-row items-center rounded-lg border border-input bg-background">
+              <InventoryInput
+                value={quantity}
+                onChangeText={setQuantity}
+                keyboardType="number-pad"
+                autoFocus
+                className="h-full flex-1 border-0 bg-transparent pr-1 focus:border-transparent"
+              />
+              {unit ? (
+                <Text className="pr-3.5 text-base text-muted-foreground">{unit}</Text>
+              ) : null}
+            </View>
           )}
         </View>
         {withPurpose ? (
@@ -199,6 +212,7 @@ function CheckoutRow({
 }
 
 function PartDetail({ part, checkouts }: { part: Part; checkouts: CheckoutWithUser[] }) {
+  const { width: viewportWidth } = useWindowDimensions();
   const router = useRouter();
   const checkout = useCheckoutPart();
   const returnCheckout = useReturnCheckout();
@@ -225,12 +239,13 @@ function PartDetail({ part, checkouts }: { part: Part; checkouts: CheckoutWithUs
     ...(part.notes ? [{ label: 'Notes', value: part.notes }] : []),
   ];
 
-  return (
-    <Screen maxWidth="max-w-3xl">
+  const partInformation = (
+    <>
+      <PartPhotoCard part={part} />
+
       <ScreenHeader
         title={part.name}
         description={part.consumable ? 'Consumable — logged usage lowers stock.' : undefined}
-        backHref="/inventory"
       >
         <Button
           variant="outline"
@@ -242,7 +257,9 @@ function PartDetail({ part, checkouts }: { part: Part; checkouts: CheckoutWithUs
         <DeleteButton
           variant="outline"
           size="sm"
-          label="Delete"
+          className="w-9 px-0"
+          icon={Trash2}
+          accessibilityLabel="Delete part"
           loading={deletePart.isPending}
           onPress={async () => {
             await deletePart.mutateAsync(part.id);
@@ -258,7 +275,11 @@ function PartDetail({ part, checkouts }: { part: Part; checkouts: CheckoutWithUs
           ))}
         </CardContent>
       </Card>
+    </>
+  );
 
+  const stockInformation = (
+    <>
       <View className="flex-row flex-wrap gap-3">
         <Stat
           label={part.consumable ? 'In stock' : 'Available'}
@@ -294,16 +315,16 @@ function PartDetail({ part, checkouts }: { part: Part; checkouts: CheckoutWithUs
           disabled={available === 0}
           onPress={() => setDialog('take')}
         />
-        <Button
-          className="flex-1"
-          variant="outline"
-          label="Add stock"
-          icon={PackagePlus}
-          onPress={() => setDialog('stock')}
-        />
+        {part.consumable ? (
+          <Button
+            className="flex-1"
+            variant="outline"
+            label="Add stock"
+            icon={PackagePlus}
+            onPress={() => setDialog('stock')}
+          />
+        ) : null}
       </View>
-
-      <PartPhotoCard part={part} />
 
       {open.length > 0 ? (
         <View className="gap-3">
@@ -328,34 +349,60 @@ function PartDetail({ part, checkouts }: { part: Part; checkouts: CheckoutWithUs
           ))}
         </View>
       ) : null}
+    </>
+  );
 
-      <View className="gap-3">
-        <Text variant="title">QR label</Text>
-        <Card>
-          <CardContent className="flex-row flex-wrap items-center gap-4 p-4">
-            <QrCode value={url} size={140} />
-            <View className="min-w-[180px] flex-1 gap-2">
-              <Text variant="muted">
-                Print this and stick it on the bin. Scanning it opens this page, so anyone can sign the
-                part in or out from their phone.
-              </Text>
-              <Text variant="small" selectable>
-                {url}
-              </Text>
-              {Platform.OS === 'web' ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  label="Print label"
-                  icon={Printer}
-                  className="self-start"
-                  onPress={() => printLabels([part])}
-                />
-              ) : null}
-            </View>
-          </CardContent>
-        </Card>
-      </View>
+  const qrLabel = (
+    <View className="gap-3">
+      <Text variant="title">QR label</Text>
+      <Card>
+        <CardContent className="flex-row flex-wrap items-center gap-4 p-4">
+          <QrCode value={url} size={140} />
+          <View className="min-w-[180px] flex-1 gap-2">
+            <Text variant="muted">
+              Print this and stick it on the bin. Scanning it opens this page, so anyone can sign the
+              part in or out from their phone.
+            </Text>
+            <Text variant="small" selectable>
+              {url}
+            </Text>
+            {Platform.OS === 'web' ? (
+              <Button
+                variant="outline"
+                size="sm"
+                label="Print label"
+                icon={Printer}
+                className="self-start"
+                onPress={() => printLabels([part])}
+              />
+            ) : null}
+          </View>
+        </CardContent>
+      </Card>
+    </View>
+  );
+
+  return (
+    <Screen maxWidth="max-w-6xl">
+      <ScreenBackButton backHref="/inventory" />
+
+      {viewportWidth >= 1024 ? (
+        <View className="flex-row items-start gap-5">
+          <View className="min-w-0 flex-1 gap-5">
+            {partInformation}
+            {qrLabel}
+          </View>
+          <View className="sticky top-5 w-[340px] self-start gap-5">
+            {stockInformation}
+          </View>
+        </View>
+      ) : (
+        <View className="gap-5">
+          {partInformation}
+          {stockInformation}
+          {qrLabel}
+        </View>
+      )}
 
       <ModalSheet visible={dialog !== null} onClose={() => setDialog(null)}>
         {dialog === 'edit' ? (
@@ -370,6 +417,8 @@ function PartDetail({ part, checkouts }: { part: Part; checkouts: CheckoutWithUs
             }
             confirmLabel={part.consumable ? 'Log usage' : 'Check out'}
             max={available}
+            unit={part.unit}
+            useSlider={!part.consumable}
             withPurpose
             busy={checkout.isPending}
             onSubmit={async (quantity, purpose) => {
@@ -383,11 +432,12 @@ function PartDetail({ part, checkouts }: { part: Part; checkouts: CheckoutWithUs
             }}
             onCancel={() => setDialog(null)}
           />
-        ) : dialog === 'stock' ? (
+        ) : dialog === 'stock' && part.consumable ? (
           <QuantityDialog
             title="Add stock"
             description="Restocking after a delivery? Add the new units to the count."
             confirmLabel="Add"
+            unit={part.unit}
             busy={updatePart.isPending}
             onSubmit={async (quantity) => {
               await updatePart.mutateAsync({ id: part.id, quantity: part.quantity + quantity });

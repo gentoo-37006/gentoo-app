@@ -1,5 +1,7 @@
 import * as React from 'react';
 import {
+  Animated,
+  Platform,
   Pressable,
   ScrollView,
   useWindowDimensions,
@@ -28,6 +30,15 @@ const ScreenDragContext = React.createContext<ScreenDragController>(
   EMPTY_DRAG_CONTROLLER
 );
 const ScreenDragActiveContext = React.createContext(false);
+type ScreenScrollTracker = {
+  scrollY: Animated.Value;
+  getOffset: () => number;
+};
+const EMPTY_SCROLL_Y = new Animated.Value(0);
+const ScreenScrollContext = React.createContext<ScreenScrollTracker>({
+  scrollY: EMPTY_SCROLL_Y,
+  getOffset: () => 0,
+});
 
 export function useScreenDragController() {
   return React.useContext(ScreenDragContext);
@@ -35,6 +46,10 @@ export function useScreenDragController() {
 
 export function useScreenDragActive() {
   return React.useContext(ScreenDragActiveContext);
+}
+
+export function useScreenScrollTracker() {
+  return React.useContext(ScreenScrollContext);
 }
 
 /**
@@ -63,6 +78,17 @@ export function Screen({
     null
   );
   const autoScrollListener = React.useRef<(() => void) | null>(null);
+  const [scrollTracker] = React.useState<ScreenScrollTracker>(() => ({
+    scrollY: new Animated.Value(0),
+    getOffset: () => scrollOffset.current,
+  }));
+
+  React.useEffect(() => {
+    const listener = scrollTracker.scrollY.addListener(({ value }) => {
+      scrollOffset.current = value;
+    });
+    return () => scrollTracker.scrollY.removeListener(listener);
+  }, [scrollTracker]);
 
   const stopAutoScroll = () => {
     if (autoScrollTimer.current === null) return;
@@ -126,34 +152,39 @@ export function Screen({
   return (
     <ScreenDragContext.Provider value={dragController}>
       <ScreenDragActiveContext.Provider value={dragActive}>
-        <ScrollView
-          ref={scrollRef}
-          className={cn('flex-1 bg-background', className)}
-          contentContainerClassName="items-center"
-          keyboardShouldPersistTaps="handled"
-          onContentSizeChange={(_width, height) => {
-            contentHeight.current = height;
-          }}
-          onLayout={(event) => {
-            viewportHeight.current = event.nativeEvent.layout.height;
-          }}
-          onScroll={(event) => {
-            scrollOffset.current = event.nativeEvent.contentOffset.y;
-          }}
-          scrollEnabled={!dragActive}
-          scrollEventThrottle={16}
-          showsVerticalScrollIndicator={false}
-        >
-          <View
-            className={cn(
-              'w-full gap-5 px-4 py-5 md:px-8 md:py-8',
-              maxWidth,
-              contentClassName
+        <ScreenScrollContext.Provider value={scrollTracker}>
+          <Animated.ScrollView
+            ref={scrollRef}
+            className={cn('flex-1 bg-background', className)}
+            contentContainerStyle={{ alignItems: 'center' }}
+            keyboardShouldPersistTaps="handled"
+            onContentSizeChange={(_width, height) => {
+              contentHeight.current = height;
+            }}
+            onLayout={(event) => {
+              viewportHeight.current = event.nativeEvent.layout.height;
+            }}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollTracker.scrollY } } }],
+              {
+                useNativeDriver: Platform.OS !== 'web',
+              }
             )}
+            scrollEnabled={!dragActive}
+            scrollEventThrottle={16}
+            showsVerticalScrollIndicator={false}
           >
-            {children}
-          </View>
-        </ScrollView>
+            <View
+              className={cn(
+                'w-full gap-5 px-4 py-5 md:px-8 md:py-8',
+                maxWidth,
+                contentClassName
+              )}
+            >
+              {children}
+            </View>
+          </Animated.ScrollView>
+        </ScreenScrollContext.Provider>
       </ScreenDragActiveContext.Provider>
     </ScreenDragContext.Provider>
   );
@@ -171,24 +202,9 @@ export function ScreenHeader({
   backHref?: string;
   children?: React.ReactNode;
 }) {
-  const router = useRouter();
   return (
     <View className="gap-2">
-      {backHref ? (
-        <Pressable
-          className="-ml-1 flex-row items-center gap-1 self-start py-1 active:opacity-70"
-          onPress={() => {
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace(backHref as any);
-            }
-          }}
-        >
-          <Icon as={ChevronLeft} size={18} className="text-muted-foreground" />
-          <Text variant="muted">Back</Text>
-        </Pressable>
-      ) : null}
+      {backHref ? <ScreenBackButton backHref={backHref} /> : null}
       <View className="flex-row items-start justify-between gap-4">
         <View className="flex-1 gap-1">
           <Text variant="h2">{title}</Text>
@@ -197,5 +213,25 @@ export function ScreenHeader({
         {children ? <View className="flex-row items-center gap-2">{children}</View> : null}
       </View>
     </View>
+  );
+}
+
+export function ScreenBackButton({ backHref }: { backHref: string }) {
+  const router = useRouter();
+
+  return (
+    <Pressable
+      className="-ml-1 flex-row items-center gap-1 self-start py-1 active:opacity-70"
+      onPress={() => {
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace(backHref as any);
+        }
+      }}
+    >
+      <Icon as={ChevronLeft} size={18} className="text-muted-foreground" />
+      <Text variant="muted">Back</Text>
+    </Pressable>
   );
 }
