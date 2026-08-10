@@ -28,6 +28,7 @@ import { NAV_THEME } from '@/lib/theme';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { useAuth } from '@/lib/auth';
 import { useUnreadCount } from '@/lib/queries/notifications';
+import { usePendingApprovalCount } from '@/lib/queries/profiles';
 import { registerForPushNotifications } from '@/lib/push';
 import {
   GENERAL_NAV,
@@ -57,14 +58,20 @@ function isActiveRoute(href: string, pathname: string) {
 
 function CountBadge({ count, className }: { count: number; className?: string }) {
   if (count <= 0) return null;
+  const size = count > 99 ? 'h-[22px] w-[22px]' : count > 9 ? 'h-[18px] w-[18px]' : 'h-3.5 w-3.5';
   return (
     <View
       className={cn(
-        'min-w-[18px] items-center justify-center rounded-sm bg-destructive px-1.5 py-0.5',
+        'items-center justify-center rounded-full bg-destructive',
+        size,
         className
       )}
     >
-      <Text className="text-[10px] font-bold text-destructive-foreground">
+      <Text
+        className="w-full text-center text-[8px] font-bold text-destructive-foreground"
+        numberOfLines={1}
+        style={{ includeFontPadding: false, lineHeight: 9, textAlign: 'center' }}
+      >
         {count > 99 ? '99+' : count}
       </Text>
     </View>
@@ -142,6 +149,7 @@ function Sidebar({
   pathname,
   isAdmin,
   unread,
+  pendingApprovals,
   name,
   role,
   avatarUrl,
@@ -149,6 +157,7 @@ function Sidebar({
   pathname: string;
   isAdmin: boolean;
   unread: number;
+  pendingApprovals: number;
   name?: string | null;
   role?: string;
   avatarUrl?: string | null;
@@ -183,7 +192,13 @@ function Sidebar({
             key={item.name}
             item={item}
             active={isActiveRoute(item.href, pathname)}
-            badgeCount={item.name === 'notifications' ? unread : 0}
+            badgeCount={
+              item.name === 'notifications'
+                ? unread
+                : item.name === 'admin'
+                  ? pendingApprovals
+                  : 0
+            }
           />
         ))}
       </ScrollView>
@@ -231,7 +246,7 @@ function NavBarIcon({ item, badgeCount = 0 }: { item: NavItem; badgeCount?: numb
       >
         <Icon as={item.icon} size={18} className="text-muted-foreground" />
         {badgeCount > 0 ? (
-          <View className="absolute -right-0.5 -top-0.5">
+          <View className="absolute right-1 top-1">
             <CountBadge count={badgeCount} />
           </View>
         ) : null}
@@ -248,6 +263,7 @@ function TopNav({
   pathname,
   isAdmin,
   unread,
+  pendingApprovals,
   name,
   avatarUrl,
   scoutingOpen,
@@ -256,6 +272,7 @@ function TopNav({
   pathname: string;
   isAdmin: boolean;
   unread: number;
+  pendingApprovals: number;
   name?: string | null;
   avatarUrl?: string | null;
   scoutingOpen: boolean;
@@ -353,7 +370,13 @@ function TopNav({
             <NavBarIcon
               key={item.name}
               item={item}
-              badgeCount={item.name === 'notifications' ? unread : 0}
+              badgeCount={
+                item.name === 'notifications'
+                  ? unread
+                  : item.name === 'admin'
+                    ? pendingApprovals
+                    : 0
+              }
             />
           ))}
           <Link href={'/settings' as any} asChild>
@@ -403,7 +426,7 @@ function MobileHeader({
           <Pressable className="h-9 w-9 items-center justify-center rounded-sm active:bg-accent">
             <Icon as={bell.icon} size={22} className="text-foreground" />
             {unread > 0 ? (
-              <View className="absolute right-0.5 top-0.5">
+              <View className="absolute right-1 top-1">
                 <CountBadge count={unread} />
               </View>
             ) : null}
@@ -451,6 +474,7 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { profile, isAdmin, session, isDemo } = useAuth();
   const unread = useUnreadCount();
+  const { data: pendingApprovals = 0 } = usePendingApprovalCount(isAdmin);
   const edgeSwipeEnabled = ALL_NAV.some((item) => item.href === pathname);
 
   // Mobile drawer + desktop scouting dropdown; navigation closes both.
@@ -632,6 +656,7 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
             pathname={pathname}
             isAdmin={isAdmin}
             unread={unread}
+            pendingApprovals={pendingApprovals}
             name={profile?.full_name}
             avatarUrl={profile?.avatar_url}
             scoutingOpen={scoutingOpen}
@@ -715,6 +740,7 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
               pathname={pathname}
               isAdmin={isAdmin}
               unread={unread}
+              pendingApprovals={pendingApprovals}
               name={profile?.full_name}
               role={profile?.role}
               avatarUrl={profile?.avatar_url}

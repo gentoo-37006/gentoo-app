@@ -196,7 +196,7 @@ export default function AdminScreen() {
 
   if (!isAdmin) {
     return (
-      <Screen>
+      <Screen maxWidth="max-w-2xl">
         <ScreenHeader title="Admin" description="Approve members and manage roles." />
         <EmptyState
           icon={Lock}
@@ -211,7 +211,7 @@ export default function AdminScreen() {
   const members = (profiles ?? []).filter((p) => p.status === 'approved');
 
   return (
-    <Screen>
+    <Screen maxWidth="max-w-2xl">
       <ScreenHeader title="Admin" description="Approve members and manage roles." />
 
       {isLoading ? (

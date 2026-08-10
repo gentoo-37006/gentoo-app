@@ -7,7 +7,7 @@ import {
   ShieldCheck,
   ListChecks,
   CheckCheck,
-  Trash2,
+  X,
   type LucideIcon,
 } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
@@ -16,7 +16,7 @@ import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
-import { DeleteButton } from '@/components/ui/delete-button';
+import { ConfirmationButton } from '@/components/ui/delete-button';
 import { useRouter } from 'expo-router';
 import { timeAgo } from '@/lib/format';
 import { hrefForNotification } from '@/lib/notification-links';
@@ -58,9 +58,11 @@ function NotificationRow({ item, onPress, onClear }: { item: AppNotification; on
             {item.body ? <Text variant="muted">{item.body}</Text> : null}
             <Text variant="small">{timeAgo(item.created_at)}</Text>
           </View>
-          <DeleteButton
+          <ConfirmationButton
             variant="ghost"
             size="icon"
+            icon={X}
+            confirmationAction="clear"
             onPress={onClear}
             className="-mr-2 h-8 w-8"
             accessibilityLabel="Clear notification"
@@ -82,7 +84,7 @@ export default function NotificationsScreen() {
   const hasUnread = notifications.some((n) => !n.read);
 
   return (
-    <Screen>
+    <Screen maxWidth="max-w-2xl">
       <ScreenHeader title="Notifications" description="Talkie pings, submissions, and assignments.">
         {notifications.length > 0 ? (
           <View className="flex-row items-center gap-2">
@@ -96,11 +98,11 @@ export default function NotificationsScreen() {
                 onPress={() => markAll.mutate()}
               />
             ) : null}
-            <DeleteButton
+            <ConfirmationButton
               variant="outline"
               size="sm"
               label="Clear all"
-              icon={Trash2}
+              confirmationAction="clear all"
               loading={clearAll.isPending}
               onPress={() => clearAll.mutate()}
             />

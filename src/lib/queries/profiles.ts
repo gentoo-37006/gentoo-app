@@ -21,6 +21,26 @@ export function useProfiles() {
   });
 }
 
+/** Count-only query for the global admin navigation badge. */
+export function usePendingApprovalCount(enabled: boolean) {
+  return useQuery({
+    queryKey: [...profilesKey, 'pending-count'],
+    enabled,
+    queryFn: async (): Promise<number> => {
+      if (isDemoMode()) {
+        const profiles = await demoProfiles();
+        return profiles.filter((profile) => profile.status === 'pending').length;
+      }
+      const { count, error } = await supabase
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+}
+
 function useProfileMutation<TVars>(fn: (vars: TVars) => Promise<void>) {
   const qc = useQueryClient();
   return useMutation({
