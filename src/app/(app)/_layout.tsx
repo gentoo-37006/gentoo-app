@@ -7,11 +7,12 @@ import { DragOverlayProvider } from '@/components/drag-overlay';
 
 export default function AppLayout() {
   const pathname = usePathname();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   usePushNavigation();
-  const isDownloads = pathname === '/downloads';
+  const isStandaloneDownloads =
+    pathname === '/downloads' && (!session || profile?.status !== 'approved');
 
-  if (isDownloads && !session) return <Slot />;
+  if (isStandaloneDownloads) return <Slot />;
 
   return (
     <DragOverlayProvider>

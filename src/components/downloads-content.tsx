@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { ActivityIndicator, Linking, Platform, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Bot, Download, Smartphone, type LucideIcon } from 'lucide-react-native';
+import { Download, Smartphone, type LucideIcon } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Card, CardContent } from '@/components/ui/card';
@@ -55,26 +54,13 @@ function DownloadCard({ item, recommended }: { item: DownloadItem; recommended: 
   );
 }
 
-function PublicHeader() {
-  const router = useRouter();
-
-  return (
-    <View className="flex-row items-center justify-between gap-4">
-      <View className="flex-row items-center gap-2.5">
-        <View className="h-10 w-10 items-center justify-center rounded-xl bg-primary">
-          <Icon as={Bot} size={22} className="text-primary-foreground" />
-        </View>
-        <View>
-          <Text className="text-lg font-extrabold tracking-tight">Gentoo</Text>
-          <Text variant="small">FTC Team Hub</Text>
-        </View>
-      </View>
-      <Button variant="outline" size="sm" label="Sign in" onPress={() => router.push('/sign-in')} />
-    </View>
-  );
-}
-
-export function DownloadsContent({ publicPage = false }: { publicPage?: boolean }) {
+export function DownloadsContent({
+  publicPage = false,
+  returnToPending = false,
+}: {
+  publicPage?: boolean;
+  returnToPending?: boolean;
+}) {
   const { data, isLoading, isError, refetch, isFetching } = useDownloads(RELEASE_CHANNEL);
   const detected = detectOS();
   // Drop platforms this build doesn't know about. The downloads function
@@ -88,15 +74,11 @@ export function DownloadsContent({ publicPage = false }: { publicPage?: boolean 
   const isBeta = RELEASE_CHANNEL === 'beta';
 
   return (
-    <Screen
-      maxWidth="max-w-2xl"
-      contentClassName={publicPage ? 'min-h-screen justify-center' : undefined}
-    >
-      {publicPage ? <PublicHeader /> : null}
-
+    <Screen maxWidth="max-w-2xl">
       <ScreenHeader
-        title={publicPage ? 'Download Gentoo' : 'Downloads'}
+        title="Downloads"
         description={isBeta ? 'Install the latest Gentoo beta app.' : 'Install the Gentoo app.'}
+        backHref={publicPage ? (returnToPending ? '/pending' : '/sign-in') : undefined}
       >
         {data?.version ? <Badge variant="muted" label={data.version} /> : null}
       </ScreenHeader>

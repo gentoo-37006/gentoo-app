@@ -200,18 +200,21 @@ function RootNavigator({
   const pathname = usePathname();
   const router = useRouter();
   const inAuthGroup = segments[0] === '(auth)';
-  const onPublicDownloads = pathname === '/downloads';
+  const onSignIn = segments[1] === 'sign-in';
+  const onPending = segments[1] === 'pending';
+  const onDownloads = pathname === '/downloads';
 
   // Derived, not state: the overlay hides once the current route matches the
   // auth state, so there's never a flash of the wrong screen — including
   // mid-redirect frames, which the old setSettled(true) marker let through.
   let routeSettled: boolean;
   if (initializing) routeSettled = false;
-  else if (!isConfigured || !session) routeSettled = inAuthGroup || onPublicDownloads;
+  else if (onDownloads) routeSettled = true;
+  else if (!isConfigured || !session) routeSettled = onSignIn;
   // profile can be stale-null while the fetch for the current session is still
   // in flight (auth.tsx nulls it on user change). Wait for it.
   else if (!profile) routeSettled = false;
-  else if (profile.status !== 'approved') routeSettled = segments[1] === 'pending';
+  else if (profile.status !== 'approved') routeSettled = onPending;
   else routeSettled = !inAuthGroup;
   const settled = themeRestored && routeSettled;
 
@@ -256,20 +259,31 @@ function RootNavigator({
   // The effect only issues redirects; `settled` above tracks when they land.
   React.useEffect(() => {
     if (initializing) return;
+    if (onDownloads) return;
 
     if (!isConfigured || !session) {
-      if (!inAuthGroup && !onPublicDownloads) router.replace('/sign-in');
+      if (!onSignIn) router.replace('/sign-in');
       return;
     }
     if (!profile) return;
 
     if (profile.status !== 'approved') {
-      if (segments[1] !== 'pending') router.replace('/pending');
+      if (!onPending) router.replace('/pending');
       return;
     }
 
     if (inAuthGroup) router.replace('/');
-  }, [initializing, isConfigured, session, profile, segments, pathname, router, inAuthGroup, onPublicDownloads]);
+  }, [
+    initializing,
+    isConfigured,
+    session,
+    profile,
+    router,
+    inAuthGroup,
+    onSignIn,
+    onPending,
+    onDownloads,
+  ]);
 
   return (
     <>

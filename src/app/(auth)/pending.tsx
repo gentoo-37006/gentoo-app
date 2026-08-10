@@ -8,11 +8,14 @@ import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { ConfirmationButton } from '@/components/ui/delete-button';
 import { Card, CardContent } from '@/components/ui/card';
+import { AuthScreenActions } from '@/components/theme-toggle-button';
+import { usePreventNonInputSelection } from '@/lib/use-prevent-non-input-selection';
 
 export default function PendingScreen() {
   const { profile, refreshProfile, signOut } = useAuth();
   const [refreshing, setRefreshing] = React.useState(false);
   const rejected = profile?.status === 'rejected';
+  usePreventNonInputSelection();
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -21,7 +24,10 @@ export default function PendingScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 select-none bg-background">
+      <View className="items-end px-4 pt-4">
+        <AuthScreenActions />
+      </View>
       <View className="flex-1 items-center justify-center p-6">
         <View className="w-full max-w-sm gap-6">
           <Card>

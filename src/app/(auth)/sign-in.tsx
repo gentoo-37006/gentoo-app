@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Apple, Bot, TriangleAlert } from 'lucide-react-native';
+import { Apple, TriangleAlert } from 'lucide-react-native';
 import { signInWithGoogle } from '@/lib/google-auth';
 import { isAppleSignInAvailable, signInWithApple } from '@/lib/apple-auth';
 import { useAuth } from '@/lib/auth';
@@ -10,6 +10,9 @@ import { Icon } from '@/components/ui/icon';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { GoogleLogo } from '@/components/google-logo';
 import { Input } from '@/components/ui/input';
+import { AuthScreenActions } from '@/components/theme-toggle-button';
+import { HaloAppIcon } from '@/components/halo-app-icon';
+import { usePreventNonInputSelection } from '@/lib/use-prevent-non-input-selection';
 
 const DEMO_EMAIL = 'alex.rivera@gentoorobotics.org';
 const DEMO_PASSWORD = 'Gentoo2026!';
@@ -74,6 +77,7 @@ function EmailPasswordForm() {
       <Input
         value={email}
         onChangeText={setEmail}
+        className="select-text"
         placeholder="Email"
         autoCapitalize="none"
         autoCorrect={false}
@@ -83,6 +87,7 @@ function EmailPasswordForm() {
       <Input
         value={password}
         onChangeText={setPassword}
+        className="select-text"
         placeholder="Password"
         autoCapitalize="none"
         autoCorrect={false}
@@ -187,15 +192,17 @@ function NotConfigured() {
 export default function SignInScreen() {
   const { isConfigured } = useAuth();
   const [showEmail, setShowEmail] = React.useState(false);
+  usePreventNonInputSelection();
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 select-none bg-background">
+      <View className="items-end px-4 pt-4">
+        <AuthScreenActions />
+      </View>
       <View className="flex-1 items-center justify-center p-6">
         <View className="w-full max-w-sm gap-8">
           <View className="items-center gap-3">
-            <View className="h-16 w-16 items-center justify-center rounded-md bg-primary">
-              <Icon as={Bot} size={32} className="text-primary-foreground" />
-            </View>
+            <HaloAppIcon size={64} />
             <View className="items-center">
               <Text className="text-2xl font-extrabold tracking-tight">Gentoo</Text>
               <Text variant="muted">FTC Team Hub</Text>
