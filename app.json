@@ -9,6 +9,7 @@
     "ios": {
       "bundleIdentifier": "com.gentoo.app",
       "supportsTablet": true,
+      "usesAppleSignIn": true,
       "associatedDomains": [
         "applinks:gentoo.ethanyanxu.com",
         "applinks:beta.gentoo.ethanyanxu.com"
@@ -61,6 +62,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-apple-authentication",
       [
         "expo-splash-screen",
         {

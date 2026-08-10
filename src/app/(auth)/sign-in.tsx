@@ -1,8 +1,9 @@
 import * as React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Bot, TriangleAlert } from 'lucide-react-native';
+import { Apple, Bot, TriangleAlert } from 'lucide-react-native';
 import { signInWithGoogle } from '@/lib/google-auth';
+import { isAppleSignInAvailable, signInWithApple } from '@/lib/apple-auth';
 import { useAuth } from '@/lib/auth';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
@@ -61,7 +62,7 @@ function EmailPasswordForm() {
   const onPress = async () => {
     setError(null);
     if (email.trim().toLowerCase() !== DEMO_EMAIL || password !== DEMO_PASSWORD) {
-      setError('Use Google sign-in unless you were given email and password credentials.');
+      setError('Use Apple or Google sign-in unless you were given email and password credentials.');
       return;
     }
     setLoading(true);
@@ -108,6 +109,65 @@ function EmailPasswordForm() {
   );
 }
 
+/**
+ * Guideline 4.8 requires this to be offered as an EQUIVALENT option, so it
+ * renders with the same size and weight as the Google button rather than as a
+ * secondary link. iOS only — Apple's sheet doesn't exist elsewhere, and a dead
+ * button on Android would be worse than none.
+ */
+function AppleButton() {
+  const [available, setAvailable] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+    isAppleSignInAvailable().then((ok) => {
+      if (active) setAvailable(ok);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (!available) return null;
+
+  const onPress = async () => {
+    setError(null);
+    setLoading(true);
+    const result = await signInWithApple();
+    if (result.error) setError(result.error);
+    // On success the auth listener drives navigation, same as Google.
+    if (result.error || result.cancelled) setLoading(false);
+  };
+
+  return (
+    <View className="gap-3">
+      <Pressable
+        onPress={onPress}
+        disabled={loading}
+        accessibilityRole="button"
+        accessibilityLabel="Continue with Apple"
+        className="h-12 flex-row items-center justify-center gap-3 rounded-lg border border-border bg-background active:bg-accent"
+      >
+        {loading ? (
+          <ActivityIndicator size="small" />
+        ) : (
+          <>
+            <Icon as={Apple} size={20} className="text-foreground" />
+            <Text className="text-base font-semibold">Continue with Apple</Text>
+          </>
+        )}
+      </Pressable>
+      {error ? (
+        <Text variant="small" className="text-center text-destructive">
+          {error}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 function NotConfigured() {
   return (
     <View className="gap-3 rounded-lg border border-warning/40 bg-warning/10 p-4">
@@ -117,8 +177,8 @@ function NotConfigured() {
       </View>
       <Text variant="muted">
         Add your Supabase URL and anon key to a local <Text className="font-mono text-xs">.env</Text>{' '}
-        file (see <Text className="font-mono text-xs">.env.example</Text>) and enable the Google
-        provider in Supabase, then reload.
+        file (see <Text className="font-mono text-xs">.env.example</Text>) and enable the Apple and
+        Google providers in Supabase, then reload.
       </Text>
     </View>
   );
@@ -156,7 +216,7 @@ export default function SignInScreen() {
                     <Icon as={TriangleAlert} size={16} className="mt-0.5 text-warning" />
                     <Text variant="small" className="flex-1 text-muted-foreground">
                       Only sign in with email and password if you were given credentials. You can&apos;t
-                      create an account this way — most members should continue with Google.
+                      create an account this way — most members should sign in with Apple or Google.
                     </Text>
                   </View>
                   <EmailPasswordForm />
@@ -168,7 +228,14 @@ export default function SignInScreen() {
                 </View>
               ) : (
                 <View className="gap-4">
-                  {isConfigured ? <GoogleButton /> : <NotConfigured />}
+                  {isConfigured ? (
+                    <>
+                      <AppleButton />
+                      <GoogleButton />
+                    </>
+                  ) : (
+                    <NotConfigured />
+                  )}
                   <Pressable onPress={() => setShowEmail(true)} className="self-center py-1">
                     <Text variant="small" className="text-muted-foreground underline">
                       Sign in with email and password
