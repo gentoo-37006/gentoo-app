@@ -8,10 +8,11 @@ import {
   View,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { ImagePlus, X } from 'lucide-react-native';
+import { ImagePlus, Pencil, Trash2 } from 'lucide-react-native';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
+import { Button } from '@/components/ui/button';
 import { DeleteButton } from '@/components/ui/delete-button';
 import { ModalSheet } from '@/components/ui/modal-sheet';
 import { usePartPhotoUrl, useUpdatePart } from '@/lib/queries/inventory';
@@ -115,8 +116,10 @@ export function PartPhotoCard({ part }: { part: Part }) {
       const previous = part.image_path;
       await update.mutateAsync({ id: part.id, image_path: null });
       await removePartPhoto(previous);
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not remove that photo.');
+      return false;
     } finally {
       setBusy(false);
     }
@@ -131,42 +134,54 @@ export function PartPhotoCard({ part }: { part: Part }) {
 
     const takeNewPhoto = () => void attach(takePhoto);
     const chooseFromAlbum = () => void attach(pickPhotoFromLibrary);
+    const deletePhoto = () => {
+      Alert.alert('Delete reference image?', 'This cannot be undone.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => void clear() },
+      ]);
+    };
     const title = part.image_path ? 'Replace image' : 'Add image';
 
     if (Platform.OS === 'ios') {
+      const options = part.image_path
+        ? ['Cancel', 'Take Photo', 'Choose from Photo Album', 'Delete Image']
+        : ['Cancel', 'Take Photo', 'Choose from Photo Album'];
       ActionSheetIOS.showActionSheetWithOptions(
         {
           title,
-          options: ['Cancel', 'Take Photo', 'Choose from Photo Album'],
+          options,
           cancelButtonIndex: 0,
+          destructiveButtonIndex: part.image_path ? 3 : undefined,
         },
         (buttonIndex) => {
           if (buttonIndex === 1) takeNewPhoto();
           if (buttonIndex === 2) chooseFromAlbum();
+          if (buttonIndex === 3 && part.image_path) deletePhoto();
         }
       );
       return;
     }
 
-    Alert.alert(title, undefined, [
-      { text: 'Take Photo', onPress: takeNewPhoto },
-      { text: 'Choose from Photo Album', onPress: chooseFromAlbum },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    Alert.alert(
+      title,
+      undefined,
+      [
+        { text: 'Take Photo', onPress: takeNewPhoto },
+        { text: 'Choose from Photo Album', onPress: chooseFromAlbum },
+        ...(part.image_path
+          ? [{ text: 'Delete Image', style: 'destructive' as const, onPress: deletePhoto }]
+          : []),
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
   };
 
   return (
-    <Card>
-      <CardContent className="gap-3 p-4">
+    <Card className={part.image_path ? 'overflow-hidden' : undefined}>
+      <CardContent className={cn('gap-3', part.image_path ? 'p-0' : 'p-4')}>
         {part.image_path ? (
           <View className="relative aspect-square w-full">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Replace reference image"
-              disabled={busy}
-              onPress={choosePhotoSource}
-              className="absolute inset-0 cursor-pointer overflow-hidden rounded-md bg-muted hover:opacity-90"
-            >
+            <View className="absolute inset-0 overflow-hidden rounded-md bg-muted">
               {isLoading || !url ? (
                 <View className="flex-1 items-center justify-center">
                   <ActivityIndicator />
@@ -179,15 +194,15 @@ export function PartPhotoCard({ part }: { part: Part }) {
                   accessibilityLabel={`Photo of ${part.name}`}
                 />
               )}
-            </Pressable>
+            </View>
             <View className="absolute right-2 top-2 z-10 rounded-md bg-background/80">
-              <DeleteButton
+              <Button
                 variant="ghost"
                 size="icon"
-                icon={X}
-                accessibilityLabel="Remove photo"
+                icon={Pencil}
+                accessibilityLabel="Edit reference image"
                 disabled={busy}
-                onPress={clear}
+                onPress={choosePhotoSource}
               />
             </View>
           </View>
@@ -205,7 +220,10 @@ export function PartPhotoCard({ part }: { part: Part }) {
         )}
 
         {error ? (
-          <Text variant="small" className="text-destructive">
+          <Text
+            variant="small"
+            className={cn('text-destructive', part.image_path && 'px-4 pb-4')}
+          >
             {error}
           </Text>
         ) : null}
@@ -213,7 +231,21 @@ export function PartPhotoCard({ part }: { part: Part }) {
 
       <ModalSheet visible={webPickerOpen} onClose={() => setWebPickerOpen(false)}>
         <View className="select-none gap-3 rounded-md border border-border bg-card p-4">
-          <Text variant="title">{part.image_path ? 'Replace image' : 'Add image'}</Text>
+          <View className="flex-row items-center justify-between gap-3">
+            <Text variant="title">{part.image_path ? 'Replace image' : 'Add image'}</Text>
+            {part.image_path ? (
+              <DeleteButton
+                variant="ghost"
+                size="icon"
+                icon={Trash2}
+                accessibilityLabel="Remove reference image"
+                disabled={busy}
+                onPress={async () => {
+                  if (await clear()) setWebPickerOpen(false);
+                }}
+              />
+            ) : null}
+          </View>
           {React.createElement(
             'div',
             {
