@@ -20,6 +20,31 @@ const SCENE_DELEGATE_SWIFT = `
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
   var window: UIWindow?
 
+  private func forwardURL(_ url: URL) {
+    if let appDelegate = UIApplication.shared.delegate as? AppDelegate {
+      _ = appDelegate.application(UIApplication.shared, open: url, options: [:])
+    }
+    RCTLinkingManager.application(UIApplication.shared, open: url, options: [:])
+  }
+
+  private func forwardUserActivity(_ userActivity: NSUserActivity) {
+    guard userActivity.activityType == NSUserActivityTypeBrowsingWeb,
+          userActivity.webpageURL != nil else { return }
+
+    if let appDelegate = UIApplication.shared.delegate as? AppDelegate {
+      _ = appDelegate.application(
+        UIApplication.shared,
+        continue: userActivity,
+        restorationHandler: { _ in }
+      )
+    }
+    RCTLinkingManager.application(
+      UIApplication.shared,
+      continue: userActivity,
+      restorationHandler: { _ in }
+    )
+  }
+
   func scene(
     _ scene: UIScene,
     willConnectTo session: UISceneSession,
@@ -32,12 +57,28 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
       self.window = existingWindow
       existingWindow.makeKeyAndVisible()
     }
+
+    // UIScene removes incoming links from AppDelegate launchOptions. Forward
+    // them here so expo-linking can cache the URL before Expo Router starts.
+    if let userActivity = connectionOptions.userActivities.first(where: {
+      $0.activityType == NSUserActivityTypeBrowsingWeb
+    }) {
+      forwardUserActivity(userActivity)
+    }
+    if let url = connectionOptions.urlContexts.first?.url {
+      forwardURL(url)
+    }
   }
 
   // Forward deep links / the expo-dev-client URL delivered via the scene.
   func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
     guard let url = URLContexts.first?.url else { return }
-    RCTLinkingManager.application(UIApplication.shared, open: url, options: [:])
+    forwardURL(url)
+  }
+
+  // Universal Links arrive as NSUserActivity, not as openURLContexts.
+  func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+    forwardUserActivity(userActivity)
   }
 }
 `;
