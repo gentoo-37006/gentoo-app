@@ -17,6 +17,7 @@ if (!globalThis.crypto.subtle) {
 import * as React from 'react';
 import {
   Animated,
+  Appearance,
   Easing,
   Image,
   type ImageSourcePropType,
@@ -123,6 +124,12 @@ const styles = StyleSheet.create({
 
 export default function RootLayout() {
   const { colorScheme } = useColorScheme();
+  // Capture this before useRestoreThemeMode applies Gentoo's saved override.
+  // The OS-owned native splash also uses this launch-time system appearance,
+  // so keeping the React handoff on the same scheme prevents a mid-splash flip.
+  const [nativeSplashTheme] = React.useState<'light' | 'dark'>(() =>
+    Appearance.getColorScheme() === 'dark' ? 'dark' : 'light'
+  );
   const theme = colorScheme === 'dark' ? NAV_THEME.dark : NAV_THEME.light;
   const themeRestored = useRestoreThemeMode();
   useNativeUpdates();
@@ -134,7 +141,13 @@ export default function RootLayout() {
           <Providers>
             <RootNavigator
               themeRestored={themeRestored}
-              splashTheme={colorScheme === 'dark' ? 'dark' : 'light'}
+              splashTheme={
+                Platform.OS === 'web'
+                  ? colorScheme === 'dark'
+                    ? 'dark'
+                    : 'light'
+                  : nativeSplashTheme
+              }
             />
             <UpdateBanner />
           </Providers>
