@@ -1,4 +1,4 @@
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Download, Moon, Sun } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
@@ -27,13 +27,15 @@ export function AuthScreenActions() {
 
   return (
     <View className="flex-row gap-2">
-      <Button
-        variant="outline"
-        size="icon"
-        icon={Download}
-        accessibilityLabel="Open downloads"
-        onPress={() => router.push('/downloads')}
-      />
+      {Platform.OS === 'web' ? (
+        <Button
+          variant="outline"
+          size="icon"
+          icon={Download}
+          accessibilityLabel="Open downloads"
+          onPress={() => router.push('/downloads')}
+        />
+      ) : null}
       <ThemeToggleButton />
     </View>
   );
