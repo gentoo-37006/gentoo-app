@@ -650,8 +650,16 @@ export function ResponsiveShell({ children }: { children: React.ReactNode }) {
   if (isWide) {
     return (
       <View className="flex-1 bg-background">
-        {/* zIndex keeps the dropdown above the click-away backdrop below. */}
-        <View className="z-20">
+        {/* zIndex keeps the dropdown above the click-away backdrop below.
+            The top inset is applied HERE rather than by wrapping the branch in
+            a SafeAreaView, so the status-bar strip paints the nav's own card
+            background instead of a seam above it. Native only in practice —
+            insets are 0 on web, where this branch also runs. Without it the
+            iPad nav renders under the clock. */}
+        <View
+          className="z-20 bg-card"
+          style={{ paddingTop: safeAreaInsets.top }}
+        >
           <TopNav
             pathname={pathname}
             isAdmin={isAdmin}
