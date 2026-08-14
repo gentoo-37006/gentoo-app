@@ -1,7 +1,8 @@
 import * as React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Apple, TriangleAlert } from 'lucide-react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { TriangleAlert } from 'lucide-react-native';
 import { signInWithGoogle } from '@/lib/google-auth';
 import { isAppleSignInAvailable, signInWithApple } from '@/lib/apple-auth';
 import { useAuth } from '@/lib/auth';
@@ -13,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { AuthScreenActions } from '@/components/theme-toggle-button';
 import { HaloAppIcon } from '@/components/halo-app-icon';
 import { usePreventNonInputSelection } from '@/lib/use-prevent-non-input-selection';
+import { useColorScheme } from '@/lib/theme';
 
 const DEMO_EMAIL = 'alex.rivera@gentoorobotics.org';
 const DEMO_PASSWORD = 'Gentoo2026!';
@@ -121,6 +123,7 @@ function EmailPasswordForm() {
  * button on Android would be worse than none.
  */
 function AppleButton() {
+  const { colorScheme } = useColorScheme();
   const [available, setAvailable] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -148,22 +151,22 @@ function AppleButton() {
 
   return (
     <View className="gap-3">
-      <Pressable
-        onPress={onPress}
-        disabled={loading}
-        accessibilityRole="button"
-        accessibilityLabel="Continue with Apple"
-        className="h-12 flex-row items-center justify-center gap-3 rounded-lg border border-border bg-background active:bg-accent"
+      <View
+        pointerEvents={loading ? 'none' : 'auto'}
+        style={{ opacity: loading ? 0.6 : 1 }}
       >
-        {loading ? (
-          <ActivityIndicator size="small" />
-        ) : (
-          <>
-            <Icon as={Apple} size={20} className="text-foreground" />
-            <Text className="text-base font-semibold">Continue with Apple</Text>
-          </>
-        )}
-      </Pressable>
+        <AppleAuthentication.AppleAuthenticationButton
+          buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+          buttonStyle={
+            colorScheme === 'dark'
+              ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+              : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+          }
+          cornerRadius={8}
+          style={{ width: '100%', height: 48 }}
+          onPress={() => void onPress()}
+        />
+      </View>
       {error ? (
         <Text variant="small" className="text-center text-destructive">
           {error}
