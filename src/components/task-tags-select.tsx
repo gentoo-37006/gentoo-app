@@ -58,7 +58,12 @@ export function TaskTagsSelect({
       renderValue={(selectedOptions) => (
         <View className="flex-row flex-wrap gap-1">
           {selectedOptions.map((option) => (
-            <Badge key={option.value} variant="muted" label={option.label} />
+            <Badge
+              key={option.value}
+              variant="muted"
+              label={option.label}
+              singleLine
+            />
           ))}
         </View>
       )}
@@ -69,7 +74,7 @@ export function TaskTagsSelect({
             <Text className="text-sm font-medium text-primary">{option.label}</Text>
           </View>
         ) : (
-          <Badge variant="muted" label={option.label} />
+          <Badge variant="muted" label={option.label} singleLine />
         )
       }
       renderSelectedOption={(option) => (

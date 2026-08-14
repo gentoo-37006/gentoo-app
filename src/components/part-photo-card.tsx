@@ -1,12 +1,12 @@
 import * as React from 'react';
 import {
-  ActionSheetIOS,
   ActivityIndicator,
   Alert,
   Platform,
   Pressable,
   View,
 } from 'react-native';
+import { MenuView, type MenuAction } from '@expo/ui/community/menu';
 import { Image } from 'expo-image';
 import { ImagePlus, Pencil, Trash2 } from 'lucide-react-native';
 import { Card, CardContent } from '@/components/ui/card';
@@ -125,55 +125,35 @@ export function PartPhotoCard({ part }: { part: Part }) {
     }
   };
 
-  const choosePhotoSource = () => {
-    if (Platform.OS === 'web') {
-      setDraggingOver(false);
-      setWebPickerOpen(true);
-      return;
-    }
+  const openWebPicker = () => {
+    setDraggingOver(false);
+    setWebPickerOpen(true);
+  };
 
-    const takeNewPhoto = () => void attach(takePhoto);
-    const chooseFromAlbum = () => void attach(pickPhotoFromLibrary);
-    const deletePhoto = () => {
-      Alert.alert('Delete reference image?', 'This cannot be undone.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => void clear() },
-      ]);
-    };
-    const title = part.image_path ? 'Replace image' : 'Add image';
+  const confirmDeletePhoto = () => {
+    Alert.alert('Delete reference image?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => void clear() },
+    ]);
+  };
 
-    if (Platform.OS === 'ios') {
-      const options = part.image_path
-        ? ['Cancel', 'Take Photo', 'Choose from Photo Album', 'Delete Image']
-        : ['Cancel', 'Take Photo', 'Choose from Photo Album'];
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          title,
-          options,
-          cancelButtonIndex: 0,
-          destructiveButtonIndex: part.image_path ? 3 : undefined,
-        },
-        (buttonIndex) => {
-          if (buttonIndex === 1) takeNewPhoto();
-          if (buttonIndex === 2) chooseFromAlbum();
-          if (buttonIndex === 3 && part.image_path) deletePhoto();
-        }
-      );
-      return;
-    }
+  const nativePhotoActions: MenuAction[] = [
+    { id: 'camera', title: 'Take Photo', image: 'camera' },
+    { id: 'library', title: 'Choose from Photos', image: 'photo.on.rectangle' },
+    ...(part.image_path
+      ? [{
+          id: 'delete',
+          title: 'Delete Reference Image',
+          image: 'trash' as const,
+          attributes: { destructive: true },
+        }]
+      : []),
+  ];
 
-    Alert.alert(
-      title,
-      undefined,
-      [
-        { text: 'Take Photo', onPress: takeNewPhoto },
-        { text: 'Choose from Photo Album', onPress: chooseFromAlbum },
-        ...(part.image_path
-          ? [{ text: 'Delete Image', style: 'destructive' as const, onPress: deletePhoto }]
-          : []),
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+  const handleNativePhotoAction = (event: { nativeEvent: { event: string } }) => {
+    if (event.nativeEvent.event === 'camera') void attach(takePhoto);
+    if (event.nativeEvent.event === 'library') void attach(pickPhotoFromLibrary);
+    if (event.nativeEvent.event === 'delete') confirmDeletePhoto();
   };
 
   return (
@@ -196,22 +176,55 @@ export function PartPhotoCard({ part }: { part: Part }) {
               )}
             </View>
             <View className="absolute right-2 top-2 z-10 rounded-md bg-background/80">
-              <Button
-                variant="ghost"
-                size="icon"
-                icon={Pencil}
-                accessibilityLabel="Edit reference image"
-                disabled={busy}
-                onPress={choosePhotoSource}
-              />
+              {Platform.OS === 'web' ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  icon={Pencil}
+                  accessibilityLabel="Edit reference image"
+                  disabled={busy}
+                  onPress={openWebPicker}
+                />
+              ) : (
+                <MenuView
+                  title="Edit reference image"
+                  actions={nativePhotoActions}
+                  onPressAction={handleNativePhotoAction}
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    icon={Pencil}
+                    accessibilityLabel="Edit reference image"
+                    disabled={busy}
+                  />
+                </MenuView>
+              )}
             </View>
           </View>
+        ) : Platform.OS !== 'web' ? (
+          <MenuView
+            title="Add reference image"
+            actions={nativePhotoActions}
+            onPressAction={handleNativePhotoAction}
+            style={{ width: '100%' }}
+          >
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add reference image"
+              disabled={busy}
+              className="items-center gap-1 rounded-md border border-dashed border-border py-6"
+            >
+              <Icon as={ImagePlus} size={22} className="text-muted-foreground" />
+              <Text variant="muted">No reference image</Text>
+            </Pressable>
+          </MenuView>
         ) : (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Add reference image"
             disabled={busy}
-            onPress={choosePhotoSource}
+            onPress={openWebPicker}
             className="cursor-pointer items-center gap-1 rounded-md border border-dashed border-border py-6 hover:bg-accent/70"
           >
             <Icon as={ImagePlus} size={22} className="text-muted-foreground" />

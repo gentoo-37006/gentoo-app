@@ -79,7 +79,7 @@ function PartRow({ part, onPress }: { part: PartWithOpen; onPress: () => void })
         <View className="min-w-0 flex-1 gap-3">
           <View className="flex-row items-center gap-3">
             <View className="min-w-0 flex-1">
-              <Text className="font-bold" numberOfLines={1}>
+              <Text className="font-bold">
                 {part.name}
               </Text>
               {meta ? (

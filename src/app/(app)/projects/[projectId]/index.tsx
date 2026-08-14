@@ -532,6 +532,7 @@ function TaskTableRow({
   task,
   profiles,
   availableTags,
+  tagColumnWidth,
   highlighted = false,
   onMetadataOpenChange,
   onOpen,
@@ -539,6 +540,7 @@ function TaskTableRow({
   task: Task;
   profiles: Profile[];
   availableTags: string[];
+  tagColumnWidth: number;
   highlighted?: boolean;
   onMetadataOpenChange: (open: boolean) => void;
   onOpen: () => void;
@@ -755,6 +757,7 @@ function TaskTableRow({
           'justify-center px-2 py-2',
           completedCellClass
         )}
+        style={{ minWidth: tagColumnWidth }}
       >
         <TaskTagsSelect
           values={task.tags}
@@ -885,6 +888,7 @@ function TaskTable({
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
   const [viewportWidth, setViewportWidth] = React.useState(0);
   const [nativeTableWidth, setNativeTableWidth] = React.useState(0);
+  const [nativeTagWidths, setNativeTagWidths] = React.useState<Record<string, number>>({});
   const [nativeLineLayouts, setNativeLineLayouts] = React.useState<
     Record<string, { y: number; height: number }>
   >({});
@@ -910,6 +914,18 @@ function TaskTable({
     targetKey: string | null;
   } | null>(null);
   const suppressNextClick = React.useRef(false);
+  const visibleTags = React.useMemo(
+    () => Array.from(new Set(tasks.flatMap((task) => task.tags))),
+    [tasks]
+  );
+  const widestNativeTag = visibleTags.reduce(
+    (width, tag) => Math.max(width, nativeTagWidths[tag] ?? 0),
+    0
+  );
+  // Cell and trigger padding account for 24 px around the badge itself.
+  const tagColumnWidth =
+    Platform.OS === 'web' ? 120 : Math.max(120, Math.ceil(widestNativeTag + 24));
+  const taskTableMinWidth = TASK_TABLE_MIN_WIDTH + tagColumnWidth - 120;
 
   React.useEffect(() => {
     if (!draggingId || typeof document === 'undefined') return;
@@ -1214,26 +1230,49 @@ function TaskTable({
 
   return (
     <View className="relative w-full overflow-visible">
+      {Platform.OS !== 'web' ? (
+        <View
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          className="absolute left-0 top-0 flex-row opacity-0"
+        >
+          {visibleTags.map((tag) => (
+            <Badge
+              key={tag}
+              variant="muted"
+              label={tag}
+              singleLine
+              onLayout={(event) => {
+                const width = event.nativeEvent.layout.width;
+                setNativeTagWidths((current) =>
+                  current[tag] === width ? current : { ...current, [tag]: width }
+                );
+              }}
+            />
+          ))}
+        </View>
+      ) : null}
       <ScrollView
         horizontal
         className="w-full max-w-full"
         scrollEnabled={!screenDragActive}
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ width: '100%', minWidth: TASK_TABLE_MIN_WIDTH }}
+        contentContainerStyle={{ width: '100%', minWidth: taskTableMinWidth }}
         onLayout={(event) => setViewportWidth(event.nativeEvent.layout.width)}
         onScroll={(event) => {
           horizontalScrollX.value = event.nativeEvent.contentOffset.x;
         }}
         scrollEventThrottle={16}
         style={
-          Platform.OS === 'web' && viewportWidth >= TASK_TABLE_MIN_WIDTH
+          Platform.OS === 'web' && viewportWidth >= taskTableMinWidth
             ? { overflow: 'visible' }
             : undefined
         }
       >
         <View
           className="relative overflow-visible rounded-md"
-          style={{ width: '100%', minWidth: TASK_TABLE_MIN_WIDTH }}
+          style={{ width: '100%', minWidth: taskTableMinWidth }}
           onLayout={(event) => {
             if (Platform.OS !== 'web') {
               setNativeTableWidth(event.nativeEvent.layout.width);
@@ -1263,7 +1302,10 @@ function TaskTable({
           <View className={cn(TASK_TABLE_COLUMNS.priority, 'px-2')}>
             <Text variant="label" className="ml-1 text-muted-foreground">Priority</Text>
           </View>
-          <View className={cn(TASK_TABLE_COLUMNS.tags, 'px-2')}>
+          <View
+            className={cn(TASK_TABLE_COLUMNS.tags, 'px-2')}
+            style={{ minWidth: tagColumnWidth }}
+          >
             <Text variant="label" className="ml-1 text-muted-foreground">Tags</Text>
           </View>
           <View className={TASK_TABLE_COLUMNS.actions} />
@@ -1303,6 +1345,7 @@ function TaskTable({
                   task={task}
                   profiles={profiles}
                   availableTags={availableTags}
+                  tagColumnWidth={tagColumnWidth}
                   highlighted={task.id === focusTaskId}
                   onOpen={() => onOpenTask(task)}
                   onMetadataOpenChange={(open) => {
@@ -1348,6 +1391,7 @@ function TaskTable({
                       task={task}
                       profiles={profiles}
                       availableTags={availableTags}
+                      tagColumnWidth={tagColumnWidth}
                       highlighted={task.id === focusTaskId}
                       onOpen={() => onOpenTask(task)}
                       onMetadataOpenChange={(open) => {

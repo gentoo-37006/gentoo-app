@@ -206,11 +206,11 @@ export function ScreenHeader({
     <View className="gap-2">
       {backHref ? <ScreenBackButton backHref={backHref} /> : null}
       <View className="flex-row items-start justify-between gap-4">
-        <View className="flex-1 gap-1">
-          <Text variant="h2">{title}</Text>
+        <View className="min-w-0 flex-1 gap-1">
+          <Text variant="h2" className="break-words">{title}</Text>
           {description ? <Text variant="muted">{description}</Text> : null}
         </View>
-        {children ? <View className="flex-row items-center gap-2">{children}</View> : null}
+        {children ? <View className="shrink-0 flex-row items-center gap-2">{children}</View> : null}
       </View>
     </View>
   );

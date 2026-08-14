@@ -51,44 +51,58 @@ async function saveThemeMode(mode: ThemeMode): Promise<void> {
 }
 
 /**
- * Restores the persisted appearance choice and applies it via NativeWind.
- * Call once near the app root so the saved theme takes effect on every load.
- * On web it also tracks OS theme changes live while "system" is selected.
+ * Loads the persisted appearance choice, then applies it when allowed. Native
+ * startup defers that second step until the OS splash is fully gone so changing
+ * the app appearance cannot switch the still-visible native splash variant.
  */
-export function useRestoreThemeMode(): boolean {
+export function useRestoreThemeMode(apply: boolean = true) {
   const { setColorScheme } = useColorScheme();
+  const [loadedMode, setLoadedMode] = React.useState<ThemeMode | null>(null);
   const [restored, setRestored] = React.useState(false);
+  const applyScheme = React.useEffectEvent((mode: ThemeMode) => {
+    currentMode = mode;
+    setColorScheme(resolveScheme(mode));
+  });
 
   React.useEffect(() => {
     let cancelled = false;
-    let readyFrame: number | undefined;
     loadThemeMode().then((mode) => {
       if (cancelled) return;
-      currentMode = mode;
-      setColorScheme(resolveScheme(mode));
-      readyFrame = requestAnimationFrame(() => setRestored(true));
+      setLoadedMode(mode);
     });
 
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (!apply || loadedMode === null) return;
+
+    applyScheme(loadedMode);
+    const readyFrame = requestAnimationFrame(() => setRestored(true));
+    return () => cancelAnimationFrame(readyFrame);
+  }, [apply, loadedMode]);
+
+  React.useEffect(() => {
     // Follow the OS while in system mode (web/desktop; native handles this
     // itself via Appearance).
     let unsubscribe: (() => void) | undefined;
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const query = window.matchMedia('(prefers-color-scheme: dark)');
       const onChange = () => {
-        if (currentMode === 'system') setColorScheme(resolveScheme('system'));
+        if (currentMode === 'system') applyScheme('system');
       };
       query.addEventListener('change', onChange);
       unsubscribe = () => query.removeEventListener('change', onChange);
     }
 
     return () => {
-      cancelled = true;
-      if (readyFrame !== undefined) cancelAnimationFrame(readyFrame);
       unsubscribe?.();
     };
-  }, [setColorScheme]);
+  }, []);
 
-  return restored;
+  return { loaded: loadedMode !== null, restored };
 }
 
 /**

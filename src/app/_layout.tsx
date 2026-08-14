@@ -130,8 +130,13 @@ export default function RootLayout() {
   const [nativeSplashTheme] = React.useState<'light' | 'dark'>(() =>
     Appearance.getColorScheme() === 'dark' ? 'dark' : 'light'
   );
+  const [nativeSplashReleased, setNativeSplashReleased] = React.useState(
+    Platform.OS === 'web'
+  );
+  const releaseNativeSplash = React.useCallback(() => setNativeSplashReleased(true), []);
   const theme = colorScheme === 'dark' ? NAV_THEME.dark : NAV_THEME.light;
-  const themeRestored = useRestoreThemeMode();
+  const { loaded: themeLoaded, restored: themeRestored } =
+    useRestoreThemeMode(nativeSplashReleased);
   useNativeUpdates();
 
   return (
@@ -140,7 +145,10 @@ export default function RootLayout() {
         <ThemeProvider value={theme}>
           <Providers>
             <RootNavigator
+              themeLoaded={themeLoaded}
               themeRestored={themeRestored}
+              nativeSplashReleased={nativeSplashReleased}
+              onNativeSplashReleased={releaseNativeSplash}
               splashTheme={
                 Platform.OS === 'web'
                   ? colorScheme === 'dark'
@@ -190,10 +198,16 @@ function useNativeUpdates() {
  * approved users in the app. The navigator stays mounted so redirects are safe.
  */
 function RootNavigator({
+  themeLoaded,
   themeRestored,
+  nativeSplashReleased,
+  onNativeSplashReleased,
   splashTheme,
 }: {
+  themeLoaded: boolean;
   themeRestored: boolean;
+  nativeSplashReleased: boolean;
+  onNativeSplashReleased: () => void;
   splashTheme: 'light' | 'dark';
 }) {
   const { initializing, isConfigured, session, profile } = useAuth();
@@ -206,9 +220,6 @@ function RootNavigator({
   const [nativeSplashImageReadyFor, setNativeSplashImageReadyFor] = React.useState<
     'light' | 'dark' | null
   >(null);
-  const [nativeSplashReleased, setNativeSplashReleased] = React.useState(
-    Platform.OS === 'web'
-  );
   const segments = useSegments() as string[];
   const pathname = usePathname();
   const router = useRouter();
@@ -234,7 +245,7 @@ function RootNavigator({
   React.useEffect(() => {
     if (
       Platform.OS === 'web' ||
-      !themeRestored ||
+      !themeLoaded ||
       nativeSplashImageReadyFor !== splashTheme ||
       nativeSplashReleased
     ) {
@@ -247,7 +258,7 @@ function RootNavigator({
       handoffFrame = requestAnimationFrame(() => {
         void SplashScreen.hideAsync();
         releaseTimer = setTimeout(
-          () => setNativeSplashReleased(true),
+          onNativeSplashReleased,
           SPLASH_FADE_DURATION
         );
       });
@@ -258,7 +269,13 @@ function RootNavigator({
       if (handoffFrame !== undefined) cancelAnimationFrame(handoffFrame);
       if (releaseTimer) clearTimeout(releaseTimer);
     };
-  }, [nativeSplashImageReadyFor, nativeSplashReleased, splashTheme, themeRestored]);
+  }, [
+    nativeSplashImageReadyFor,
+    nativeSplashReleased,
+    onNativeSplashReleased,
+    splashTheme,
+    themeLoaded,
+  ]);
 
   React.useEffect(() => {
     if (Platform.OS !== 'web' || !settled) return;

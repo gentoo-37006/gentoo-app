@@ -94,7 +94,7 @@ function ProjectCard({
               <View className="flex-1">
                 <Text className="font-bold">{project.name}</Text>
                 {project.description ? (
-                  <Text variant="muted" numberOfLines={1}>
+                  <Text variant="muted">
                     {project.description}
                   </Text>
                 ) : null}

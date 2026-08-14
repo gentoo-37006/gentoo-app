@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { ActivityIndicator, Platform, useWindowDimensions, View } from 'react-native';
 import Slider from '@react-native-community/slider';
+import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Boxes,
@@ -63,6 +64,103 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function DiscreteQuantitySlider({
+  value,
+  max,
+  primaryColor,
+  trackColor,
+  onChange,
+}: {
+  value: number;
+  max: number;
+  primaryColor: string;
+  trackColor: string;
+  onChange: (value: number) => void;
+}) {
+  const tickCount = Math.max(1, Math.floor(max));
+  const progress = tickCount <= 1 ? 0 : (value - 1) / (tickCount - 1);
+  const [trackWidth, setTrackWidth] = React.useState(0);
+  const sliding = React.useRef(false);
+  const lastHapticValue = React.useRef(value);
+
+  const handleValueChange = (nextValue: number) => {
+    const nextTick = Math.round(nextValue);
+    if (
+      Platform.OS !== 'web' &&
+      sliding.current &&
+      nextTick !== lastHapticValue.current
+    ) {
+      void Haptics.selectionAsync().catch(() => {});
+    }
+    lastHapticValue.current = nextTick;
+    onChange(nextTick);
+  };
+
+  return (
+    <View className="relative h-10 justify-center">
+      <View
+        pointerEvents="none"
+        className="absolute inset-y-0 left-3 right-3 justify-center"
+        onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
+      >
+        <View
+          className="absolute left-0 right-0"
+          style={{ borderTopWidth: 2, borderStyle: 'dotted', borderColor: trackColor }}
+        />
+        <View
+          className="absolute left-0 overflow-hidden"
+          style={{ width: `${progress * 100}%` }}
+        >
+          <View
+            style={{
+              width: trackWidth,
+              borderTopWidth: 2,
+              borderStyle: 'dotted',
+              borderColor: primaryColor,
+            }}
+          />
+        </View>
+        {Array.from({ length: tickCount }, (_, index) => {
+          const position = tickCount <= 1 ? 0 : index / (tickCount - 1);
+          return (
+            <View
+              key={index}
+              className="absolute h-2 w-2 rounded-full"
+              style={{
+                left: `${position * 100}%`,
+                marginLeft: -4,
+                backgroundColor: index + 1 <= value ? primaryColor : trackColor,
+              }}
+            />
+          );
+        })}
+      </View>
+      <Slider
+        style={{ width: '100%', height: 40 }}
+        accessibilityLabel="Quantity"
+        accessibilityValue={{ min: 1, max, now: value }}
+        minimumValue={1}
+        maximumValue={Math.max(1, max)}
+        step={1}
+        value={value}
+        disabled={max <= 1}
+        tapToSeek
+        minimumTrackTintColor="transparent"
+        maximumTrackTintColor="transparent"
+        thumbTintColor={primaryColor}
+        onSlidingStart={(startValue) => {
+          sliding.current = true;
+          lastHapticValue.current = Math.round(startValue);
+        }}
+        onValueChange={handleValueChange}
+        onSlidingComplete={() => {
+          sliding.current = false;
+        }}
+      />
+    </View>
+  );
+}
+
 /** Shared body for "check out", "log usage" and "add stock". */
 function QuantityDialog({
   title,
@@ -110,20 +208,12 @@ function QuantityDialog({
           </View>
           {useSlider && max !== undefined ? (
             <View className="gap-1">
-              <Slider
-                style={{ width: '100%', height: 40 }}
-                accessibilityLabel="Quantity"
-                accessibilityValue={{ min: 1, max, now: amount }}
-                minimumValue={1}
-                maximumValue={Math.max(1, max)}
-                step={1}
+              <DiscreteQuantitySlider
                 value={amount}
-                disabled={max <= 1}
-                tapToSeek
-                minimumTrackTintColor={sliderPrimary}
-                maximumTrackTintColor={sliderTrack}
-                thumbTintColor={sliderPrimary}
-                onValueChange={(value) => setQuantity(String(value))}
+                max={max}
+                primaryColor={sliderPrimary}
+                trackColor={sliderTrack}
+                onChange={(value) => setQuantity(String(value))}
               />
               <View className="flex-row justify-between">
                 <Text variant="small">1</Text>
@@ -404,7 +494,11 @@ function PartDetail({ part, checkouts }: { part: Part; checkouts: CheckoutWithUs
         </View>
       )}
 
-      <ModalSheet visible={dialog !== null} onClose={() => setDialog(null)}>
+      <ModalSheet
+        visible={dialog !== null}
+        onClose={() => setDialog(null)}
+        scrollEnabled={Platform.OS === 'web'}
+      >
         {dialog === 'edit' ? (
           <PartEditor initial={part} onDone={() => setDialog(null)} />
         ) : dialog === 'take' ? (

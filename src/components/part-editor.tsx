@@ -4,6 +4,8 @@ import { Plus } from 'lucide-react-native';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { InventoryInput } from '@/components/inventory-input';
+import { AutoGrowingTextInput } from '@/components/ui/auto-growing-text-input';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Select } from '@/components/ui/select';
@@ -97,7 +99,13 @@ export function PartEditor({
     <Card className="select-none border-primary/40">
       <CardContent className="gap-3 p-4">
         <Text variant="title">{initial ? 'Edit part' : 'New part'}</Text>
-        <InventoryInput value={name} onChangeText={setName} placeholder="Part name" />
+        <AutoGrowingTextInput
+          minHeight={44}
+          value={name}
+          onChangeText={setName}
+          placeholder="Part name"
+          className="min-h-11 select-text rounded-lg border border-input bg-background px-3.5 py-2 text-base outline-none focus:border-input"
+        />
 
         <View className="flex-row gap-2">
           <View className="flex-1 gap-1.5">
@@ -199,7 +207,12 @@ export function PartEditor({
 
         <View className="gap-1.5">
           <Text variant="label">Notes</Text>
-          <InventoryInput value={notes} onChangeText={setNotes} placeholder="Optional" />
+          <Textarea
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="Optional"
+            className="select-text outline-none focus:border-input"
+          />
         </View>
 
         {error ? <Text className="text-destructive">{error}</Text> : null}

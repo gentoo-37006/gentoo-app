@@ -60,13 +60,23 @@ const badgeTextVariants = cva('text-[11px] font-bold uppercase tracking-wide', {
 });
 
 export type BadgeProps = React.ComponentProps<typeof View> &
-  VariantProps<typeof badgeVariants> & { label?: string };
+  VariantProps<typeof badgeVariants> & { label?: string; singleLine?: boolean };
 
-export function Badge({ className, variant, label, children, ...props }: BadgeProps) {
+export function Badge({ className, variant, label, singleLine, children, ...props }: BadgeProps) {
   return (
     <TextClassContext.Provider value={badgeTextVariants({ variant })}>
-      <View className={cn(badgeVariants({ variant }), className)} {...props}>
-        {label ? <Text className={badgeTextVariants({ variant })}>{label}</Text> : children}
+      <View
+        className={cn(badgeVariants({ variant }), singleLine && 'shrink-0', className)}
+        {...props}
+      >
+        {label ? (
+          <Text
+            numberOfLines={singleLine ? 1 : undefined}
+            className={badgeTextVariants({ variant })}
+          >
+            {label}
+          </Text>
+        ) : children}
       </View>
     </TextClassContext.Provider>
   );

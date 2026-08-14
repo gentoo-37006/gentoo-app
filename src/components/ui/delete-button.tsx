@@ -125,6 +125,10 @@ type ConfirmationButtonProps = ButtonProps & {
   confirmationAction: string;
 };
 
+type MeasuredTooltipAnchor = DeleteTooltipAnchor & {
+  scrollStart: number;
+};
+
 export function ConfirmationButton({
   confirmationAction,
   className,
@@ -148,11 +152,12 @@ export function ConfirmationButton({
   const coarsePointer = useCoarsePointer();
   const [hovered, setHovered] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
-  const [tooltipAnchor, setTooltipAnchor] = React.useState<DeleteTooltipAnchor | null>(null);
-  const [tooltipScrollStart, setTooltipScrollStart] = React.useState(0);
+  const [tooltipAnchor, setTooltipAnchor] = React.useState<MeasuredTooltipAnchor | null>(null);
+  const [tooltipSession, setTooltipSession] = React.useState(0);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const buttonRef = React.useRef<View>(null);
-  const tooltipAnchorName = `--delete-tooltip-${React.useId().replace(/[^a-z0-9_-]/gi, '')}`;
+  const tooltipId = React.useId().replace(/[^a-z0-9_-]/gi, '');
+  const tooltipAnchorName = `--delete-tooltip-${tooltipId}`;
   const isDisabled = disabled || loading;
   const isWeb = Platform.OS === 'web';
   // Hold-Shift only where a keyboard is a safe assumption; touch web falls back
@@ -171,17 +176,18 @@ export function ConfirmationButton({
 
   const measureTooltipAnchor = React.useCallback(() =>
     buttonRef.current?.measureInWindow((left, top, width, height) => {
-      if (!isWeb) setTooltipScrollStart(screenScroll.getOffset());
+      const scrollStart = isWeb ? 0 : screenScroll.getOffset();
       setTooltipAnchor((current) => {
         if (
           current?.left === left &&
           current.top === top &&
           current.width === width &&
-          current.height === height
+          current.height === height &&
+          current.scrollStart === scrollStart
         ) {
           return current;
         }
-        return { left, top, width, height };
+        return { left, top, width, height, scrollStart };
       });
     }), [isWeb, screenScroll]);
 
@@ -206,11 +212,12 @@ export function ConfirmationButton({
 
     dragOverlay.show(
       <NativeDeleteTooltip
+        key={tooltipSession}
         anchor={tooltipAnchor}
         text={tooltipText}
         viewportWidth={viewportWidth}
         scrollY={screenScroll.scrollY}
-        scrollStart={tooltipScrollStart}
+        scrollStart={tooltipAnchor.scrollStart}
       />
     );
     return () => dragOverlay.hide();
@@ -219,8 +226,8 @@ export function ConfirmationButton({
     isWeb,
     showTooltip,
     tooltipAnchor,
+    tooltipSession,
     tooltipText,
-    tooltipScrollStart,
     viewportWidth,
     screenScroll.scrollY,
   ]);
@@ -275,6 +282,7 @@ export function ConfirmationButton({
                 return;
               }
 
+              if (!isWeb) setTooltipSession((current) => current + 1);
               setTooltipAnchor(null);
               measureTooltipAnchor();
               setConfirming(true);

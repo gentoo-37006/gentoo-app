@@ -32,4 +32,21 @@ describe('AutoGrowingTextInput', () => {
     });
     expect(StyleSheet.flatten(screen.getByDisplayValue('Project').props.style).height).toBe(32);
   });
+
+  it('does not let a late one-line input measurement collapse wrapped native text', async () => {
+    const screen = await render(
+      <AutoGrowingTextInput minHeight={32} value="A wrapped task title" onChangeText={() => {}} />
+    );
+    const input = screen.getByDisplayValue('A wrapped task title');
+    const hiddenText = screen.getByText('A wrapped task title');
+
+    await fireEvent(hiddenText, 'layout', {
+      nativeEvent: { layout: { width: 180, height: 64 } },
+    });
+    await fireEvent(input, 'contentSizeChange', {
+      nativeEvent: { contentSize: { width: 180, height: 32 } },
+    });
+
+    expect(StyleSheet.flatten(screen.getByDisplayValue('A wrapped task title').props.style).height).toBe(64);
+  });
 });

@@ -31,7 +31,10 @@ export function AutoGrowingTextInput({
 }: AutoGrowingTextInputProps) {
   const inputRef = React.useRef<TextInput>(null);
   const [height, setHeight] = React.useState(minHeight);
+  const [nativeWidth, setNativeWidth] = React.useState(0);
+  const hiddenMeasurementKey = React.useRef<string | null>(null);
   const isWeb = Platform.OS === 'web';
+  const measurementKey = `${nativeWidth}:${value}`;
 
   React.useLayoutEffect(() => {
     if (!isWeb) return;
@@ -58,7 +61,7 @@ export function AutoGrowingTextInput({
       }}
       onContentSizeChange={(event) => {
         onContentSizeChange?.(event);
-        if (!isWeb) {
+        if (!isWeb && hiddenMeasurementKey.current !== measurementKey) {
           const nextHeight = Math.max(
             minHeight,
             Math.ceil(event.nativeEvent.contentSize.height)
@@ -66,6 +69,7 @@ export function AutoGrowingTextInput({
           setHeight((current) => (current === nextHeight ? current : nextHeight));
         }
       }}
+      textAlignVertical={height <= minHeight ? 'center' : 'top'}
       scrollEnabled={false}
       submitBehavior="blurAndSubmit"
       className={cn('overflow-hidden resize-none', className)}
@@ -76,16 +80,26 @@ export function AutoGrowingTextInput({
   if (isWeb) return input;
 
   return (
-    <View className="relative w-full" style={{ height }}>
+    <View
+      className="relative w-full"
+      style={{ height }}
+      onLayout={(event) => {
+        const nextWidth = Math.floor(event.nativeEvent.layout.width);
+        if (nextWidth > 0 && nextWidth !== nativeWidth) setNativeWidth(nextWidth);
+      }}
+    >
       <NativeText
+        key={measurementKey}
         accessible={false}
         pointerEvents="none"
         className={cn('absolute w-full opacity-0', className)}
+        style={nativeWidth > 0 ? { width: nativeWidth } : undefined}
         onLayout={(event) => {
           const nextHeight = Math.max(
             minHeight,
             Math.ceil(event.nativeEvent.layout.height)
           );
+          hiddenMeasurementKey.current = measurementKey;
           setHeight((current) => (current === nextHeight ? current : nextHeight));
         }}
       >

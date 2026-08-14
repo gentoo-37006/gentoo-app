@@ -4,10 +4,19 @@ import { Input, type InputProps } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 export const InventoryInput = React.forwardRef<TextInput, InputProps>(
-  ({ className, placeholderTextColor = 'hsl(0 0% 47%)', ...props }, ref) => (
+  (
+    {
+      className,
+      placeholderTextColor = 'hsl(0 0% 47%)',
+      textAlignVertical = 'center',
+      ...props
+    },
+    ref
+  ) => (
     <Input
       ref={ref}
       placeholderTextColor={placeholderTextColor}
+      textAlignVertical={textAlignVertical}
       className={cn('select-text outline-none focus:border-input', className)}
       {...props}
     />
