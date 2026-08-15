@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Animated, Easing, Modal } from 'react-native';
+import { Animated, Easing, Modal, Platform } from 'react-native';
 
 export const FADE_DURATION_MS = 75;
 
@@ -33,7 +33,9 @@ export function FadeModal({
       toValue: visible ? 1 : 0,
       duration: FADE_DURATION_MS,
       easing: Easing.linear,
-      useNativeDriver: true,
+      // Web has no native animated module: passing true there warns on every
+      // open and falls back to JS anyway. Matches screen.tsx and _layout.tsx.
+      useNativeDriver: Platform.OS !== 'web',
     });
     animation.start(({ finished }) => {
       if (!finished || visible) return;

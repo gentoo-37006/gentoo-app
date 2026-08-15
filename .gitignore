@@ -29,6 +29,9 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 
+# agent-run dev-server logs (background `expo start` output)
+.codex-*.log
+
 # macOS
 .DS_Store
 *.pem
