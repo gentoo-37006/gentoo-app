@@ -35,9 +35,8 @@ export function DragOverlayProvider({
         {children}
         {content ? (
           <View
-            pointerEvents="none"
             className="absolute inset-0 overflow-visible"
-            style={{ zIndex: 9999, elevation: 9999 }}
+            style={{ zIndex: 9999, elevation: 9999, pointerEvents: 'none' }}
           >
             {content}
           </View>

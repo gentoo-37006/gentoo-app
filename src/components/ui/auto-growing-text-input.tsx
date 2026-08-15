@@ -91,9 +91,11 @@ export function AutoGrowingTextInput({
       <NativeText
         key={measurementKey}
         accessible={false}
-        pointerEvents="none"
         className={cn('absolute w-full opacity-0', className)}
-        style={nativeWidth > 0 ? { width: nativeWidth } : undefined}
+        style={[
+          { pointerEvents: 'none' },
+          nativeWidth > 0 ? { width: nativeWidth } : undefined,
+        ]}
         onLayout={(event) => {
           const nextHeight = Math.max(
             minHeight,

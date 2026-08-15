@@ -83,10 +83,9 @@ function LoadingSplash({
 
   return (
     <Animated.View
-      pointerEvents={visible ? 'auto' : 'none'}
       style={[
         styles.loadingSplash,
-        { backgroundColor, opacity },
+        { backgroundColor, opacity, pointerEvents: visible ? 'auto' : 'none' },
       ]}
     >
       <View style={styles.loadingLogo}>

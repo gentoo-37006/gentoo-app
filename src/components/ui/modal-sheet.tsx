@@ -19,11 +19,11 @@ export function ModalSheet({
       {(opacity) => (
         <View className="flex-1 cursor-default justify-center p-4">
           <Animated.View
-            pointerEvents="box-none"
             style={{
               position: 'absolute',
               inset: 0,
               backgroundColor: '#000000',
+              pointerEvents: 'box-none',
               opacity: opacity.interpolate({ inputRange: [0, 1], outputRange: [0, 0.5] }),
             }}
           >

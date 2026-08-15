@@ -22,9 +22,8 @@ export function UpdateBanner() {
 
   return (
     <View
-      pointerEvents="box-none"
       className="absolute inset-x-0 items-center px-4"
-      style={{ bottom: insets.bottom + 16 }}
+      style={{ bottom: insets.bottom + 16, pointerEvents: 'box-none' }}
     >
       <View className="w-full max-w-md flex-row items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-lg">
         <Icon as={RefreshCw} size={18} className="text-primary" />

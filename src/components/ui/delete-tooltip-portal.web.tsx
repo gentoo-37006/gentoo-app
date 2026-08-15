@@ -52,7 +52,6 @@ export function DeleteTooltipPortal({
 
   return createPortal(
     <View
-      pointerEvents="none"
       onLayout={(event) => {
         const { width, height } = event.nativeEvent.layout;
         if (width !== size.width || height !== size.height) setSize({ width, height });
@@ -62,6 +61,7 @@ export function DeleteTooltipPortal({
         left: anchor.left + anchor.width / 2 - size.width / 2,
         top: anchor.top - size.height - 8,
         opacity: isMeasured ? 1 : 0,
+        pointerEvents: 'none',
       }}
     >
       <Text

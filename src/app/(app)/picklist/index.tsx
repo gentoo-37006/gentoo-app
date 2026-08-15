@@ -454,8 +454,8 @@ const TeamCard = React.memo(function TeamCard({
           <View className="relative w-full">
             <Text
               accessible={false}
-              pointerEvents="none"
               className="absolute left-0 right-0 px-2 py-1.5 text-xs leading-4 opacity-0"
+              style={{ pointerEvents: 'none' }}
               onLayout={(event) => {
                 const nextHeight = event.nativeEvent.layout.height;
                 const wasScrollable = measuredNotesHeight.current > NOTES_MAX_HEIGHT;
@@ -761,11 +761,10 @@ export default function PicklistScreen() {
         filterCount > 0 ? matchesFilters(team, filters) : null;
       dragOverlay.show(
         <Animated.View
-          pointerEvents="none"
           className="shadow-lg"
           style={[
             ghostStyle,
-            { position: 'absolute', opacity: 0.65, elevation: 20 },
+            { position: 'absolute', opacity: 0.65, elevation: 20, pointerEvents: 'none' },
           ]}
         >
           <PicklistTeamGhost

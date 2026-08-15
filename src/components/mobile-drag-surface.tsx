@@ -123,7 +123,6 @@ export function MobileDragSurface({
         if (!dragging.current) return;
         dragOverlay.show(
           <Animated.View
-            pointerEvents="none"
             className="absolute bg-background shadow-lg"
             style={[
               {
@@ -132,6 +131,7 @@ export function MobileDragSurface({
                 width,
                 height,
                 elevation: 20,
+                pointerEvents: 'none',
                 opacity: 0.65,
               },
               ghostAnimatedStyle,

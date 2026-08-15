@@ -99,8 +99,8 @@ function DiscreteQuantitySlider({
   return (
     <View className="relative h-10 justify-center">
       <View
-        pointerEvents="none"
         className="absolute inset-y-0 left-3 right-3 justify-center"
+        style={{ pointerEvents: 'none' }}
         onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
       >
         <View

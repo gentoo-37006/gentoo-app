@@ -152,8 +152,10 @@ function AppleButton() {
   return (
     <View className="gap-3">
       <View
-        pointerEvents={loading ? 'none' : 'auto'}
-        style={{ opacity: loading ? 0.6 : 1 }}
+        style={{
+          opacity: loading ? 0.6 : 1,
+          pointerEvents: loading ? 'none' : 'auto',
+        }}
       >
         <AppleAuthentication.AppleAuthenticationButton
           buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}

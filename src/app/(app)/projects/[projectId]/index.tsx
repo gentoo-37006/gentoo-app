@@ -600,7 +600,6 @@ function TaskTableRow({
     >
       {Platform.OS === 'web' && completed && rowHeight > 0 ? (
         <Animated.View
-          pointerEvents="none"
           style={[
             {
               position: 'absolute',
@@ -609,6 +608,7 @@ function TaskTableRow({
               zIndex: 10,
               height: COMPLETED_LINE_HEIGHT,
               top: completedLineTop,
+              pointerEvents: 'none',
             },
             completedLineAnimatedStyle,
           ]}
@@ -834,7 +834,6 @@ function NativeCompletedTaskLine({
 
   return (
     <Animated.View
-      pointerEvents="none"
       className="absolute left-0 z-30 bg-foreground"
       style={[
         {
@@ -843,6 +842,7 @@ function NativeCompletedTaskLine({
           ),
           width: tableWidth,
           height: COMPLETED_LINE_HEIGHT,
+          pointerEvents: 'none',
         },
         animatedStyle,
       ]}
@@ -1232,10 +1232,10 @@ function TaskTable({
     <View className="relative w-full overflow-visible">
       {Platform.OS !== 'web' ? (
         <View
-          pointerEvents="none"
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
           className="absolute left-0 top-0 flex-row opacity-0"
+          style={{ pointerEvents: 'none' }}
         >
           {visibleTags.map((tag) => (
             <Badge
@@ -1281,9 +1281,8 @@ function TaskTable({
         >
         {Platform.OS !== 'web' ? (
           <Animated.View
-            pointerEvents="none"
             className="absolute left-0 right-0 z-30 h-0.5 bg-primary"
-            style={nativeIndicatorStyle}
+            style={[nativeIndicatorStyle, { pointerEvents: 'none' }]}
           />
         ) : null}
         <View className="h-10 flex-row items-center rounded-t-md bg-muted/60">
@@ -1410,16 +1409,16 @@ function TaskTable({
           );
         })}
           <View
-            pointerEvents="none"
             className="absolute inset-0 z-20 rounded-md border border-border"
-            style={
+            style={[
+              { pointerEvents: 'none' },
               TABLE_BORDER_RIGHT_OUTSET
                 ? ({
                     borderRightWidth: 0,
                     boxShadow: `${TABLE_BORDER_RIGHT_OUTSET}px 0 0 hsl(var(--border))`,
                   } as any)
-                : undefined
-            }
+                : undefined,
+            ]}
           />
         </View>
       </ScrollView>

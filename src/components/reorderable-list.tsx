@@ -346,9 +346,8 @@ export function ReorderableList<T extends { id: string }>({
     <View className="relative w-full gap-3">
       {Platform.OS !== 'web' ? (
         <Animated.View
-          pointerEvents="none"
           className="absolute left-0 right-0 z-[200] h-0.5 bg-primary"
-          style={nativeIndicatorStyle}
+          style={[nativeIndicatorStyle, { pointerEvents: 'none' }]}
         />
       ) : null}
       {items.map((item) =>

@@ -298,7 +298,7 @@ export function PartPhotoCard({ part }: { part: Part }) {
                 void attachWebFile(file);
               },
             },
-            <View pointerEvents="none" className="items-center gap-2">
+            <View className="items-center gap-2" style={{ pointerEvents: 'none' }}>
               <Icon as={ImagePlus} size={28} className="text-primary" />
               <Text className="font-semibold">Drop or paste image</Text>
               <Text variant="muted">{busy ? 'Uploading…' : 'Choose file'}</Text>

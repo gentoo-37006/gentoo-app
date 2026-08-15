@@ -111,7 +111,6 @@ function ProjectCard({
           </View>
           {completed && cardHeight > 0 ? (
             <Animated.View
-              pointerEvents="none"
               style={[
                 {
                   position: 'absolute',
@@ -119,6 +118,7 @@ function ProjectCard({
                   right: 0,
                   zIndex: 10,
                   height: COMPLETED_LINE_HEIGHT,
+                  pointerEvents: 'none',
                   top: completedLineTop,
                 },
                 completedLineAnimatedStyle,

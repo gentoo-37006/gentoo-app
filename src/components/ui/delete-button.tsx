@@ -51,7 +51,6 @@ function NativeDeleteTooltip({
 
   return (
     <Animated.View
-      pointerEvents="none"
       onLayout={(event) => {
         const { width, height } = event.nativeEvent.layout;
         if (width !== size.width || height !== size.height) {
@@ -65,6 +64,7 @@ function NativeDeleteTooltip({
         maxWidth: viewportWidth - TOOLTIP_VIEWPORT_MARGIN * 2,
         opacity: isMeasured ? 1 : 0,
         transform: [{ translateY: Animated.subtract(scrollStart, scrollY) }],
+        pointerEvents: 'none',
       }}
     >
       <Text
@@ -313,18 +313,18 @@ export function ConfirmationButton({
       />
       <TextClassContext.Provider value={confirmationTextClass}>
         <View
-          pointerEvents="none"
           className={cn(
             buttonVariants({ variant, size }),
             isDisabled && 'opacity-50',
             className && 'w-full',
             className
           )}
-          style={
+          style={[
+            { pointerEvents: 'none' },
             shiftGate && !webConfirmationEnabled && (variant === 'outline' || variant === 'ghost')
               ? { backgroundColor: 'transparent', opacity: isDisabled ? 0.5 : 1 }
-              : undefined
-          }
+              : undefined,
+          ]}
         >
           {loading ? (
             <ActivityIndicator size="small" className={confirmationTextClass} />
