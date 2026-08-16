@@ -1,9 +1,50 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { demoProfiles, demoSetProfile, isDemoMode } from '@/lib/demo';
+import { demoProfiles, demoSetProfile, isDemoMode, stopDemoAuth } from '@/lib/demo';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/env';
+import { functionUrl } from '@/lib/function-url';
 import type { FunctionalRole, Profile, UserRole, UserStatus } from '@/lib/types';
 
 export const profilesKey = ['profiles'] as const;
+
+/**
+ * Permanently delete the signed-in user's own account.
+ *
+ * Required by App Store Review Guideline 5.1.1(v). The actual deletion needs
+ * the service role, so it runs in the `delete-account` Edge Function — this
+ * only hands over the caller's access token, and the function derives the
+ * account to delete from that token rather than from anything sent here.
+ *
+ * In demo mode there is no account to delete: the workspace lives entirely in
+ * AsyncStorage, so tearing it down locally is the honest equivalent.
+ */
+export async function deleteOwnAccount(): Promise<void> {
+  if (isDemoMode()) {
+    await stopDemoAuth();
+    return;
+  }
+
+  const endpoint = functionUrl(SUPABASE_URL, 'delete-account');
+  if (!endpoint) throw new Error('Backend not configured');
+
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('Not signed in');
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+      apikey: SUPABASE_ANON_KEY,
+    },
+  });
+  if (!res.ok) throw new Error('Could not delete the account');
+
+  // The user row is gone; clear the local session so the app cannot keep
+  // making requests with a token that no longer resolves to anyone.
+  await supabase.auth.signOut();
+}
 
 /** All profiles, oldest first. Readable by approved members (admins act on it). */
 export function useProfiles() {

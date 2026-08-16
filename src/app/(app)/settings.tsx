@@ -12,11 +12,12 @@ import { APP_VERSION } from '@/lib/app-version';
 import { useAuth } from '@/lib/auth';
 import { timeAgo } from '@/lib/format';
 import { useSyncFTCScout } from '@/lib/queries/ftcscout';
+import { deleteOwnAccount } from '@/lib/queries/profiles';
 import { ACTIVE_EVENT_KEY, useAppSetting } from '@/lib/queries/settings';
 import { supabase } from '@/lib/supabase';
 import { useThemeMode } from '@/lib/theme-mode';
 import { cn } from '@/lib/utils';
-import { Download, LogOut, Moon, Sparkles, Sun, SunMoon, type LucideIcon } from 'lucide-react-native';
+import { Download, LogOut, Moon, Sparkles, Sun, SunMoon, Trash2, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Alert, Pressable, View } from 'react-native';
 
@@ -65,6 +66,22 @@ function AppearancePicker() {
 
 function AccountCard() {
   const { profile, signOut } = useAuth();
+  const [deleting, setDeleting] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
+
+  const onDelete = async () => {
+    setDeleteError(null);
+    setDeleting(true);
+    try {
+      await deleteOwnAccount();
+      // No navigation here: the auth gate in app/_layout.tsx sends the now
+      // signed-out user to /sign-in on its own.
+    } catch {
+      setDeleteError('Could not delete your account. Please try again.');
+      setDeleting(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -98,6 +115,25 @@ function AccountCard() {
           confirmationAction="sign out"
           onPress={signOut}
         />
+
+        <View className="gap-2 border-t border-border pt-4">
+          <Text variant="label">Delete account</Text>
+          <Text variant="small">
+            Removes your account and sign-in for good. Work you created — projects, tasks,
+            scouting entries — stays with the team, but is no longer credited to you. Parts
+            you have signed out are returned. This cannot be undone.
+          </Text>
+          <ConfirmationButton
+            variant="destructive"
+            label="Delete my account"
+            icon={Trash2}
+            confirmationAction="delete your account"
+            loading={deleting}
+            disabled={deleting}
+            onPress={onDelete}
+          />
+          {deleteError ? <Text className="text-destructive">{deleteError}</Text> : null}
+        </View>
       </CardContent>
     </Card>
   );
