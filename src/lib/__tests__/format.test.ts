@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { formatDate, formatDayLabel, formatTime, isPastDue, teamRecord, timeAgo } from '@/lib/format';
+import {
+  formatDate,
+  formatDayLabel,
+  formatTime,
+  isPastDue,
+  teamRecord,
+  timeAgo,
+  timeUntil,
+} from '@/lib/format';
 
 describe('timeAgo', () => {
   const NOW = new Date('2026-07-25T12:00:00Z');
@@ -30,6 +38,27 @@ describe('timeAgo', () => {
 
   it('returns empty string for unparseable input', () => {
     expect(timeAgo('not-a-date')).toBe('');
+  });
+});
+
+describe('timeUntil', () => {
+  const now = new Date(2026, 7, 15, 12, 0, 0);
+  const at = (h: number, m: number) => new Date(2026, 7, 15, h, m, 0).toISOString();
+
+  it('counts up through minutes, hours, and days', () => {
+    expect(timeUntil(at(12, 42), now)).toBe('in 42m');
+    expect(timeUntil(at(15, 0), now)).toBe('in 3h');
+    expect(timeUntil(new Date(2026, 7, 17, 12, 0, 0).toISOString(), now)).toBe('in 2d');
+  });
+
+  it('reads "now" at the moment and never counts backwards', () => {
+    // A dashboard left open past the match time must not show "in -5m".
+    expect(timeUntil(at(12, 0), now)).toBe('now');
+    expect(timeUntil(at(11, 30), now)).toBe('now');
+  });
+
+  it('returns empty for an unparseable value', () => {
+    expect(timeUntil('not a date', now)).toBe('');
   });
 });
 

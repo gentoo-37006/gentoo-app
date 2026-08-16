@@ -114,7 +114,9 @@ export function PartEditor({
               options={PART_CATEGORIES}
               value={category}
               onChange={setCategory}
-              className="h-11 rounded-md border-transparent bg-transparent px-2"
+              // Borderless, but keep the trigger's px-3.5 so the value lines up
+              // with the bordered fields stacked above and below it.
+              className="h-11 rounded-md border-transparent bg-transparent"
             />
           </View>
           <View className="flex-1 gap-1.5">
@@ -143,7 +145,7 @@ export function PartEditor({
               setManufacturer(value);
             }}
             placeholder="No manufacturer"
-            className="h-11 rounded-md border-transparent bg-transparent px-2"
+            className="h-11 rounded-md border-transparent bg-transparent"
             pinnedValues={[ADD_MANUFACTURER]}
             renderValue={(option) =>
               option.value === ADD_MANUFACTURER ? (

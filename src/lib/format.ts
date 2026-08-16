@@ -14,6 +14,25 @@ export function timeAgo(iso: string): string {
 }
 
 /**
+ * Compact lead time to an upcoming instant: "now", "in 42m", "in 3h", "in 2d".
+ * The mirror of timeAgo, with two differences that matter on a screen left open
+ * all day at competition: `now` is a parameter, so callers pass useNow() rather
+ * than reading the clock during render (which the React Compiler forbids), and
+ * an instant that has already passed reads "now" instead of counting backwards.
+ */
+export function timeUntil(iso: string, now: number | Date = Date.now()): string {
+  const target = parseIso(iso);
+  if (Number.isNaN(target.getTime())) return '';
+  const sec = Math.round((target.getTime() - new Date(now).getTime()) / 1000);
+  if (sec < 45) return 'now';
+  const min = Math.round(sec / 60);
+  if (min < 60) return `in ${min}m`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `in ${hr}h`;
+  return `in ${Math.round(hr / 24)}d`;
+}
+
+/**
  * Win-loss-tie record, e.g. "8-2-0". Null when nothing has been synced yet —
  * a team with no results is different from one that is 0-0-0.
  */
