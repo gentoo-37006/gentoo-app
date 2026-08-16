@@ -32,11 +32,13 @@ const ScreenDragContext = React.createContext<ScreenDragController>(
 const ScreenDragActiveContext = React.createContext(false);
 type ScreenScrollTracker = {
   scrollY: Animated.Value;
+  contentTranslateY: Animated.AnimatedMultiplication<number>;
   getOffset: () => number;
 };
 const EMPTY_SCROLL_Y = new Animated.Value(0);
 const ScreenScrollContext = React.createContext<ScreenScrollTracker>({
   scrollY: EMPTY_SCROLL_Y,
+  contentTranslateY: Animated.multiply<number>(EMPTY_SCROLL_Y, -1),
   getOffset: () => 0,
 });
 
@@ -78,10 +80,14 @@ export function Screen({
     null
   );
   const autoScrollListener = React.useRef<(() => void) | null>(null);
-  const [scrollTracker] = React.useState<ScreenScrollTracker>(() => ({
-    scrollY: new Animated.Value(0),
-    getOffset: () => scrollOffset.current,
-  }));
+  const [scrollTracker] = React.useState<ScreenScrollTracker>(() => {
+    const scrollY = new Animated.Value(0);
+    return {
+      scrollY,
+      contentTranslateY: Animated.multiply<number>(scrollY, -1),
+      getOffset: () => scrollOffset.current,
+    };
+  });
 
   React.useEffect(() => {
     const listener = scrollTracker.scrollY.addListener(({ value }) => {

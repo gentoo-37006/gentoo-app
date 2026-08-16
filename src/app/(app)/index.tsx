@@ -45,6 +45,14 @@ const MY_TASK_VISIBLE = 5;
 
 type Stat = { label: string; value: string; icon: LucideIcon; tint: string };
 
+type MyCheckedOutPart = {
+  id: string;
+  name: string;
+  partNumber: string | null;
+  quantity: number;
+  unit: string | null;
+};
+
 function StatCard({ stat }: { stat: Stat }) {
   return (
     <Card className="min-w-[150px] flex-1">
@@ -132,6 +140,32 @@ function MyTaskRow({ task, now }: { task: MyTask; now: number }) {
   );
 }
 
+function MyCheckedOutPartRow({ part }: { part: MyCheckedOutPart }) {
+  const quantityLabel = part.unit
+    ? `${part.quantity} ${part.unit}`
+    : `${part.quantity} ${part.quantity === 1 ? 'item' : 'items'}`;
+
+  return (
+    <Link href={`/inventory/${part.id}` as any} asChild>
+      <Pressable className="rounded-md border border-border bg-card active:opacity-75 hover:bg-accent/70">
+        <View className="flex-row items-center gap-3 p-4">
+          <Icon as={Boxes} size={20} className="text-warning" />
+          <View className="min-w-0 flex-1 gap-0.5">
+            <Text className="font-semibold" numberOfLines={1}>
+              {part.name}
+            </Text>
+            <Text variant="small" numberOfLines={1}>
+              {part.partNumber ?? 'Inventory part'}
+            </Text>
+          </View>
+          <Text className="text-sm font-semibold tabular-nums">{quantityLabel}</Text>
+          <Icon as={ChevronRight} size={18} className="text-muted-foreground" />
+        </View>
+      </Pressable>
+    </Link>
+  );
+}
+
 /** Compact event strip. The full countdown lives on /competition. */
 function UpNextCard({
   icon,
@@ -189,6 +223,17 @@ export default function DashboardScreen() {
   const firstName = profile?.full_name?.split(' ')[0];
 
   const tasks = myTasks.data ?? [];
+  const myCheckedOutParts = (parts.data ?? [])
+    .map((part): MyCheckedOutPart => ({
+      id: part.id,
+      name: part.name,
+      partNumber: part.part_number,
+      quantity: part.open
+        .filter((checkout) => checkout.user_id === uid)
+        .reduce((total, checkout) => total + checkout.quantity, 0),
+      unit: part.unit,
+    }))
+    .filter((part) => part.quantity > 0);
   const overdue = tasks.filter((t) => isPastDue(t.due_date, now));
   const lowStock = (parts.data ?? []).filter((p) =>
     isLowStock(p, Math.max(0, p.quantity - checkedOutQuantity(p.open)))
@@ -265,7 +310,7 @@ export default function DashboardScreen() {
               <CardContent className="items-center gap-1 p-6">
                 <Icon as={CheckCircle2} size={22} className="text-success" />
                 <Text variant="muted">
-                  All clear — nothing overdue, low, or waiting on the pit.
+                  There are no overdue tasks, low-stock parts, or open talkie requests.
                 </Text>
               </CardContent>
             </Card>
@@ -358,11 +403,35 @@ export default function DashboardScreen() {
           <Card>
             <CardContent className="items-center gap-1 p-6">
               <Icon as={CalendarClock} size={22} className="text-muted-foreground" />
-              <Text variant="muted">Nothing assigned to you — enjoy it while it lasts.</Text>
+              <Text variant="muted">You have no assigned tasks.</Text>
             </CardContent>
           </Card>
         ) : (
           tasks.slice(0, MY_TASK_VISIBLE).map((t) => <MyTaskRow key={t.id} task={t} now={now} />)
+        )}
+      </View>
+
+      <View className="gap-3">
+        <View className="flex-row items-center justify-between">
+          <Text variant="title">Checked-out parts</Text>
+          <Link href={'/inventory' as any} asChild>
+            <Pressable className="flex-row items-center gap-1 active:opacity-70">
+              <Text variant="muted">All inventory</Text>
+              <Icon as={ChevronRight} size={16} className="text-muted-foreground" />
+            </Pressable>
+          </Link>
+        </View>
+        {parts.isLoading ? null : myCheckedOutParts.length === 0 ? (
+          <Card>
+            <CardContent className="items-center gap-1 p-6">
+              <Icon as={Boxes} size={22} className="text-muted-foreground" />
+              <Text variant="muted">You don&apos;t have any parts signed out.</Text>
+            </CardContent>
+          </Card>
+        ) : (
+          myCheckedOutParts.map((part) => (
+            <MyCheckedOutPartRow key={part.id} part={part} />
+          ))
         )}
       </View>
     </Screen>

@@ -1,5 +1,15 @@
 import * as React from 'react';
-import { Animated, Pressable, ScrollView, View } from 'react-native';
+import {
+  Animated,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  TouchableWithoutFeedback,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { FadeModal } from '@/components/ui/fade-modal';
 
 /** Centred dialog over a tap-away backdrop. */
@@ -14,6 +24,40 @@ export function ModalSheet({
   scrollEnabled?: boolean;
   children: React.ReactNode;
 }) {
+  if (Platform.OS !== 'web') {
+    return (
+      <FadeModal visible={visible} onRequestClose={onClose}>
+        {(opacity) => (
+          <Animated.View style={{ flex: 1, opacity }}>
+            <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background">
+              <KeyboardAvoidingView
+                className="flex-1"
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              >
+                <TouchableWithoutFeedback
+                  accessible={false}
+                  onPress={Keyboard.dismiss}
+                >
+                  <View className="flex-1">
+                    <ScrollView
+                      bounces
+                      contentContainerStyle={{ flexGrow: 1 }}
+                      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                      keyboardShouldPersistTaps="handled"
+                      showsVerticalScrollIndicator={false}
+                    >
+                      {children}
+                    </ScrollView>
+                  </View>
+                </TouchableWithoutFeedback>
+              </KeyboardAvoidingView>
+            </SafeAreaView>
+          </Animated.View>
+        )}
+      </FadeModal>
+    );
+  }
+
   return (
     <FadeModal visible={visible} onRequestClose={onClose}>
       {(opacity) => (

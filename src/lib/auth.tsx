@@ -147,7 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = React.useCallback(async () => {
     if (isDemoMode()) await stopDemoAuth();
-    else await supabase.auth.signOut();
+    else await supabase.auth.signOut({ scope: 'local' });
     setDemoActive(false);
     queryClient.clear();
     setSession(null);

@@ -1,6 +1,5 @@
 import * as React from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Platform,
   Pressable,
@@ -48,7 +47,7 @@ function pickedPhotoFromFile(file: File): Promise<PickedPhoto> {
  */
 export function PartPhotoCard({ part }: { part: Part }) {
   const update = useUpdatePart();
-  const { data: url, isLoading } = usePartPhotoUrl(part.image_path);
+  const { data: url } = usePartPhotoUrl(part.image_path);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [webPickerOpen, setWebPickerOpen] = React.useState(false);
@@ -162,18 +161,14 @@ export function PartPhotoCard({ part }: { part: Part }) {
         {part.image_path ? (
           <View className="relative aspect-square w-full">
             <View className="absolute inset-0 overflow-hidden rounded-md bg-muted">
-              {isLoading || !url ? (
-                <View className="flex-1 items-center justify-center">
-                  <ActivityIndicator />
-                </View>
-              ) : (
+              {url ? (
                 <Image
                   source={url}
                   contentFit="cover"
                   style={{ width: '100%', height: '100%' }}
-                  accessibilityLabel={`Photo of ${part.name}`}
+                  accessible={false}
                 />
-              )}
+              ) : null}
             </View>
             <View className="absolute right-2 top-2 z-10 rounded-md bg-background/80">
               {Platform.OS === 'web' ? (

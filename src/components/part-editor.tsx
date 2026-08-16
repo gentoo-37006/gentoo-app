@@ -1,12 +1,13 @@
 import * as React from 'react';
-import { View } from 'react-native';
-import { Plus } from 'lucide-react-native';
+import { Platform, View } from 'react-native';
+import { Plus, Trash2 } from 'lucide-react-native';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { InventoryInput } from '@/components/inventory-input';
 import { AutoGrowingTextInput } from '@/components/ui/auto-growing-text-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { DeleteButton } from '@/components/ui/delete-button';
 import { Icon } from '@/components/ui/icon';
 import { Select } from '@/components/ui/select';
 import { OptionChips } from '@/components/ui/option-chips';
@@ -27,10 +28,14 @@ const toCount = (value: string) => Math.max(0, Math.round(Number(value) || 0));
 export function PartEditor({
   initial,
   onDone,
+  onDelete,
+  deleting = false,
 }: {
   initial?: Part;
   /** Position a newly created part lands at; ignored when editing. */
   onDone: (createdId?: string) => void;
+  onDelete?: () => void | Promise<void>;
+  deleting?: boolean;
 }) {
   const create = useCreatePart();
   const { data: allParts } = useParts();
@@ -48,7 +53,7 @@ export function PartEditor({
   );
   const [notes, setNotes] = React.useState(initial?.notes ?? '');
   const [error, setError] = React.useState<string | null>(null);
-  const busy = create.isPending || update.isPending;
+  const busy = create.isPending || update.isPending || deleting;
   const manufacturerOptions = React.useMemo(() => {
     const existing = distinctManufacturers(allParts ?? [], allParts?.length ?? 0);
     const current = manufacturer.trim();
@@ -96,9 +101,27 @@ export function PartEditor({
   };
 
   return (
-    <Card className="select-none border-primary/40">
+    <Card
+      className={
+        Platform.OS === 'web'
+          ? 'select-none border-primary/40'
+          : 'flex-1 select-none rounded-none border-0 bg-background'
+      }
+    >
       <CardContent className="gap-3 p-4">
-        <Text variant="title">{initial ? 'Edit part' : 'New part'}</Text>
+        <View className="flex-row items-center justify-between gap-3">
+          <Text variant="title">{initial ? 'Edit part' : 'New part'}</Text>
+          {initial && onDelete ? (
+            <DeleteButton
+              variant="ghost"
+              size="icon"
+              icon={Trash2}
+              accessibilityLabel="Delete part"
+              loading={deleting}
+              onPress={onDelete}
+            />
+          ) : null}
+        </View>
         <AutoGrowingTextInput
           minHeight={44}
           value={name}

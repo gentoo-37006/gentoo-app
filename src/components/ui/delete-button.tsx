@@ -30,13 +30,13 @@ function NativeDeleteTooltip({
   anchor,
   text,
   viewportWidth,
-  scrollY,
+  contentTranslateY,
   scrollStart,
 }: {
   anchor: DeleteTooltipAnchor;
   text: string;
   viewportWidth: number;
-  scrollY: Animated.Value;
+  contentTranslateY: Animated.AnimatedMultiplication<number>;
   scrollStart: number;
 }) {
   const [size, setSize] = React.useState({ width: 0, height: 0 });
@@ -60,10 +60,10 @@ function NativeDeleteTooltip({
       className="absolute rounded-sm border border-border bg-popover px-2.5 py-1.5"
       style={{
         left,
-        top: anchor.top - size.height - TOOLTIP_ANCHOR_GAP,
+        top: anchor.top + scrollStart - size.height - TOOLTIP_ANCHOR_GAP,
         maxWidth: viewportWidth - TOOLTIP_VIEWPORT_MARGIN * 2,
         opacity: isMeasured ? 1 : 0,
-        transform: [{ translateY: Animated.subtract(scrollStart, scrollY) }],
+        transform: [{ translateY: contentTranslateY }],
         pointerEvents: 'none',
       }}
     >
@@ -216,7 +216,7 @@ export function ConfirmationButton({
         anchor={tooltipAnchor}
         text={tooltipText}
         viewportWidth={viewportWidth}
-        scrollY={screenScroll.scrollY}
+        contentTranslateY={screenScroll.contentTranslateY}
         scrollStart={tooltipAnchor.scrollStart}
       />
     );
@@ -229,7 +229,7 @@ export function ConfirmationButton({
     tooltipSession,
     tooltipText,
     viewportWidth,
-    screenScroll.scrollY,
+    screenScroll.contentTranslateY,
   ]);
 
   React.useEffect(() => {

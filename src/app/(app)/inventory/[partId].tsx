@@ -9,7 +9,6 @@ import {
   PackagePlus,
   Pencil,
   Printer,
-  Trash2,
   Undo2,
 } from 'lucide-react-native';
 import { Screen, ScreenBackButton, ScreenHeader } from '@/components/ui/screen';
@@ -18,7 +17,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { InventoryInput } from '@/components/inventory-input';
 import { Button } from '@/components/ui/button';
-import { DeleteButton } from '@/components/ui/delete-button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { QrCode } from '@/components/ui/qr-code';
@@ -195,7 +193,13 @@ function QuantityDialog({
   const sliderTrack = sliderTheme.colors.border as string;
 
   return (
-    <Card className="select-none border-primary/40">
+    <Card
+      className={
+        Platform.OS === 'web'
+          ? 'select-none border-primary/40'
+          : 'flex-1 select-none rounded-none border-0 bg-background'
+      }
+    >
       <CardContent className="gap-3 p-4">
         <Text variant="title">{title}</Text>
         <Text variant="muted">{description}</Text>
@@ -344,18 +348,6 @@ function PartDetail({ part, checkouts }: { part: Part; checkouts: CheckoutWithUs
           icon={Pencil}
           onPress={() => setDialog('edit')}
         />
-        <DeleteButton
-          variant="outline"
-          size="sm"
-          className="w-9 px-0"
-          icon={Trash2}
-          accessibilityLabel="Delete part"
-          loading={deletePart.isPending}
-          onPress={async () => {
-            await deletePart.mutateAsync(part.id);
-            router.replace('/inventory' as any);
-          }}
-        />
       </ScreenHeader>
 
       <Card>
@@ -500,7 +492,15 @@ function PartDetail({ part, checkouts }: { part: Part; checkouts: CheckoutWithUs
         scrollEnabled={Platform.OS === 'web'}
       >
         {dialog === 'edit' ? (
-          <PartEditor initial={part} onDone={() => setDialog(null)} />
+          <PartEditor
+            initial={part}
+            deleting={deletePart.isPending}
+            onDone={() => setDialog(null)}
+            onDelete={async () => {
+              await deletePart.mutateAsync(part.id);
+              router.replace('/inventory' as any);
+            }}
+          />
         ) : dialog === 'take' ? (
           <QuantityDialog
             title={part.consumable ? 'Log usage' : 'Check out'}
