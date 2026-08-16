@@ -57,12 +57,11 @@ npm start              # then press w (web), i (iOS), a (Android)
 > can actually run, so a release works from a Mac or from Linux:
 >
 > - **iOS** — a local Xcode build on macOS; EAS's macOS workers elsewhere, since
->   Xcode is macOS-only. On macOS the build stops at `ios-build/Gentoo.ipa` and
->   you upload it with [Transporter](https://apps.apple.com/app/transporter/id1450874784),
+>   Xcode is macOS-only. A local build stops at `ios-build/Gentoo.ipa` and you
+>   upload it with [Transporter](https://apps.apple.com/app/transporter/id1450874784),
 >   which avoids EAS's submitter queue (often slower than the build itself).
 >   `SUBMIT=1 npm run ios:publish` submits through EAS instead. Off macOS there
->   is no Transporter, so EAS builds the `.ipa`, it is downloaded to
->   `ios-build/`, and **fastlane** uploads it to TestFlight — see below.
+>   is no Transporter, so the EAS route submits to TestFlight for you.
 > - **Android** — a local Gradle build when a JDK 17/21 and the Android SDK are
 >   installed; otherwise EAS, and the finished APK is downloaded to
 >   `android-build/` so `release:collect` still finds it.
@@ -70,25 +69,6 @@ npm start              # then press w (web), i (iOS), a (Android)
 > Force a specific route with `ios:publish` / `ios:publish:cloud` and
 > `android:apk` / `android:apk:cloud`. Cloud builds need `eas login` and consume
 > build credits.
-
-> **Uploading to TestFlight from Linux.** `npm run ios:publish:auto` finishes the
-> job on Linux instead of handing you an `.ipa`: fastlane uploads it with an App
-> Store Connect API key, so the release runs unattended with no 2FA prompt. Set
-> up a key under **App Store Connect → Users and Access → Integrations → App
-> Store Connect API**, install fastlane (`sudo gem install fastlane`), and export:
->
-> ```bash
-> export ASC_KEY_ID=ABC123DEFG
-> export ASC_ISSUER_ID=00000000-0000-0000-0000-000000000000
-> export ASC_KEY_PATH=~/.appstoreconnect/AuthKey_ABC123DEFG.p8
-> ```
->
-> Keep the `.p8` out of the repo — these are release-machine credentials, not
-> `EXPO_PUBLIC_*` values, and anything in `.env` is baked into the client bundle.
-> Already have a fastlane key file? Point `ASC_API_KEY_PATH` at it instead.
-> `UPLOADER=eas npm run ios:publish:auto` hands the upload back to EAS's
-> submitter. Missing fastlane or credentials fails *before* the build starts, so
-> a misconfigured machine never burns a build number.
 
 > **The export bakes in the environment.** `EXPO_PUBLIC_*` values are inlined
 > when the web bundle is exported, so a build made without `.env` (or without
