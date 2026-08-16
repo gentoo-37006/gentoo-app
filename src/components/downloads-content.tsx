@@ -8,7 +8,7 @@ import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RELEASE_CHANNEL } from '@/lib/env';
+import { RELEASE_CHANNEL, isSupabaseConfigured } from '@/lib/env';
 import { useDownloads, downloadUrl, formatSize, type DownloadItem } from '@/lib/queries/downloads';
 
 const OS_ICON: Record<DownloadItem['os'], LucideIcon> = {
@@ -83,7 +83,13 @@ export function DownloadsContent({
         {data?.version ? <Badge variant="muted" label={data.version} /> : null}
       </ScreenHeader>
 
-      {isLoading ? (
+      {!isSupabaseConfigured ? (
+        <EmptyState
+          icon={Download}
+          title="Backend not configured"
+          description="This build has no Supabase credentials, so it can't reach the downloads function. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY and rebuild."
+        />
+      ) : isLoading ? (
         <View className="py-12">
           <ActivityIndicator />
         </View>

@@ -1,18 +1,30 @@
 # Gentoo — FTC Team Hub
 
 A cross-platform (iOS / Android / web) app for running a FIRST Tech Challenge team's
-in-season operations: scouting, task management, pit-duty scheduling, and account approval.
+in-season operations: projects, parts inventory, scouting, pit-duty scheduling, and
+account approval.
 
 Built with **Expo Router**, **NativeWind** + **React Native Reusables**, and **Supabase**.
 
 ## Features
 
+- **Projects & tasks** — projects containing assignable tasks (status, assignee, due date,
+  priority, tags, blockers, notes), reorderable, with a trash you can restore from.
+- **Inventory** — parts catalogue with categories, photos, check-out tracking, low-stock
+  flags, and printable labels.
 - **Scouting suite** — pit scouting with weighted capability scoring, match-scouting
-  assignments, "talkie" pit-intel requests, and pick-list meeting tooling.
-- **Tasks** — projects containing assignable tasks (status, assignee, due date, priority, tags).
+  assignments and schedule import, and "talkie" pit-intel requests.
+- **Picklist** — tiered alliance-selection board with weighted scores and a head-to-head
+  compare view for settling a pair during the pick meeting.
+- **Competition dashboard** — event-day view: next-match countdown, your pit shifts, and
+  open talkie requests.
 - **Pit-duty scheduler** — auto-generated, fair rotations for staffing the pit at competition.
-- **Accounts** — Google sign-in; the first account becomes admin and approves everyone else.
-- **Notifications** — in-app realtime + push (Expo) for talkie pings and scouting submissions.
+- **Cables** — photo-based wiring inventory: a Groq vision model counts the parts in a
+  picture of the wiring bin (needs `EXPO_PUBLIC_GROQ_API_KEY`).
+- **Accounts** — Apple, Google, and email/password sign-in; the first account becomes admin
+  and approves everyone else.
+- **Notifications** — in-app realtime + push (Expo) for talkie pings, task assignments, and
+  scouting submissions, optionally mirrored into Discord (Settings → Discord to link).
 
 ## Getting started
 
@@ -24,9 +36,9 @@ npm start              # then press w (web), i (iOS), a (Android)
 
 > **Backend required.** The app needs a Supabase project for auth and data. Follow
 > [`supabase/README.md`](supabase/README.md) to create the project, run the migrations in
-> `supabase/migrations/` (in order), enable Google sign-in, and optionally deploy the
-> `send-push` Edge Function. Without credentials the app runs in a read-only "not configured"
-> state with setup guidance on the sign-in screen.
+> `supabase/migrations/` (in order), enable Apple and Google sign-in, and optionally deploy
+> the `send-push` and `downloads` Edge Functions. Without credentials the app runs in a
+> read-only "not configured" state with setup guidance on the sign-in screen.
 
 ### Useful scripts
 
@@ -36,6 +48,9 @@ npm start              # then press w (web), i (iOS), a (Android)
 | `npm run web` / `ios` / `android` | Start on a specific platform |
 | `npm run typecheck` | Run `tsc --noEmit` |
 | `npm run lint` | Run Expo lint |
+| `npm test` | Run the vitest unit suite (`src/lib/__tests__/`) |
+| `npm run test:ui` | Run the jest + React Native Testing Library component tests |
+| `npm run export:web` | Export the static web bundle (checks `EXPO_PUBLIC_*` first) |
 | `npm run release:all` | Build iOS (upload by hand), build the Android APK, collect artifacts |
 
 > **`release:all` runs anywhere.** Each platform picks the toolchain the machine
@@ -88,24 +103,35 @@ see those GitHub secrets.
 
 ```
 src/
-  app/                 # Expo Router routes (file-based)
-    (auth)/            # sign-in + awaiting-approval screens
-    (app)/             # authenticated shell + features
-      scouting/        # hub, pit/, matches/, picklist/
-      tasks/           # projects + tasks
-      schedule.tsx     # pit-duty scheduler
-      admin.tsx, notifications.tsx, settings.tsx
+  app/                   # Expo Router routes (file-based)
+    (auth)/              # sign-in + awaiting-approval screens
+    (app)/               # authenticated shell + features
+      projects/          # projects, their tasks, and the trash
+      inventory/         # parts list + part detail
+      scouting/          # hub, pit/, matches/, questions.tsx
+      picklist/          # tiered alliance-selection board
+      competition.tsx    # event-day dashboard
+      schedule.tsx       # pit-duty scheduler
+      talkie.tsx         # pit-intel requests
+      cables.tsx         # photo wiring count (Groq vision)
+      admin.tsx, notifications.tsx, downloads.tsx, settings.tsx
   components/
-    ui/                # design-system primitives (Text, Button, Card, …)
-    responsive-shell.tsx
+    ui/                  # design-system primitives (Text, Button, Card, …)
+    responsive-shell.tsx # sidebar/tab shell + navigation chrome
+    facemash.tsx         # head-to-head picklist comparison
   lib/
     auth.tsx, supabase.ts, notify.ts, push.ts
-    scoring.ts         # weighted pick-list score
-    scheduler.ts       # fair pit-duty rotation
-    queries/           # TanStack Query hooks per domain
+    apple-auth.ts, google-auth.ts    # google-auth.web.ts on web
+    scoring.ts           # weighted pick-list score
+    scheduler.ts         # fair pit-duty rotation
+    nav-items.ts         # single source of truth for navigation
+    api/ftcscout.ts      # official event/team stats
+    queries/             # TanStack Query hooks per domain
+    __tests__/           # vitest unit tests for the pure lib modules
 supabase/
-  migrations/          # 0001…0008 — run in order
-  functions/send-push/ # Expo push Edge Function
+  migrations/            # 0001… — run in filename order
+  functions/send-push/   # Expo push Edge Function
+  functions/downloads/   # installer list + signed GitHub asset redirects
 ```
 
 The UI is responsive: a sidebar + multi-column layout on tablet/desktop web, and bottom

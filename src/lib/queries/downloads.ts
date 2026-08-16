@@ -3,8 +3,10 @@ import {
   RELEASE_CHANNEL,
   SUPABASE_URL,
   SUPABASE_ANON_KEY,
+  isSupabaseConfigured,
   type ReleaseChannel,
 } from '@/lib/env';
+import { functionUrl } from '@/lib/function-url';
 
 export type DownloadItem = {
   os: 'Android';
@@ -22,7 +24,9 @@ export type DownloadsResponse = {
   downloads: DownloadItem[];
 };
 
-const ENDPOINT = `${SUPABASE_URL}/functions/v1/downloads`;
+/** Empty when unconfigured — see lib/function-url.ts. The query is gated on
+ *  isSupabaseConfigured so the request is never made in that state. */
+const ENDPOINT = functionUrl(SUPABASE_URL, 'downloads');
 const DEFAULT_CHANNEL = RELEASE_CHANNEL;
 
 /**
@@ -38,6 +42,7 @@ export function downloadUrl(assetId: number, channel: ReleaseChannel = DEFAULT_C
 export function useDownloads(channel: ReleaseChannel = DEFAULT_CHANNEL) {
   return useQuery({
     queryKey: ['downloads', channel],
+    enabled: isSupabaseConfigured,
     queryFn: async (): Promise<DownloadsResponse> => {
       const res = await fetch(`${ENDPOINT}?channel=${channel}`, {
         headers: { Accept: 'application/json', apikey: SUPABASE_ANON_KEY },

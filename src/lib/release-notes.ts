@@ -1,7 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery } from '@tanstack/react-query';
 import { APP_VERSION } from '@/lib/app-version';
-import { RELEASE_CHANNEL, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/env';
+import {
+  RELEASE_CHANNEL,
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
+  isSupabaseConfigured,
+} from '@/lib/env';
+import { functionUrl } from '@/lib/function-url';
 
 /**
  * Release notes for the running version, served from GitHub Releases via the
@@ -17,13 +23,14 @@ export type ReleaseNotes = {
   publishedAt: string | null;
 };
 
-const ENDPOINT = `${SUPABASE_URL}/functions/v1/downloads`;
+/** Empty when unconfigured — see lib/function-url.ts. */
+const ENDPOINT = functionUrl(SUPABASE_URL, 'downloads');
 const LAST_SEEN_KEY = 'gentoo.whats-new.last-seen-version';
 
 export function useReleaseNotes(enabled = true) {
   return useQuery({
     queryKey: ['release-notes', APP_VERSION, RELEASE_CHANNEL],
-    enabled,
+    enabled: enabled && isSupabaseConfigured,
     staleTime: 60 * 60_000,
     queryFn: async (): Promise<ReleaseNotes> => {
       const res = await fetch(
