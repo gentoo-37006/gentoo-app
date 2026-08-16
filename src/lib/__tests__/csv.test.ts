@@ -35,6 +35,30 @@ describe('parseMatchesCsv', () => {
     expect(errors).toEqual(['Line 2: missing match number']);
   });
 
+  it('counts blank lines when numbering a bad row', () => {
+    // Pasting from a spreadsheet or PDF drags blank lines along. Numbering only
+    // the surviving rows would point at line 2 here, three lines above the
+    // actual problem.
+    const { rows, errors } = parseMatchesCsv('1,101,102,201,202\n\n\n\noops,1,2,3,4');
+    expect(rows.map((r) => r.match_number)).toEqual([1]);
+    expect(errors).toEqual(['Line 5: missing match number']);
+  });
+
+  it('still treats the first non-blank line as the header', () => {
+    const { rows, errors } = parseMatchesCsv('\n\nMatch,Red 1,Red 2\n1,101,102');
+    expect(errors).toEqual([]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].match_number).toBe(1);
+  });
+
+  it('does not mistake a leading blank line for the header slot', () => {
+    // The first non-blank row is numeric, so it is data — a leading newline
+    // must not consume the one row allowed to be a header.
+    const { rows, errors } = parseMatchesCsv('\n1,101,102,201,202');
+    expect(errors).toEqual([]);
+    expect(rows.map((r) => r.match_number)).toEqual([1]);
+  });
+
   it('extracts digits from decorated cells and leaves missing cells undefined', () => {
     const { rows } = parseMatchesCsv('Q-7,#101,102');
     expect(rows[0]).toEqual({

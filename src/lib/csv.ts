@@ -17,19 +17,26 @@ const toInt = (v?: string): number | undefined => {
  * A non-numeric first row is treated as a header and skipped.
  */
 export function parseMatchesCsv(text: string): { rows: ParsedMatch[]; errors: string[] } {
-  const lines = text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
   const rows: ParsedMatch[] = [];
   const errors: string[] = [];
+  // Blank lines are skipped but still counted, so a reported line number points
+  // at the row the user actually pasted. Schedules copied out of a spreadsheet
+  // or PDF routinely carry blank lines, and numbering the surviving rows instead
+  // would send someone hunting several lines above the bad one.
+  let seenContent = false;
 
-  lines.forEach((line, i) => {
+  text.split(/\r?\n/).forEach((raw, index) => {
+    const line = raw.trim();
+    if (!line) return;
+
     const cols = line.split(/[,\t]/).map((c) => c.trim());
     const matchNumber = toInt(cols[0]);
-    if (i === 0 && matchNumber === undefined) return; // header row
+    const isFirstContentLine = !seenContent;
+    seenContent = true;
+
+    if (isFirstContentLine && matchNumber === undefined) return; // header row
     if (matchNumber === undefined) {
-      errors.push(`Line ${i + 1}: missing match number`);
+      errors.push(`Line ${index + 1}: missing match number`);
       return;
     }
     rows.push({
