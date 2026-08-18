@@ -30,17 +30,59 @@ const ScreenDragContext = React.createContext<ScreenDragController>(
   EMPTY_DRAG_CONTROLLER
 );
 const ScreenDragActiveContext = React.createContext(false);
-type ScreenScrollTracker = {
+export type ScreenScrollTracker = {
   scrollY: Animated.Value;
-  contentTranslateY: Animated.AnimatedMultiplication<number>;
   getOffset: () => number;
+  setOffset: (value: number) => void;
+  subscribe: (listener: (value: number) => void) => () => void;
 };
 const EMPTY_SCROLL_Y = new Animated.Value(0);
 const ScreenScrollContext = React.createContext<ScreenScrollTracker>({
   scrollY: EMPTY_SCROLL_Y,
-  contentTranslateY: Animated.multiply<number>(EMPTY_SCROLL_Y, -1),
   getOffset: () => 0,
+  setOffset: () => {},
+  subscribe: () => () => {},
 });
+
+export function useCreateScreenScrollTracker() {
+  const [tracker] = React.useState<ScreenScrollTracker>(() => {
+    let offset = 0;
+    const listeners = new Set<(value: number) => void>();
+    return {
+      scrollY: new Animated.Value(0),
+      getOffset: () => offset,
+      setOffset: (value) => {
+        offset = value;
+        listeners.forEach((listener) => listener(value));
+      },
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    };
+  });
+
+  React.useEffect(() => {
+    const listener = tracker.scrollY.addListener(({ value }) => tracker.setOffset(value));
+    return () => tracker.scrollY.removeListener(listener);
+  }, [tracker]);
+
+  return tracker;
+}
+
+export function ScreenScrollTrackerProvider({
+  tracker,
+  children,
+}: {
+  tracker: ScreenScrollTracker;
+  children: React.ReactNode;
+}) {
+  return (
+    <ScreenScrollContext.Provider value={tracker}>
+      {children}
+    </ScreenScrollContext.Provider>
+  );
+}
 
 export function useScreenDragController() {
   return React.useContext(ScreenDragContext);
@@ -72,7 +114,6 @@ export function Screen({
   const { height: windowHeight } = useWindowDimensions();
   const [dragActive, setDragActive] = React.useState(false);
   const scrollRef = React.useRef<ScrollView>(null);
-  const scrollOffset = React.useRef(0);
   const contentHeight = React.useRef(0);
   const viewportHeight = React.useRef(0);
   const pointerY = React.useRef<number | null>(null);
@@ -80,21 +121,7 @@ export function Screen({
     null
   );
   const autoScrollListener = React.useRef<(() => void) | null>(null);
-  const [scrollTracker] = React.useState<ScreenScrollTracker>(() => {
-    const scrollY = new Animated.Value(0);
-    return {
-      scrollY,
-      contentTranslateY: Animated.multiply<number>(scrollY, -1),
-      getOffset: () => scrollOffset.current,
-    };
-  });
-
-  React.useEffect(() => {
-    const listener = scrollTracker.scrollY.addListener(({ value }) => {
-      scrollOffset.current = value;
-    });
-    return () => scrollTracker.scrollY.removeListener(listener);
-  }, [scrollTracker]);
+  const scrollTracker = useCreateScreenScrollTracker();
 
   const stopAutoScroll = () => {
     if (autoScrollTimer.current === null) return;
@@ -119,11 +146,11 @@ export function Screen({
     const speed = Math.sign(ratio) * 20 * Math.abs(ratio) ** 2;
     const nextOffset = Math.max(
       0,
-      Math.min(maxOffset, scrollOffset.current + speed)
+      Math.min(maxOffset, scrollTracker.getOffset() + speed)
     );
-    if (nextOffset === scrollOffset.current) return;
+    if (nextOffset === scrollTracker.getOffset()) return;
 
-    scrollOffset.current = nextOffset;
+    scrollTracker.setOffset(nextOffset);
     scrollRef.current?.scrollTo({ y: nextOffset, animated: false });
     autoScrollListener.current?.();
   });
@@ -147,7 +174,7 @@ export function Screen({
     updatePointer: (absoluteY) => {
       pointerY.current = absoluteY;
     },
-    getScrollOffset: () => scrollOffset.current,
+    getScrollOffset: scrollTracker.getOffset,
     setAutoScrollListener: (listener) => {
       autoScrollListener.current = listener;
     },
@@ -158,7 +185,7 @@ export function Screen({
   return (
     <ScreenDragContext.Provider value={dragController}>
       <ScreenDragActiveContext.Provider value={dragActive}>
-        <ScreenScrollContext.Provider value={scrollTracker}>
+        <ScreenScrollTrackerProvider tracker={scrollTracker}>
           <Animated.ScrollView
             ref={scrollRef}
             className={cn('flex-1 bg-background', className)}
@@ -190,7 +217,7 @@ export function Screen({
               {children}
             </View>
           </Animated.ScrollView>
-        </ScreenScrollContext.Provider>
+        </ScreenScrollTrackerProvider>
       </ScreenDragActiveContext.Provider>
     </ScreenDragContext.Provider>
   );

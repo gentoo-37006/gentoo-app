@@ -19,7 +19,7 @@ import { useThemeMode } from '@/lib/theme-mode';
 import { cn } from '@/lib/utils';
 import { Download, LogOut, Moon, Sparkles, Sun, SunMoon, Trash2, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { Alert, Platform, Pressable, View } from 'react-native';
 
 type Mode = 'light' | 'dark' | 'system';
 const MODES: { value: Mode; label: string; icon: LucideIcon }[] = [
@@ -82,6 +82,30 @@ function AccountCard() {
     }
   };
 
+  const confirmAccountDeletion = () => {
+    if (Platform.OS === 'web') {
+      const confirmed =
+        typeof window !== 'undefined' &&
+        window.confirm(
+          'Delete your account permanently? This cannot be undone.'
+        );
+      if (confirmed) void onDelete();
+      return;
+    }
+    Alert.alert(
+      'Delete account?',
+      'Your account and sign-in will be permanently deleted. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete account',
+          style: 'destructive',
+          onPress: () => void onDelete(),
+        },
+      ]
+    );
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -107,7 +131,6 @@ function AccountCard() {
             <Badge key={r} variant="secondary" label={r} />
           ))}
         </View>
-        <Text variant="muted">If linked, a role will automatically be assigned.</Text>
         <ConfirmationButton
           variant="outline"
           label="Sign out"
@@ -115,6 +138,8 @@ function AccountCard() {
           confirmationAction="sign out"
           onPress={signOut}
         />
+
+        <DiscordSettings />
 
         <View className="gap-2 border-t border-border pt-4">
           <Text variant="label">Delete account</Text>
@@ -130,7 +155,7 @@ function AccountCard() {
             confirmationAction="delete your account"
             loading={deleting}
             disabled={deleting}
-            onPress={onDelete}
+            onPress={confirmAccountDeletion}
           />
           {deleteError ? <Text className="text-destructive">{deleteError}</Text> : null}
         </View>
@@ -203,7 +228,7 @@ function FTCScoutSyncCard() {
   );
 }
 
-function DiscordCard() {
+function DiscordSettings() {
   const { profile, refreshProfile, isDemo } = useAuth();
   const [code, setCode] = React.useState<string | null>(null);
   const [generating, setGenerating] = React.useState(false);
@@ -242,16 +267,15 @@ function DiscordCard() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Discord</CardTitle>
-        <CardDescription>
+    <View className="gap-3 border-t border-border pt-4">
+      <View className="gap-1">
+        <Text variant="label">Discord</Text>
+        <Text variant="small">
           {isLinked
             ? 'Your account is linked. Use /me, /done, and /task in Discord.'
             : 'Link your Discord account to use bot commands in your server.'}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="gap-3">
+        </Text>
+      </View>
         {isLinked ? (
           <ConfirmationButton
             variant="outline"
@@ -275,8 +299,7 @@ function DiscordCard() {
         ) : (
           <Button label="Get Link Code" loading={generating} onPress={generateCode} />
         )}
-      </CardContent>
-    </Card>
+    </View>
   );
 }
 
@@ -289,10 +312,6 @@ export default function SettingsScreen() {
 
       <FTCScoutSyncCard />
 
-      <AccountCard />
-
-      <DiscordCard />
-
       <Card>
         <CardHeader>
           <CardTitle>Appearance</CardTitle>
@@ -302,6 +321,8 @@ export default function SettingsScreen() {
           <AppearancePicker />
         </CardContent>
       </Card>
+
+      <AccountCard />
 
       <Card>
         <CardHeader>

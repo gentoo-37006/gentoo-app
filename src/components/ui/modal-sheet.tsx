@@ -17,6 +17,11 @@ import {
   SafeAreaView,
 } from 'react-native-safe-area-context';
 import { FadeModal } from '@/components/ui/fade-modal';
+import { DragOverlayProvider } from '@/components/drag-overlay';
+import {
+  ScreenScrollTrackerProvider,
+  useCreateScreenScrollTracker,
+} from '@/components/ui/screen';
 
 const NATIVE_BACK_SWIPE_EDGE = 32;
 const NATIVE_BACK_SWIPE_DISTANCE_RATIO = 0.25;
@@ -36,6 +41,7 @@ export function ModalSheet({
 }) {
   const { width: viewportWidth } = useWindowDimensions();
   const [nativePageX] = React.useState(() => new Animated.Value(0));
+  const nativeScrollTracker = useCreateScreenScrollTracker();
 
   React.useEffect(() => {
     if (visible) nativePageX.setValue(0);
@@ -95,34 +101,43 @@ export function ModalSheet({
       <FadeModal visible={visible} onRequestClose={onClose}>
         {(opacity) => (
           <SafeAreaProvider initialMetrics={initialWindowMetrics} style={{ flex: 1 }}>
-            <Animated.View
-              {...nativeSwipeResponder.panHandlers}
-              style={{ flex: 1, opacity, transform: [{ translateX: nativePageX }] }}
-            >
-              <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background">
-                <KeyboardAvoidingView
-                  className="flex-1"
-                  behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            <DragOverlayProvider>
+              <ScreenScrollTrackerProvider tracker={nativeScrollTracker}>
+                <Animated.View
+                  {...nativeSwipeResponder.panHandlers}
+                  style={{ flex: 1, opacity, transform: [{ translateX: nativePageX }] }}
                 >
-                  <TouchableWithoutFeedback
-                    accessible={false}
-                    onPress={Keyboard.dismiss}
-                  >
-                    <View className="flex-1">
-                      <ScrollView
-                        bounces
-                        contentContainerStyle={{ flexGrow: 1 }}
-                        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-                        keyboardShouldPersistTaps="handled"
-                        showsVerticalScrollIndicator={false}
+                  <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-background">
+                    <KeyboardAvoidingView
+                      className="flex-1"
+                      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    >
+                      <TouchableWithoutFeedback
+                        accessible={false}
+                        onPress={Keyboard.dismiss}
                       >
-                        {children}
-                      </ScrollView>
-                    </View>
-                  </TouchableWithoutFeedback>
-                </KeyboardAvoidingView>
-              </SafeAreaView>
-            </Animated.View>
+                        <View className="flex-1">
+                          <Animated.ScrollView
+                            bounces
+                            contentContainerStyle={{ flexGrow: 1 }}
+                            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                            keyboardShouldPersistTaps="handled"
+                            onScroll={Animated.event(
+                              [{ nativeEvent: { contentOffset: { y: nativeScrollTracker.scrollY } } }],
+                              { useNativeDriver: true }
+                            )}
+                            scrollEventThrottle={16}
+                            showsVerticalScrollIndicator={false}
+                          >
+                            {children}
+                          </Animated.ScrollView>
+                        </View>
+                      </TouchableWithoutFeedback>
+                    </KeyboardAvoidingView>
+                  </SafeAreaView>
+                </Animated.View>
+              </ScreenScrollTrackerProvider>
+            </DragOverlayProvider>
           </SafeAreaProvider>
         )}
       </FadeModal>

@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { Trash2 } from 'lucide-react-native';
+import { useColorScheme } from 'nativewind';
 import {
   buttonTextVariants,
   buttonVariants,
@@ -20,26 +21,32 @@ import {
   type DeleteTooltipAnchor,
 } from '@/components/ui/delete-tooltip-portal';
 import { useDragOverlay } from '@/components/drag-overlay';
-import { useScreenScrollTracker } from '@/components/ui/screen';
+import {
+  useScreenScrollTracker,
+  type ScreenScrollTracker,
+} from '@/components/ui/screen';
 import { cn } from '@/lib/utils';
 
 const TOOLTIP_VIEWPORT_MARGIN = 8;
 const TOOLTIP_ANCHOR_GAP = 8;
+const MOBILE_CONFIRM_DEBOUNCE_MS = 750;
+const MOBILE_CONFIRM_TIMEOUT_MS = 1500;
 
 function NativeDeleteTooltip({
   anchor,
   text,
   viewportWidth,
-  contentTranslateY,
+  scrollTracker,
   scrollStart,
 }: {
   anchor: DeleteTooltipAnchor;
   text: string;
   viewportWidth: number;
-  contentTranslateY: Animated.AnimatedMultiplication<number>;
+  scrollTracker: ScreenScrollTracker;
   scrollStart: number;
 }) {
   const [size, setSize] = React.useState({ width: 0, height: 0 });
+  const [scrollTranslation] = React.useState(() => new Animated.Value(0));
   const isMeasured = size.width > 0 && size.height > 0;
   const left = Math.min(
     Math.max(
@@ -48,6 +55,12 @@ function NativeDeleteTooltip({
     ),
     viewportWidth - size.width - TOOLTIP_VIEWPORT_MARGIN
   );
+
+  React.useEffect(() => {
+    const update = (offset: number) => scrollTranslation.setValue(scrollStart - offset);
+    update(scrollTracker.getOffset());
+    return scrollTracker.subscribe(update);
+  }, [scrollStart, scrollTracker, scrollTranslation]);
 
   return (
     <Animated.View
@@ -60,10 +73,10 @@ function NativeDeleteTooltip({
       className="absolute rounded-sm border border-border bg-popover px-2.5 py-1.5"
       style={{
         left,
-        top: anchor.top + scrollStart - size.height - TOOLTIP_ANCHOR_GAP,
+        top: anchor.top - size.height - TOOLTIP_ANCHOR_GAP,
         maxWidth: viewportWidth - TOOLTIP_VIEWPORT_MARGIN * 2,
         opacity: isMeasured ? 1 : 0,
-        transform: [{ translateY: contentTranslateY }],
+        transform: [{ translateY: scrollTranslation }],
         pointerEvents: 'none',
       }}
     >
@@ -146,6 +159,7 @@ export function ConfirmationButton({
   ...pressableProps
 }: ConfirmationButtonProps) {
   const { width: viewportWidth } = useWindowDimensions();
+  const { colorScheme } = useColorScheme();
   const dragOverlay = useDragOverlay();
   const screenScroll = useScreenScrollTracker();
   const shiftPressed = useShiftPressed();
@@ -155,6 +169,7 @@ export function ConfirmationButton({
   const [tooltipAnchor, setTooltipAnchor] = React.useState<MeasuredTooltipAnchor | null>(null);
   const [tooltipSession, setTooltipSession] = React.useState(0);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const confirmReadyAt = React.useRef(0);
   const buttonRef = React.useRef<View>(null);
   const tooltipId = React.useId().replace(/[^a-z0-9_-]/gi, '');
   const tooltipAnchorName = `--delete-tooltip-${tooltipId}`;
@@ -169,10 +184,15 @@ export function ConfirmationButton({
     !isDisabled && ((shiftGate && hovered && !shiftPressed) || (!shiftGate && confirming));
   const showDangerIcon =
     !isDisabled && ((shiftGate && hovered && shiftPressed) || (!shiftGate && confirming));
+  const destructiveConfirmationActive =
+    !isDisabled && (shiftGate ? webConfirmationEnabled : confirming);
   const tooltipText = shiftGate
     ? `Hold Shift to ${confirmationAction}`
     : `Press again to ${confirmationAction}`;
-  const confirmationTextClass = cn(textClass, showDangerIcon && 'text-destructive');
+  const confirmationTextClass = cn(
+    textClass,
+    showDangerIcon && variant !== 'destructive' && 'text-destructive'
+  );
 
   const measureTooltipAnchor = React.useCallback(() =>
     buttonRef.current?.measureInWindow((left, top, width, height) => {
@@ -216,7 +236,7 @@ export function ConfirmationButton({
         anchor={tooltipAnchor}
         text={tooltipText}
         viewportWidth={viewportWidth}
-        contentTranslateY={screenScroll.contentTranslateY}
+        scrollTracker={screenScroll}
         scrollStart={tooltipAnchor.scrollStart}
       />
     );
@@ -229,7 +249,7 @@ export function ConfirmationButton({
     tooltipSession,
     tooltipText,
     viewportWidth,
-    screenScroll.contentTranslateY,
+    screenScroll,
   ]);
 
   React.useEffect(() => {
@@ -251,6 +271,7 @@ export function ConfirmationButton({
   const resetConfirming = () => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
+    confirmReadyAt.current = 0;
     setConfirming(false);
     setTooltipAnchor(null);
   };
@@ -277,6 +298,7 @@ export function ConfirmationButton({
             : undefined
           : (event) => {
               if (confirming) {
+                if (Date.now() < confirmReadyAt.current) return;
                 resetConfirming();
                 onPress?.(event);
                 return;
@@ -285,13 +307,15 @@ export function ConfirmationButton({
               if (!isWeb) setTooltipSession((current) => current + 1);
               setTooltipAnchor(null);
               measureTooltipAnchor();
+              confirmReadyAt.current = Date.now() + MOBILE_CONFIRM_DEBOUNCE_MS;
               setConfirming(true);
               if (timer.current) clearTimeout(timer.current);
               timer.current = setTimeout(() => {
                 timer.current = null;
+                confirmReadyAt.current = 0;
                 setConfirming(false);
                 setTooltipAnchor(null);
-              }, 1500);
+              }, MOBILE_CONFIRM_TIMEOUT_MS);
             }
       }
       onHoverIn={(event) => {
@@ -321,6 +345,9 @@ export function ConfirmationButton({
           )}
           style={[
             { pointerEvents: 'none' },
+            variant === 'destructive' && !destructiveConfirmationActive
+              ? { backgroundColor: colorScheme === 'dark' ? '#7F1D1D' : '#A84F4F' }
+              : undefined,
             shiftGate && !webConfirmationEnabled && (variant === 'outline' || variant === 'ghost')
               ? { backgroundColor: 'transparent', opacity: isDisabled ? 0.5 : 1 }
               : undefined,
