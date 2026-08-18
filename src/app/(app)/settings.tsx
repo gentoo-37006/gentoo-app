@@ -2,6 +2,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmationButton } from '@/components/ui/delete-button';
+import { AccountDeletionButton } from '@/components/account-deletion-button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -12,14 +13,13 @@ import { APP_VERSION } from '@/lib/app-version';
 import { useAuth } from '@/lib/auth';
 import { timeAgo } from '@/lib/format';
 import { useSyncFTCScout } from '@/lib/queries/ftcscout';
-import { deleteOwnAccount } from '@/lib/queries/profiles';
 import { ACTIVE_EVENT_KEY, useAppSetting } from '@/lib/queries/settings';
 import { supabase } from '@/lib/supabase';
 import { useThemeMode } from '@/lib/theme-mode';
 import { cn } from '@/lib/utils';
-import { Download, LogOut, Moon, Sparkles, Sun, SunMoon, Trash2, type LucideIcon } from 'lucide-react-native';
+import { Download, LogOut, Moon, Sparkles, Sun, SunMoon, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
-import { Alert, Platform, Pressable, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
 
 type Mode = 'light' | 'dark' | 'system';
 const MODES: { value: Mode; label: string; icon: LucideIcon }[] = [
@@ -66,45 +66,6 @@ function AppearancePicker() {
 
 function AccountCard() {
   const { profile, signOut } = useAuth();
-  const [deleting, setDeleting] = React.useState(false);
-  const [deleteError, setDeleteError] = React.useState<string | null>(null);
-
-  const onDelete = async () => {
-    setDeleteError(null);
-    setDeleting(true);
-    try {
-      await deleteOwnAccount();
-      // No navigation here: the auth gate in app/_layout.tsx sends the now
-      // signed-out user to /sign-in on its own.
-    } catch {
-      setDeleteError('Could not delete your account. Please try again.');
-      setDeleting(false);
-    }
-  };
-
-  const confirmAccountDeletion = () => {
-    if (Platform.OS === 'web') {
-      const confirmed =
-        typeof window !== 'undefined' &&
-        window.confirm(
-          'Delete your account permanently? This cannot be undone.'
-        );
-      if (confirmed) void onDelete();
-      return;
-    }
-    Alert.alert(
-      'Delete account?',
-      'Your account and sign-in will be permanently deleted. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete account',
-          style: 'destructive',
-          onPress: () => void onDelete(),
-        },
-      ]
-    );
-  };
 
   return (
     <Card>
@@ -148,16 +109,7 @@ function AccountCard() {
             scouting entries — stays with the team, but is no longer credited to you. Parts
             you have signed out are returned. This cannot be undone.
           </Text>
-          <ConfirmationButton
-            variant="destructive"
-            label="Delete my account"
-            icon={Trash2}
-            confirmationAction="delete your account"
-            loading={deleting}
-            disabled={deleting}
-            onPress={confirmAccountDeletion}
-          />
-          {deleteError ? <Text className="text-destructive">{deleteError}</Text> : null}
+          <AccountDeletionButton />
         </View>
       </CardContent>
     </Card>

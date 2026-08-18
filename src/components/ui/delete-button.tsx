@@ -185,7 +185,7 @@ export function ConfirmationButton({
   const showDangerIcon =
     !isDisabled && ((shiftGate && hovered && shiftPressed) || (!shiftGate && confirming));
   const destructiveConfirmationActive =
-    !isDisabled && (shiftGate ? webConfirmationEnabled : confirming);
+    !isDisabled && (shiftGate ? webConfirmationEnabled && hovered : confirming);
   const tooltipText = shiftGate
     ? `Hold Shift to ${confirmationAction}`
     : `Press again to ${confirmationAction}`;

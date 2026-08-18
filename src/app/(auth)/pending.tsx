@@ -7,6 +7,7 @@ import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { ConfirmationButton } from '@/components/ui/delete-button';
+import { AccountDeletionButton } from '@/components/account-deletion-button';
 import { Card, CardContent } from '@/components/ui/card';
 import { AuthScreenActions } from '@/components/theme-toggle-button';
 import { usePreventNonInputSelection } from '@/lib/use-prevent-non-input-selection';
@@ -74,6 +75,7 @@ export default function PendingScreen() {
             confirmationAction="sign out"
             onPress={signOut}
           />
+          <AccountDeletionButton className="w-full" />
         </View>
       </View>
     </SafeAreaView>
