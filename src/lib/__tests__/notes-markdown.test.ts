@@ -99,4 +99,74 @@ describe('parseNotes', () => {
 
     expect(nodes.map((n) => n.kind)).toEqual(['heading', 'blank', 'bullet', 'quote']);
   });
+
+  // ── Soft wrapping. Release bodies are hard-wrapped near 80 columns; the
+  //    phone renders a far narrower column, so the source breaks must not show.
+  it('joins a wrapped paragraph into one block', () => {
+    const nodes = parseNotes('The dashboard counted three things\nand handed you a grid of links.');
+
+    expect(nodes).toEqual([
+      { kind: 'text', text: 'The dashboard counted three things and handed you a grid of links.' },
+    ]);
+  });
+
+  it('starts a new paragraph at a blank line', () => {
+    const nodes = parseNotes('First para.\n\nSecond para.');
+
+    expect(nodes).toEqual([
+      { kind: 'text', text: 'First para.' },
+      { kind: 'blank' },
+      { kind: 'text', text: 'Second para.' },
+    ]);
+  });
+
+  it('keeps a wrapped bullet inside its own bullet', () => {
+    // Continuation lines are indented, so the join must not leave the stray
+    // whitespace in the middle of the sentence.
+    const nodes = parseNotes('- Needs attention gathers\n  everything in one place\n- Up next');
+
+    expect(nodes).toEqual([
+      { kind: 'bullet', text: 'Needs attention gathers everything in one place' },
+      { kind: 'bullet', text: 'Up next' },
+    ]);
+  });
+
+  it('never lets prose swallow a heading or a bullet', () => {
+    const nodes = parseNotes('Intro line\n## Dashboard\n- A bullet\nSecond sentence');
+
+    expect(nodes).toEqual([
+      { kind: 'text', text: 'Intro line' },
+      { kind: 'heading', text: 'Dashboard' },
+      // Markdown's lazy continuation: unindented prose under a bullet is still
+      // that bullet's text.
+      { kind: 'bullet', text: 'A bullet Second sentence' },
+    ]);
+  });
+
+  it('honours a trailing double space as a hard line break', () => {
+    const nodes = parseNotes('Ship date  \nis Friday');
+
+    expect(nodes.map((n) => n.kind)).toEqual(['text', 'text']);
+  });
+
+  it('joins quoted prose but stops at the quote boundary', () => {
+    expect(parseNotes('> Heads up\n> it reruns')).toEqual([
+      { kind: 'quote', depth: 1, inner: { kind: 'text', text: 'Heads up it reruns' } },
+    ]);
+    // Different depth, and quoted vs unquoted, are separate blocks.
+    expect(parseNotes('> Outer\n>> Inner').map((n) => n.kind)).toEqual(['quote', 'quote']);
+    expect(parseNotes('> Quoted\nUnquoted').map((n) => n.kind)).toEqual(['quote', 'text']);
+  });
+
+  it('leaves fenced code lines alone', () => {
+    const nodes = parseNotes('```\nnpm run web\nnpm test\n```\nAfter the fence');
+
+    expect(nodes.map((n) => ('text' in n ? n.text : n.kind))).toEqual([
+      '```',
+      'npm run web',
+      'npm test',
+      '```',
+      'After the fence',
+    ]);
+  });
 });

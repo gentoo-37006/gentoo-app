@@ -44,7 +44,62 @@ export function parseNotesLine(raw: string): NotesLine {
   return classify(line);
 }
 
-/** Split release-note text into renderable lines (CRLF tolerated). */
+/** Markdown ends a paragraph at a blank line, not at every newline: a release
+ *  body hard-wrapped near 80 columns is still one paragraph. Rendering each
+ *  source line separately broke it mid-sentence on phones, where the text
+ *  rewraps to a much narrower column anyway. */
+const HARD_BREAK = / {2,}$/;
+
+type FlatLine = Exclude<NotesLine, { kind: 'quote' }>;
+
+/** The merged line, or null when `next` starts something new. */
+function mergeFlat(prev: FlatLine, next: FlatLine): FlatLine | null {
+  // Only prose continues. A heading, bullet or blank starts its own block, and
+  // a bullet absorbs the wrapped remainder of its own text (markdown's lazy
+  // continuation) so it keeps its hanging indent.
+  if (next.kind !== 'text') return null;
+  if (prev.kind !== 'text' && prev.kind !== 'bullet') return null;
+  // Two trailing spaces are markdown's hard line break — the author meant the
+  // line to end there, so it never absorbs the next one.
+  if (HARD_BREAK.test(prev.text)) return null;
+  return { ...prev, text: `${prev.text.trimEnd()} ${next.text.trim()}` };
+}
+
+function mergeLines(prev: NotesLine, next: NotesLine): NotesLine | null {
+  if (prev.kind === 'quote' || next.kind === 'quote') {
+    // Quoted prose wraps too, but only inside one quote at one depth: leaving a
+    // quote, or nesting deeper, is a new block.
+    if (prev.kind !== 'quote' || next.kind !== 'quote') return null;
+    if (prev.depth !== next.depth) return null;
+    const inner = mergeFlat(prev.inner, next.inner);
+    return inner ? { ...prev, inner } : null;
+  }
+  return mergeFlat(prev, next);
+}
+
+/** Split release-note text into renderable lines (CRLF tolerated), joining the
+ *  soft-wrapped ones back into a single block. */
 export function parseNotes(notes: string): NotesLine[] {
-  return notes.replace(/\r\n/g, '\n').split('\n').map(parseNotesLine);
+  const lines: NotesLine[] = [];
+  // Fenced code is the one place newlines are load-bearing. Nothing renders it
+  // as code yet, but joining it would scramble the listing outright.
+  let fenced = false;
+  // A fence line is a boundary from both sides: the closing ``` must not
+  // absorb the prose that follows it either.
+  let afterFence = false;
+
+  for (const raw of notes.replace(/\r\n/g, '\n').split('\n')) {
+    const line = parseNotesLine(raw);
+    const isFence = /^\s*(```|~~~)/.test(raw);
+    const prev = lines[lines.length - 1];
+    const joinable = prev && !fenced && !isFence && !afterFence;
+    const merged = joinable ? mergeLines(prev, line) : null;
+
+    if (merged) lines[lines.length - 1] = merged;
+    else lines.push(line);
+    if (isFence) fenced = !fenced;
+    afterFence = isFence;
+  }
+
+  return lines;
 }
