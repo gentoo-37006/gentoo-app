@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Clock, RefreshCw, LogOut } from 'lucide-react-native';
+import { Clock, RefreshCw, LogOut, WifiOff } from 'lucide-react-native';
 import { useAuth } from '@/lib/auth';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
@@ -16,6 +16,10 @@ export default function PendingScreen() {
   const { profile, refreshProfile, signOut } = useAuth();
   const [refreshing, setRefreshing] = React.useState(false);
   const rejected = profile?.status === 'rejected';
+  // The gate also sends people here when the profile could not be loaded at all
+  // (see _layout.tsx) — better than the endless splash that used to happen, but
+  // telling them an admin is reviewing their account would be a fiction.
+  const unavailable = !profile;
   usePreventNonInputSelection();
 
   const onRefresh = async () => {
@@ -29,7 +33,19 @@ export default function PendingScreen() {
       <View className="items-end px-4 pt-4">
         <AuthScreenActions />
       </View>
-      <View className="flex-1 items-center justify-center p-6">
+      {/* Fixed and centred, this card clips on a short viewport (landscape
+          phone, split-screen iPad) and takes "Delete my account" off-screen with
+          it — the one control App Review has to reach here (guideline 5.1.1(v)). */}
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{
+          flexGrow: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 24,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
         <View className="w-full max-w-sm gap-6">
           <Card>
             <CardContent className="items-center gap-4 px-6 py-10">
@@ -39,19 +55,25 @@ export default function PendingScreen() {
                 }`}
               >
                 <Icon
-                  as={Clock}
+                  as={unavailable ? WifiOff : Clock}
                   size={30}
                   className={rejected ? 'text-destructive' : 'text-warning'}
                 />
               </View>
               <View className="items-center gap-1">
                 <Text variant="h3" className="text-center">
-                  {rejected ? 'Access not granted' : 'Awaiting approval'}
+                  {rejected
+                    ? 'Access not granted'
+                    : unavailable
+                      ? 'Couldn’t load your account'
+                      : 'Awaiting approval'}
                 </Text>
                 <Text variant="muted" className="text-center">
                   {rejected
                     ? 'An administrator has declined your request. Reach out to your team lead if this is a mistake.'
-                    : `Hi ${profile?.full_name ?? 'there'} — your account is waiting for an admin to approve it. You’ll get in as soon as they do.`}
+                    : unavailable
+                      ? 'We couldn’t reach the server to check your account. Check your connection and try again.'
+                      : `Hi ${profile?.full_name ?? 'there'} — your account is waiting for an admin to approve it. You’ll get in as soon as they do.`}
                 </Text>
               </View>
 
@@ -77,7 +99,7 @@ export default function PendingScreen() {
           />
           <AccountDeletionButton className="w-full" />
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

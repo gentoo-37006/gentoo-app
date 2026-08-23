@@ -188,6 +188,13 @@ export function Screen({
         <ScreenScrollTrackerProvider tracker={scrollTracker}>
           <Animated.ScrollView
             ref={scrollRef}
+            // Screens with inline fields (talkie.tsx, scouting/questions.tsx)
+            // otherwise have them covered by the keyboard: nothing in this tree
+            // reacts to it, so a field near the bottom just disappears under the
+            // keyboard with no way to scroll it back. iOS-only prop; it insets
+            // the scroll view and brings the focused field into view. Modal
+            // editors get the same from ModalSheet's KeyboardAvoidingView.
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
             className={cn('flex-1 bg-background', className)}
             contentContainerStyle={{ alignItems: 'center' }}
             keyboardShouldPersistTaps="handled"

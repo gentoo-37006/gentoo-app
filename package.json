@@ -1,7 +1,7 @@
 {
   "name": "gentoo-app",
   "main": "expo-router/entry",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/gentoo-37006/gentoo-app.git"
@@ -79,8 +79,8 @@
     "android:apk:auto": "bash scripts/publish-android.sh",
     "release:all": "npm run ios:publish:auto && npm run android:apk:auto && npm run release:collect",
     "release:collect": "bash scripts/collect-release-artifacts.sh",
-    "update:production": "eas update --branch production",
-    "update:preview": "eas update --branch preview",
+    "update:production": "node scripts/check-public-env.js && eas update --branch production",
+    "update:preview": "node scripts/check-public-env.js && eas update --branch preview",
     "lint": "expo lint",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",

@@ -88,8 +88,11 @@ Interpolating an empty `SUPABASE_URL` yields a *relative* `/functions/v1/...`, w
 against the app's own origin — where the SPA fallback answers **200 with index.html**, so the
 fetch appears to succeed and only fails inside `res.json()`.
 
-`scripts/check-public-env.js` runs before every web export and fails the build rather than
-shipping a dead bundle.
+`scripts/check-public-env.js` runs before every web export and before `eas update`, and fails
+rather than shipping a dead bundle. It is deliberately **not** wired into `eas build`: that
+path uploads the project without gitignored files, so `.env` never reaches the builder and a
+guard passing here would say nothing about what the binary got. Native builds take their
+values from EAS secrets / environment variables instead.
 
 ### Mutations and cache coherence
 
@@ -116,8 +119,13 @@ The whole codebase was migrated in 24dc64e — don't reintroduce the prop form.
 the `0012` prefix (`0012_discord_task_pings`, `0012_event_data`); they're independent, so order
 between them doesn't matter — but don't renumber applied migrations.
 
-Edge functions: `send-push` (Expo push) and `downloads` (lists installers and 302s to signed
-GitHub asset URLs; deployed `--no-verify-jwt` so plain `<a>` links work).
+Edge functions: `send-push` (Expo push), `downloads` (lists installers and 302s to signed
+GitHub asset URLs; deployed `--no-verify-jwt` so plain `<a>` links work), `delete-account`
+and `link-apple`. The last two are one feature: App Store guideline 5.1.1(v) wants Apple
+tokens **revoked**, not orphaned, when an account is deleted, so `link-apple` banks the
+refresh token at sign-in and `delete-account` spends it on the way out. Both read Apple
+secrets through `functions/_shared/apple.ts` and no-op when those are unset — deletion never
+depends on revocation succeeding. Setup is in `supabase/README.md` §3c.
 
 The `kowalski/` directory is a Python Discord bot sharing the same Supabase project. It is
 currently untracked by git.

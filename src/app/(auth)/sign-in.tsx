@@ -1,5 +1,12 @@
 import * as React from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { TriangleAlert } from 'lucide-react-native';
@@ -15,9 +22,7 @@ import { AuthScreenActions } from '@/components/theme-toggle-button';
 import { HaloAppIcon } from '@/components/halo-app-icon';
 import { usePreventNonInputSelection } from '@/lib/use-prevent-non-input-selection';
 import { useColorScheme } from '@/lib/theme';
-
-const DEMO_EMAIL = 'alex.rivera@gentoorobotics.org';
-const DEMO_PASSWORD = 'Gentoo2026!';
+import { checkDemoCredentials } from '@/lib/demo-credentials';
 
 function GoogleButton() {
   const [loading, setLoading] = React.useState(false);
@@ -57,6 +62,19 @@ function GoogleButton() {
   );
 }
 
+/**
+ * The credentials handed to App Store reviewers arrive here pasted out of the
+ * submission notes, so the copy has to name what actually went wrong instead of
+ * assuming the person has no account — telling a reviewer holding valid
+ * credentials to "use Apple or Google" is what a 2.1(a) rejection reads like.
+ */
+const CREDENTIAL_ERRORS = {
+  empty: 'Enter your email and password.',
+  'unknown-email':
+    'That email doesn’t match an account. Most members should sign in with Apple or Google.',
+  'wrong-password': 'That password doesn’t match the email you entered.',
+} as const;
+
 function EmailPasswordForm() {
   const { signInDemo } = useAuth();
   const [email, setEmail] = React.useState('');
@@ -66,12 +84,19 @@ function EmailPasswordForm() {
 
   const onPress = async () => {
     setError(null);
-    if (email.trim().toLowerCase() !== DEMO_EMAIL || password !== DEMO_PASSWORD) {
-      setError('Use Apple or Google sign-in unless you were given email and password credentials.');
+    const check = checkDemoCredentials(email, password);
+    if (check !== 'ok') {
+      setError(CREDENTIAL_ERRORS[check]);
       return;
     }
     setLoading(true);
-    await signInDemo();
+    try {
+      await signInDemo();
+    } catch {
+      // Without this the button spins forever and the screen offers no way on.
+      setError('Could not open the workspace. Please try again.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -95,6 +120,8 @@ function EmailPasswordForm() {
         autoCorrect={false}
         secureTextEntry
         textContentType="password"
+        returnKeyType="go"
+        onSubmitEditing={() => void onPress()}
       />
       <Pressable
         onPress={onPress}
@@ -204,61 +231,81 @@ export default function SignInScreen() {
       <View className="items-end px-4 pt-4">
         <AuthScreenActions />
       </View>
-      <View className="flex-1 items-center justify-center p-6">
-        <View className="w-full max-w-sm gap-8">
-          <View className="items-center gap-3">
-            <HaloAppIcon size={64} />
-            <View className="items-center">
-              <Text className="text-2xl font-extrabold tracking-tight">Gentoo</Text>
-              <Text variant="muted">FTC Team Hub</Text>
+      {/* The card is vertically centred, so without this the on-screen keyboard
+          covers both fields the moment either is focused — the app presents a
+          form you cannot see yourself typing into. Same behaviour/scroll pairing
+          as ui/modal-sheet.tsx. */}
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{
+            flexGrow: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+          }}
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View className="w-full max-w-sm gap-8">
+            <View className="items-center gap-3">
+              <HaloAppIcon size={64} />
+              <View className="items-center">
+                <Text className="text-2xl font-extrabold tracking-tight">Gentoo</Text>
+                <Text variant="muted">FTC Team Hub</Text>
+              </View>
             </View>
-          </View>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Sign in</CardTitle>
-              <CardDescription>
-                Use your account to access the team workspace. New members need an admin to approve access.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {showEmail ? (
-                <View className="gap-4">
-                  <View className="flex-row gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3">
-                    <Icon as={TriangleAlert} size={16} className="mt-0.5 text-warning" />
-                    <Text variant="small" className="flex-1 text-muted-foreground">
-                      Only sign in with email and password if you were given credentials. You can&apos;t
-                      create an account this way — most members should sign in with Apple or Google.
-                    </Text>
+  
+            <Card>
+              <CardHeader>
+                <CardTitle>Sign in</CardTitle>
+                <CardDescription>
+                  Use your account to access the team workspace. New members need an admin to approve access.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {showEmail ? (
+                  <View className="gap-4">
+                    <View className="flex-row gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3">
+                      <Icon as={TriangleAlert} size={16} className="mt-0.5 text-warning" />
+                      <Text variant="small" className="flex-1 text-muted-foreground">
+                        Only sign in with email and password if you were given credentials. You can&apos;t
+                        create an account this way — most members should sign in with Apple or Google.
+                      </Text>
+                    </View>
+                    <EmailPasswordForm />
+                    <Pressable onPress={() => setShowEmail(false)} className="self-center py-1">
+                      <Text variant="small" className="text-muted-foreground underline">
+                        Back to Google sign-in
+                      </Text>
+                    </Pressable>
                   </View>
-                  <EmailPasswordForm />
-                  <Pressable onPress={() => setShowEmail(false)} className="self-center py-1">
-                    <Text variant="small" className="text-muted-foreground underline">
-                      Back to Google sign-in
-                    </Text>
-                  </Pressable>
-                </View>
-              ) : (
-                <View className="gap-4">
-                  {isConfigured ? (
-                    <>
-                      <AppleButton />
-                      <GoogleButton />
-                    </>
-                  ) : (
-                    <NotConfigured />
-                  )}
-                  <Pressable onPress={() => setShowEmail(true)} className="self-center py-1">
-                    <Text variant="small" className="text-muted-foreground underline">
-                      Sign in with email and password
-                    </Text>
-                  </Pressable>
-                </View>
-              )}
-            </CardContent>
-          </Card>
-        </View>
-      </View>
+                ) : (
+                  <View className="gap-4">
+                    {isConfigured ? (
+                      <>
+                        <AppleButton />
+                        <GoogleButton />
+                      </>
+                    ) : (
+                      <NotConfigured />
+                    )}
+                    <Pressable onPress={() => setShowEmail(true)} className="self-center py-1">
+                      <Text variant="small" className="text-muted-foreground underline">
+                        Sign in with email and password
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
+              </CardContent>
+            </Card>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

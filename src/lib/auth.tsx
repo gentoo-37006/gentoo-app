@@ -30,17 +30,40 @@ type AuthContextValue = {
 
 const AuthContext = React.createContext<AuthContextValue | undefined>(undefined);
 
+/** Attempts before giving up, so one flaky request doesn't decide the session. */
+const PROFILE_FETCH_ATTEMPTS = 3;
+const PROFILE_RETRY_BASE_MS = 400;
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Resolving to `null` means "there is no profile for this user", NOT "we could
+ * not tell" — the auth gate routes on the difference, and a fetch that failed
+ * used to be reported as an absent profile, which pinned `routeSettled` false
+ * and stranded the app on the splash screen for the rest of the session.
+ *
+ * A transport failure is worth retrying; `data === null` from a successful query
+ * is an answer, so it returns straight away.
+ */
 async function fetchProfile(userId: string): Promise<Profile | null> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .maybeSingle();
-  if (error) {
-    console.warn('[auth] failed to load profile:', error.message);
-    return null;
+  for (let attempt = 1; attempt <= PROFILE_FETCH_ATTEMPTS; attempt++) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (!error) return (data as Profile) ?? null;
+
+    console.warn(
+      `[auth] failed to load profile (attempt ${attempt}/${PROFILE_FETCH_ATTEMPTS}):`,
+      error.message
+    );
+    if (attempt < PROFILE_FETCH_ATTEMPTS) await delay(PROFILE_RETRY_BASE_MS * attempt);
   }
-  return (data as Profile) ?? null;
+  // Out of attempts. The caller treats this like an unapproved account, which
+  // lands on /pending — a screen with retry, sign-out and delete-account on it.
+  return null;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

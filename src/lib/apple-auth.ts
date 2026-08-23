@@ -1,6 +1,8 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/lib/env';
+import { functionUrl } from '@/lib/function-url';
 import type { SignInResult } from '@/lib/google-auth';
 
 /**
@@ -59,6 +61,36 @@ async function backfillName(userId: string, name: string) {
   await supabase.from('profiles').update({ full_name: name }).eq('id', userId);
 }
 
+/**
+ * Hand Apple's one-time authorization code to the backend, which trades it for a
+ * refresh token and banks it. Deleting the account later revokes that token, as
+ * App Store guideline 5.1.1(v) requires — orphaning the Apple grant is not
+ * enough. See supabase/functions/link-apple.
+ *
+ * Strictly best effort: the user is already signed in by the time this runs, and
+ * nothing they can see depends on it. Apple issues a fresh code on every
+ * authorization, so a failure here self-corrects at the next sign-in.
+ */
+async function linkAppleGrant(code: string, accessToken: string) {
+  const endpoint = functionUrl(SUPABASE_URL, 'link-apple');
+  if (!endpoint) return;
+
+  try {
+    await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+        apikey: SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ code }),
+    });
+  } catch (e) {
+    console.warn('[apple] could not store the authorization code:', e);
+  }
+}
+
 export async function signInWithApple(): Promise<SignInResult> {
   let credential: AppleAuthentication.AppleAuthenticationCredential;
   try {
@@ -96,6 +128,10 @@ export async function signInWithApple(): Promise<SignInResult> {
     } catch {
       // ignored on purpose — see above
     }
+  }
+
+  if (credential.authorizationCode && data.session?.access_token) {
+    await linkAppleGrant(credential.authorizationCode, data.session.access_token);
   }
 
   return {};

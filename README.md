@@ -73,8 +73,10 @@ npm start              # then press w (web), i (iOS), a (Android)
 > **The export bakes in the environment.** `EXPO_PUBLIC_*` values are inlined
 > when the web bundle is exported, so a build made without `.env` (or without
 > those vars on the build host) runs fine but shows "Backend not configured" on
-> launch. Every export runs `scripts/check-public-env.js` first and fails with a
-> fix-it message rather than shipping a dead app.
+> launch. Every export and every `eas update` runs `scripts/check-public-env.js`
+> first and fails with a fix-it message rather than shipping a dead app. `eas
+> build` is the exception: it uploads the project without gitignored files, so
+> `.env` never reaches the builder — set the values as EAS secrets instead.
 
 ## Render deploys
 
