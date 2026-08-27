@@ -1,0 +1,6 @@
+# Shell scripts must stay LF. They run under bash — WSL, the release Macs, and
+# EAS's Linux workers — where a trailing CR makes line 14 of publish-ios.sh read
+# as `set: pipefail\r: invalid option name` and the release aborts before it
+# starts. Without this, core.autocrlf=true on a Windows clone checks them out
+# with CRLF and they are broken on arrival.
+*.sh text eol=lf
