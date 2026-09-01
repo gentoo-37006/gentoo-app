@@ -179,9 +179,11 @@ function Sidebar({
             <Text variant="label" className="px-3 pb-1 text-muted-foreground">
               {section.label}
             </Text>
-            {section.items.map((item) => (
-              <SidebarLink key={item.name} item={item} active={isActiveRoute(item.href, pathname)} />
-            ))}
+            {section.items
+              .filter((item) => !item.mobileOnly || Platform.OS !== 'web')
+              .map((item) => (
+                <SidebarLink key={item.name} item={item} active={isActiveRoute(item.href, pathname)} />
+              ))}
           </View>
         ))}
         <View className="my-3">

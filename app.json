@@ -2,7 +2,7 @@
   "expo": {
     "name": "Gentoo",
     "slug": "gentoo-app",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "gentoo",
     "userInterfaceStyle": "automatic",
@@ -16,10 +16,13 @@
       ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "NSLocalNetworkUsageDescription": "Gentoo uses the local network to connect to your REV Control Hub.",
+        "UISupportedInterfaceOrientations": [
+          "UIInterfaceOrientationPortrait",
+          "UIInterfaceOrientationLandscapeRight"
+        ],
         "UISupportedInterfaceOrientations~ipad": [
           "UIInterfaceOrientationPortrait",
-          "UIInterfaceOrientationPortraitUpsideDown",
-          "UIInterfaceOrientationLandscapeLeft",
           "UIInterfaceOrientationLandscapeRight"
         ]
       }
@@ -64,6 +67,12 @@
       "expo-router",
       "expo-apple-authentication",
       [
+        "expo-screen-orientation",
+        {
+          "initialOrientation": "PORTRAIT_UP"
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#FAFAFA",
@@ -103,6 +112,7 @@
         }
       ],
       "./plugins/withPodfileDeploymentTarget",
+      "./plugins/withAndroidDefaultOrientation",
       "./plugins/withUISceneSupport"
     ],
     "experiments": {

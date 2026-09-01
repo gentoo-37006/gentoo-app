@@ -9,6 +9,7 @@ import {
   ListOrdered,
   CalendarClock,
   Cable,
+  Gamepad2,
   Trophy,
   Bell,
   Download,
@@ -25,6 +26,8 @@ export type NavItem = {
   adminOnly?: boolean;
   /** Only render in browser-based navigation. */
   webOnly?: boolean;
+  /** Only render in native mobile navigation. */
+  mobileOnly?: boolean;
 };
 
 export type NavSection = { label: string; items: NavItem[] };
@@ -35,6 +38,13 @@ export const GENERAL_NAV: NavItem[] = [
   { name: 'projects', label: 'Projects', href: '/projects', icon: ListChecks },
   { name: 'inventory', label: 'Inventory', href: '/inventory', icon: Boxes },
   { name: 'cables', label: 'Cables', href: '/cables', icon: Cable },
+  {
+    name: 'driver-station',
+    label: 'Driver Station',
+    href: '/driver-station',
+    icon: Gamepad2,
+    mobileOnly: true,
+  },
 ];
 
 /** Event-day operations: live dashboard, scouting, picklist, comms, pit duty. */

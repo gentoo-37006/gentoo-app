@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { Slot, usePathname } from 'expo-router';
 import { ResponsiveShell } from '@/components/responsive-shell';
 import { WhatsNewGate } from '@/components/whats-new';
@@ -11,8 +12,10 @@ export default function AppLayout() {
   usePushNavigation();
   const isStandaloneDownloads =
     pathname === '/downloads' && (!session || profile?.status !== 'approved');
+  const isNativeDriverStation =
+    Platform.OS !== 'web' && pathname === '/driver-station';
 
-  if (isStandaloneDownloads) return <Slot />;
+  if (isStandaloneDownloads || isNativeDriverStation) return <Slot />;
 
   return (
     <DragOverlayProvider>

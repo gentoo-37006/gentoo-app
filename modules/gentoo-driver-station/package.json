@@ -1,0 +1,10 @@
+{
+  "name": "gentoo-driver-station",
+  "version": "1.0.0",
+  "description": "Native UDP transport for Gentoo Driver Station",
+  "main": "index.ts",
+  "license": "UNLICENSED",
+  "peerDependencies": {
+    "expo": "*"
+  }
+}

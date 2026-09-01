@@ -26,6 +26,7 @@ import {
   View,
 } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import * as Updates from 'expo-updates';
 import { Stack, ThemeProvider, usePathname, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -226,6 +227,18 @@ function RootNavigator({
   const onSignIn = segments[1] === 'sign-in';
   const onPending = segments[1] === 'pending';
   const onDownloads = pathname === '/downloads';
+
+  React.useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    const lock =
+      pathname === '/driver-station'
+        ? ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT
+        : ScreenOrientation.OrientationLock.PORTRAIT_UP;
+    void ScreenOrientation.lockAsync(lock).catch((error) => {
+      console.warn('[orientation] failed to lock screen', error);
+    });
+  }, [pathname]);
 
   // Derived, not state: the overlay hides once the current route matches the
   // auth state, so there's never a flash of the wrong screen — including
