@@ -8,7 +8,6 @@ import {
   ListChecks,
   ListOrdered,
   CalendarClock,
-  Cable,
   Gamepad2,
   Trophy,
   Bell,
@@ -37,7 +36,6 @@ export const GENERAL_NAV: NavItem[] = [
   { name: 'index', label: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'projects', label: 'Projects', href: '/projects', icon: ListChecks },
   { name: 'inventory', label: 'Inventory', href: '/inventory', icon: Boxes },
-  { name: 'cables', label: 'Cables', href: '/cables', icon: Cable },
   {
     name: 'driver-station',
     label: 'Driver Station',

@@ -107,8 +107,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Gentoo to access your photos to analyze cables.",
-          "cameraPermission": "Allow Gentoo to use the camera to photograph cables."
+          "photosPermission": "Allow Gentoo to access your photos to attach part photos.",
+          "cameraPermission": "Allow Gentoo to use the camera to photograph parts."
         }
       ],
       "./plugins/withPodfileDeploymentTarget",

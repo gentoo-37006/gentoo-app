@@ -19,8 +19,6 @@ Built with **Expo Router**, **NativeWind** + **React Native Reusables**, and **S
 - **Competition dashboard** — event-day view: next-match countdown, your pit shifts, and
   open talkie requests.
 - **Pit-duty scheduler** — auto-generated, fair rotations for staffing the pit at competition.
-- **Cables** — photo-based wiring inventory: a Groq vision model counts the parts in a
-  picture of the wiring bin (needs `EXPO_PUBLIC_GROQ_API_KEY`).
 - **Accounts** — Apple, Google, and email/password sign-in; the first account becomes admin
   and approves everyone else.
 - **Notifications** — in-app realtime + push (Expo) for talkie pings, task assignments, and
@@ -92,10 +90,6 @@ Required variables:
 - `EXPO_PUBLIC_SUPABASE_URL`
 - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 
-Optional variable:
-
-- `EXPO_PUBLIC_GROQ_API_KEY`
-
 In Render, open the service, go to **Environment**, add the values from your
 Supabase project settings, save, and redeploy. GitHub Actions secrets are used
 for desktop builds only; the nightly web deploy runs inside Render and cannot
@@ -115,7 +109,6 @@ src/
       competition.tsx    # event-day dashboard
       schedule.tsx       # pit-duty scheduler
       talkie.tsx         # pit-intel requests
-      cables.tsx         # photo wiring count (Groq vision)
       admin.tsx, notifications.tsx, downloads.tsx, settings.tsx
   components/
     ui/                  # design-system primitives (Text, Button, Card, …)
