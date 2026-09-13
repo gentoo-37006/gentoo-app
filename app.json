@@ -8,6 +8,10 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.gentoo.app",
+      "icon": {
+        "light": "./assets/images/icon.png",
+        "dark": "./assets/images/icon-dark.png"
+      },
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "associatedDomains": [
