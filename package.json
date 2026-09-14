@@ -1,7 +1,7 @@
 {
   "name": "gentoo-app",
   "main": "expo-router/entry",
-  "version": "1.9.0-beta.1",
+  "version": "1.9.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/gentoo-37006/gentoo-app.git"
@@ -74,7 +74,7 @@
     "web": "expo start --web",
     "export:web": "node scripts/check-public-env.js && expo export --platform web --clear",
     "ios:publish": "bash scripts/build-ios-local.sh",
-    "ios:publish:cloud": "eas build -p ios --profile production --submit",
+    "ios:publish:cloud": "eas build -p ios --profile production --auto-submit",
     "ios:publish:auto": "bash scripts/publish-ios.sh",
     "android:apk": "bash scripts/build-android-apk-local.sh",
     "android:apk:cloud": "eas build -p android --profile release-apk",

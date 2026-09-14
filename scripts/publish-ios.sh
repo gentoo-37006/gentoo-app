@@ -25,8 +25,8 @@ echo "[ios] This needs an authenticated EAS account ('eas login') and uses build
 # `eas` is a global install on the release Macs; fall back to npx so a Linux
 # box without it still works (the first run downloads the CLI).
 if command -v eas >/dev/null 2>&1; then
-  exec eas build -p ios --profile production --submit "$@"
+  exec eas build -p ios --profile production --auto-submit "$@"
 fi
 
 echo "[ios] 'eas' is not on PATH — running it through npx."
-exec npx --yes eas-cli build -p ios --profile production --submit "$@"
+exec npx --yes eas-cli build -p ios --profile production --auto-submit "$@"
