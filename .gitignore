@@ -3,6 +3,9 @@
 # dependencies
 node_modules/
 
+# Separate local repository (published to gentoo-37006/kowalski)
+/kowalski/
+
 # Expo
 .expo/
 dist/
