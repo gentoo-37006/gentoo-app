@@ -61,7 +61,13 @@ export function FadeModal({
     );
 
   return (
-    <Modal visible transparent animationType="none" onRequestClose={onRequestClose}>
+    <Modal
+      visible
+      transparent
+      animationType="none"
+      supportedOrientations={['portrait', 'landscape-right']}
+      onRequestClose={onRequestClose}
+    >
       {content}
     </Modal>
   );

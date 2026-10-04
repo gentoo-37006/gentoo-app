@@ -41,6 +41,22 @@ public final class GentooDriverStationModule: Module {
       throw DriverStationSocketException("Unable to create the Driver Station UDP socket.")
     }
 
+    // A Control Hub AP has no internet. Keep robot traffic on Wi-Fi even when
+    // iOS prefers cellular for the default internet route.
+    var wifiInterface = if_nametoindex("en0")
+    guard wifiInterface != 0 else {
+      Darwin.close(descriptor)
+      throw DriverStationSocketException("Wi-Fi is unavailable. Join the Control Hub Wi-Fi network.")
+    }
+    guard setsockopt(
+      descriptor, IPPROTO_IP, IP_BOUND_IF, &wifiInterface,
+      socklen_t(MemoryLayout<UInt32>.size)
+    ) == 0 else {
+      let code = errno
+      Darwin.close(descriptor)
+      throw DriverStationSocketException("Unable to route robot traffic over Wi-Fi (\(code)).")
+    }
+
     var reuseAddress: Int32 = 1
     setsockopt(
       descriptor,
@@ -133,7 +149,18 @@ public final class GentooDriverStationModule: Module {
       }
     }
     guard sent == Int(data.count) else {
-      throw DriverStationSocketException("The Driver Station packet could not be sent.")
+      let code = errno
+      let detail = String(cString: strerror(code))
+      let guidance: String
+      switch code {
+      case EACCES, EPERM, EHOSTUNREACH:
+        guidance = " Check Gentoo's Local Network permission in Settings and join the Control Hub Wi-Fi."
+      case ENETUNREACH, ENETDOWN, EADDRNOTAVAIL:
+        guidance = " Join the Control Hub Wi-Fi network and reopen Driver Station."
+      default:
+        guidance = ""
+      }
+      throw DriverStationSocketException("UDP to \(host):\(port) failed: \(detail) (\(code)).\(guidance)")
     }
   }
 

@@ -1,11 +1,11 @@
 import * as React from 'react';
 import { AppState } from 'react-native';
 import { DriverStationClient, type DriverStationSnapshot } from './client';
-import { driverStationTransport } from './transport';
+import { createDriverStationTransport } from './transport';
 
 export function useDriverStation() {
   const [client] = React.useState(
-    () => new DriverStationClient(driverStationTransport)
+    () => new DriverStationClient(createDriverStationTransport())
   );
   const [snapshot, setSnapshot] = React.useState<DriverStationSnapshot>(
     client.getSnapshot()
@@ -15,7 +15,10 @@ export function useDriverStation() {
     const unsubscribe = client.subscribe(setSnapshot);
     void client.start();
     const appStateSubscription = AppState.addEventListener('change', (state) => {
-      if (state !== 'active') client.stopOpMode();
+      if (state !== 'active') {
+        client.setControllerEnabled(false);
+        client.stopOpMode();
+      }
     });
     return () => {
       appStateSubscription.remove();

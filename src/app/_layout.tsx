@@ -247,12 +247,8 @@ function RootNavigator({
   if (initializing) routeSettled = false;
   else if (onDownloads) routeSettled = true;
   else if (!isConfigured || !session) routeSettled = onSignIn;
-  // A stale-null profile is already covered by `initializing`: auth.tsx clears
-  // profileResolved alongside the profile whenever the user changes. So reaching
-  // here with no profile means the fetch finished and found none — a real state
-  // (row gone, or the request failed all its retries), not a frame to wait out.
-  // Waiting pinned this false forever and stranded the app on the splash screen;
-  // /pending is the honest destination, and it carries retry / sign out / delete.
+  // A stale-null profile is covered by `initializing`: auth.tsx restores a
+  // previously verified mobile profile before settling an offline request.
   else if (!profile || profile.status !== 'approved') routeSettled = onPending;
   else routeSettled = !inAuthGroup;
   const settled = themeRestored && routeSettled;

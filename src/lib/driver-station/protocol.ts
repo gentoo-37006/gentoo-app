@@ -1,6 +1,8 @@
+import { clampAxis, type GamepadState } from './gamepad';
+
 export const ROBOCOL_PORT = 20884;
 export const ROBOCOL_VERSION = 124;
-export const FTC_SDK_VERSION = '11.2';
+export const FTC_SDK_VERSION = '12.0';
 export const STOP_OP_MODE = '$Stop$Robot$';
 
 const HEADER_LENGTH = 5;
@@ -9,6 +11,7 @@ const textDecoder = new TextDecoder();
 
 export enum RobocolMessageType {
   Heartbeat = 1,
+  Gamepad = 2,
   PeerDiscovery = 3,
   Command = 4,
   Telemetry = 5,
@@ -137,10 +140,25 @@ export function serializePeerDiscovery(sequence = 0): Uint8Array {
   view.setUint8(3, ROBOCOL_VERSION);
   view.setUint8(4, PeerType.Peer);
   view.setUint16(5, sequence & 0xffff, false);
-  view.setUint8(7, 7);
+  view.setUint8(7, 9);
   view.setUint16(8, 2026, false);
-  view.setUint8(10, 11);
-  view.setUint8(11, 2);
+  view.setUint8(10, 12);
+  view.setUint8(11, 0);
+  return bytes;
+}
+
+// FTC SDK Gamepad v5: synthetic device, unknown controller type.
+export function serializeGamepad(sequence: number, state: GamepadState, now = Date.now(), user: 1 | 2 = 1) {
+  const { bytes, view } = makePacket(RobocolMessageType.Gamepad, 60, sequence);
+  view.setUint8(5, 5);
+  view.setInt32(6, -2, false);
+  setInt64(view, 10, BigInt(now));
+  [state.leftStickX, state.leftStickY, state.rightStickX, state.rightStickY,
+    state.leftTrigger, state.rightTrigger].forEach((value, index) => {
+    view.setFloat32(18 + index * 4, clampAxis(value, index >= 4 ? 0 : -1), false);
+  });
+  view.setUint32(42, state.buttons & 0x7fff, false);
+  view.setUint8(46, user);
   return bytes;
 }
 

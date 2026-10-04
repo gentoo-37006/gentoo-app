@@ -13,7 +13,7 @@ import {
 } from '../driver-station/protocol';
 
 describe('Driver Station Robocol packets', () => {
-  it('serializes FTC SDK 11.2 peer discovery metadata', () => {
+  it('serializes FTC SDK 12.0 peer discovery metadata', () => {
     const bytes = serializePeerDiscovery(42);
     const packet = parseRobocolPacket(bytes);
     expect(packet).toEqual({
@@ -21,10 +21,10 @@ describe('Driver Station Robocol packets', () => {
       robocolVersion: ROBOCOL_VERSION,
       peerType: PeerType.Peer,
       sequence: 42,
-      sdkBuildMonth: 7,
+      sdkBuildMonth: 9,
       sdkBuildYear: 2026,
-      sdkMajorVersion: 11,
-      sdkMinorVersion: 2,
+      sdkMajorVersion: 12,
+      sdkMinorVersion: 0,
     });
   });
 

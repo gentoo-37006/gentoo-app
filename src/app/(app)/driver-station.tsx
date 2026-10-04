@@ -1,6 +1,7 @@
 import * as React from 'react';
 import {
   Alert,
+  Dimensions,
   Platform,
   Pressable,
   ScrollView,
@@ -9,13 +10,16 @@ import {
 } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Activity,
   AlertTriangle,
   ArrowLeft,
   BatteryMedium,
   CircleStop,
+  EllipsisVertical,
+  Gamepad2,
+  LayoutDashboard,
   Play,
   Power,
   RefreshCw,
@@ -23,8 +27,10 @@ import {
   Save,
   Settings2,
   Wifi,
+  X,
 } from 'lucide-react-native';
 import { Button } from '@/components/ui/button';
+import { FadeModal } from '@/components/ui/fade-modal';
 import { Icon } from '@/components/ui/icon';
 import { Select } from '@/components/ui/select';
 import { Text } from '@/components/ui/text';
@@ -44,8 +50,9 @@ import {
 } from '@/lib/driver-station/hardware-config';
 import { STOP_OP_MODE } from '@/lib/driver-station/protocol';
 import { useDriverStation } from '@/lib/driver-station/use-driver-station';
+import { ControllerPanel } from '@/components/driver-station/controller-panel';
 
-type DriverStationTab = 'control' | 'hardware';
+type DriverStationTab = 'control' | 'controller' | 'hardware';
 
 function StatusDot({ status }: { status: DriverStationSnapshot['status'] }) {
   return (
@@ -89,16 +96,28 @@ function HeaderMetric({
 function DriverStationHeader({
   snapshot,
   onBack,
+  onConfiguration,
   onRestart,
+  leftInset,
+  controllerView,
+  onToggleController,
 }: {
   snapshot: DriverStationSnapshot;
   onBack: () => void;
+  onConfiguration: () => void;
   onRestart: () => void;
+  leftInset: number;
+  controllerView: boolean;
+  onToggleController: () => void;
 }) {
   const connected = snapshot.status === 'connected';
   const canRestart = connected && snapshot.activeOpMode === STOP_OP_MODE;
+  const [connectionDetailsOpen, setConnectionDetailsOpen] = React.useState(false);
   return (
-    <View className="h-14 flex-row items-center border-b border-border bg-card px-2">
+    <View
+      className="h-14 flex-row items-center border-b border-border bg-card pr-1"
+      style={{ paddingLeft: leftInset + 4 }}
+    >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Leave Driver Station"
@@ -114,7 +133,12 @@ function DriverStationHeader({
         </Text>
       </View>
 
-      <View className="min-w-0 flex-1 flex-row items-center gap-2">
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Connection details"
+        onPress={() => setConnectionDetailsOpen(true)}
+        className="min-w-0 flex-1 flex-row items-center gap-2"
+      >
         <StatusDot status={snapshot.status} />
         <View className="min-w-0 flex-1">
           <Text className="text-xs font-bold" numberOfLines={1}>
@@ -124,7 +148,26 @@ function DriverStationHeader({
             {snapshot.peerHost ?? 'Join the Control Hub Wi-Fi network'}
           </Text>
         </View>
-      </View>
+      </Pressable>
+
+      <FadeModal visible={connectionDetailsOpen} onRequestClose={() => setConnectionDetailsOpen(false)}>
+        <Pressable className="flex-1 items-center justify-center bg-black/40 p-4" onPress={() => setConnectionDetailsOpen(false)}>
+          <Pressable className="max-h-full w-full max-w-xl rounded-sm border border-border bg-popover p-4" onPress={() => {}}>
+            <View className="mb-3 flex-row items-center justify-between">
+              <Text className="text-base font-bold">Connection details</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Close connection details" className="h-10 w-10 items-center justify-center rounded-sm active:bg-accent" onPress={() => setConnectionDetailsOpen(false)}>
+                <Icon as={X} size={20} className="text-foreground" />
+              </Pressable>
+            </View>
+            <ScrollView>
+              <Text className="text-sm" selectable>{snapshot.statusMessage}</Text>
+              <Text className="mt-3 text-xs text-muted-foreground" selectable>
+                {snapshot.peerHost ? `Control Hub: ${snapshot.peerHost}:20884` : 'Searching: 192.168.43.1:20884, 192.168.49.1:20884'}
+              </Text>
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </FadeModal>
 
       <HeaderMetric
         icon={Wifi}
@@ -148,50 +191,93 @@ function DriverStationHeader({
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Restart robot"
-        disabled={!canRestart}
-        onPress={onRestart}
-        className={cn(
-          'ml-1 h-10 w-10 items-center justify-center rounded-sm active:bg-accent',
-          !canRestart && 'opacity-35'
-        )}
+        accessibilityLabel={controllerView ? 'Show Driver Station' : 'Show controller'}
+        onPress={onToggleController}
+        className="h-11 w-11 items-center justify-center rounded-sm active:bg-accent"
       >
-        <Icon as={RotateCw} size={20} className="text-foreground" />
+        <Icon as={controllerView ? LayoutDashboard : Gamepad2} size={22} className="text-foreground" />
       </Pressable>
+      <DriverStationMenu
+        canRestart={canRestart}
+        onConfiguration={onConfiguration}
+        onRestart={onRestart}
+      />
     </View>
   );
 }
 
-function TabBar({ value, onChange }: { value: DriverStationTab; onChange: (tab: DriverStationTab) => void }) {
+function DriverStationMenu({
+  canRestart,
+  onConfiguration,
+  onRestart,
+}: {
+  canRestart: boolean;
+  onConfiguration: () => void;
+  onRestart: () => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [position, setPosition] = React.useState<{ right: number; top: number } | null>(null);
+  const triggerRef = React.useRef<View>(null);
+
+  const openMenu = () => {
+    triggerRef.current?.measureInWindow((x, y, width, height) => {
+      setPosition({
+        right: Math.max(4, Dimensions.get('window').width - x - width),
+        top: y + height + 4,
+      });
+      setOpen(true);
+    });
+  };
+
   return (
-    <View className="w-40 shrink-0 border-r border-border bg-card p-2">
-      {([
-        ['control', Activity, 'Control'],
-        ['hardware', Settings2, 'Hardware'],
-      ] as const).map(([tab, icon, label]) => (
-        <Pressable
-          key={tab}
-          onPress={() => onChange(tab)}
-          className={cn(
-            'mb-1 h-11 flex-row items-center gap-2 rounded-sm px-3',
-            value === tab ? 'bg-primary' : 'active:bg-accent'
-          )}
+    <View ref={triggerRef} collapsable={false}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Driver Station menu"
+        onPress={openMenu}
+        className="ml-1 h-11 w-11 items-center justify-center rounded-sm active:bg-accent"
+      >
+        <Icon as={EllipsisVertical} size={22} className="text-foreground" />
+      </Pressable>
+      {position ? (
+        <FadeModal
+          visible={open}
+          onRequestClose={() => setOpen(false)}
+          onDismiss={() => setPosition(null)}
         >
-          <Icon
-            as={icon}
-            size={17}
-            className={value === tab ? 'text-primary-foreground' : 'text-muted-foreground'}
-          />
-          <Text
-            className={cn(
-              'text-xs font-bold',
-              value === tab ? 'text-primary-foreground' : 'text-foreground'
-            )}
-          >
-            {label}
-          </Text>
-        </Pressable>
-      ))}
+          <Pressable className="flex-1" onPress={() => setOpen(false)}>
+            <View
+              className="absolute w-56 overflow-hidden rounded-sm border border-border bg-popover p-1"
+              style={position}
+            >
+              <Pressable
+                className="h-11 flex-row items-center gap-3 rounded-sm px-3 active:bg-accent"
+                onPress={() => {
+                  setOpen(false);
+                  onConfiguration();
+                }}
+              >
+                <Icon as={Settings2} size={18} className="text-muted-foreground" />
+                <Text className="text-sm font-semibold">Robot configuration</Text>
+              </Pressable>
+              <Pressable
+                disabled={!canRestart}
+                className={cn(
+                  'h-11 flex-row items-center gap-3 rounded-sm px-3 active:bg-accent',
+                  !canRestart && 'opacity-35'
+                )}
+                onPress={() => {
+                  setOpen(false);
+                  onRestart();
+                }}
+              >
+                <Icon as={RotateCw} size={18} className="text-muted-foreground" />
+                <Text className="text-sm font-semibold">Restart robot</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </FadeModal>
+      ) : null}
     </View>
   );
 }
@@ -237,17 +323,15 @@ function SystemMessages({ snapshot }: { snapshot: DriverStationSnapshot }) {
   );
 }
 
-function ControlPanel({
+function getOpModeAction({
   snapshot,
   selectedOpMode,
-  onSelect,
   onInit,
   onStart,
   onStop,
 }: {
   snapshot: DriverStationSnapshot;
   selectedOpMode: string | null;
-  onSelect: (name: string) => void;
   onInit: () => void;
   onStart: () => void;
   onStop: () => void;
@@ -260,17 +344,58 @@ function ControlPanel({
     snapshot.activeOpMode === selected.name &&
     snapshot.opModePhase === 'init';
   const canStop = connected && snapshot.activeOpMode !== STOP_OP_MODE;
+  const action = canStop
+    ? snapshot.opModePhase === 'running'
+      ? {
+          label: 'STOP',
+          icon: CircleStop,
+          enabled: true,
+          className: 'bg-destructive',
+          iconClassName: 'text-destructive-foreground',
+          textClassName: 'text-destructive-foreground',
+          onPress: onStop,
+        }
+      : {
+          label: 'START',
+          icon: Play,
+          enabled: canStart,
+          className: 'bg-success',
+          iconClassName: 'text-success-foreground',
+          textClassName: 'text-success-foreground',
+          onPress: onStart,
+        }
+    : {
+        label: 'INIT',
+        icon: Power,
+        enabled: connected && selected !== undefined,
+        className: 'bg-secondary',
+        iconClassName: 'text-secondary-foreground',
+        textClassName: 'text-secondary-foreground',
+        onPress: onInit,
+      };
+  return action;
+}
+
+function ControlPanel(props: {
+  snapshot: DriverStationSnapshot;
+  selectedOpMode: string | null;
+  onSelect: (name: string) => void;
+  onInit: () => void;
+  onStart: () => void;
+  onStop: () => void;
+}) {
+  const { snapshot, selectedOpMode, onSelect } = props;
+  const connected = snapshot.status === 'connected';
+  const action = getOpModeAction(props);
   const options = snapshot.opModes.map((opMode) => ({
     value: opMode.name,
     label: opMode.name,
   }));
 
   return (
-    <View className="w-[38%] min-w-72 gap-3 border-r border-border p-4">
-      <View>
-        <Text className="mb-1.5 text-[10px] font-bold uppercase text-muted-foreground">
-          OpMode
-        </Text>
+    <View className="w-[46%] min-w-72 border-r border-border">
+      <View className="border-b border-border p-3">
+        <Text className="mb-1 text-[10px] font-bold uppercase text-muted-foreground">OpMode</Text>
         <Select
           options={options}
           value={selectedOpMode}
@@ -283,7 +408,7 @@ function ControlPanel({
         />
       </View>
 
-      <View className="rounded-sm border border-border bg-card p-3">
+      <View className="border-b border-border bg-card px-3 py-2.5">
         <View className="flex-row items-center justify-between gap-3">
           <View className="min-w-0 flex-1">
             <Text className="text-[10px] font-bold uppercase text-muted-foreground">
@@ -301,37 +426,26 @@ function ControlPanel({
         </View>
       </View>
 
-      <View className="flex-row gap-2">
-        <Button
-          className="flex-1"
-          size="sm"
-          variant="secondary"
-          icon={Power}
-          label="Init"
-          disabled={!connected || !selected || snapshot.opModePhase === 'running'}
-          onPress={onInit}
-        />
-        <Button
-          className="flex-1"
-          size="sm"
-          variant="success"
-          icon={Play}
-          label="Start"
-          disabled={!canStart}
-          onPress={onStart}
-        />
-        <Button
-          className="flex-1"
-          size="sm"
-          variant="destructive"
-          icon={CircleStop}
-          label="Stop"
-          disabled={!canStop}
-          onPress={onStop}
-        />
+      <View className="min-h-32 flex-1 items-center justify-center p-3">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={action.label}
+          disabled={!action.enabled}
+          onPress={action.onPress}
+          className={cn(
+            'h-28 w-28 items-center justify-center rounded-full border-4 border-background active:opacity-85',
+            action.className,
+            !action.enabled && 'opacity-40'
+          )}
+        >
+          <Icon as={action.icon} size={27} className={action.iconClassName} />
+          <Text className={cn('mt-1 text-base font-extrabold', action.textClassName)}>
+            {action.label}
+          </Text>
+        </Pressable>
       </View>
 
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <ScrollView className="max-h-24 px-3 pb-3" showsVerticalScrollIndicator={false}>
         <SystemMessages snapshot={snapshot} />
       </ScrollView>
     </View>
@@ -340,14 +454,14 @@ function ControlPanel({
 
 function TelemetryPanel({ snapshot }: { snapshot: DriverStationSnapshot }) {
   return (
-    <View className="min-w-0 flex-1 p-4">
-      <View className="mb-2 flex-row items-center justify-between">
+    <View className="min-w-0 flex-1">
+      <View className="h-10 flex-row items-center justify-between border-b border-border bg-card px-3">
         <Text className="text-sm font-bold">Telemetry</Text>
         <Text className="text-[10px] text-muted-foreground">
           {snapshot.telemetry.length} values
         </Text>
       </View>
-      <ScrollView className="flex-1 rounded-sm border border-border bg-card">
+      <ScrollView className="flex-1">
         {snapshot.telemetry.map((entry, index) => (
           <View
             key={`${entry.key}-${index}`}
@@ -365,7 +479,7 @@ function TelemetryPanel({ snapshot }: { snapshot: DriverStationSnapshot }) {
           </View>
         ))}
         {snapshot.telemetry.length === 0 ? (
-          <View className="items-center justify-center px-4 py-12">
+          <View className="items-center justify-center px-4 py-16">
             <Text className="text-sm font-semibold text-muted-foreground">
               {snapshot.status === 'connected' ? 'No telemetry received' : 'Waiting for a Control Hub'}
             </Text>
@@ -536,9 +650,11 @@ function HardwarePanel({
 
 function NativeDriverStation() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { client, snapshot } = useDriverStation();
   const [tab, setTab] = React.useState<DriverStationTab>('control');
   const [selectedOpMode, setSelectedOpMode] = React.useState<string | null>(null);
+  const [gamepadUser, setGamepadUser] = React.useState<1 | 2>(1);
   const effectiveSelectedOpMode =
     selectedOpMode && snapshot.opModes.some((opMode) => opMode.name === selectedOpMode)
       ? selectedOpMode
@@ -548,6 +664,18 @@ function NativeDriverStation() {
     client.stopOpMode();
     router.back();
   };
+
+  const changeTab = (next: DriverStationTab) => {
+    client.setControllerEnabled(false);
+    setTab(next);
+  };
+  const action = getOpModeAction({
+    snapshot,
+    selectedOpMode: effectiveSelectedOpMode,
+    onInit: () => effectiveSelectedOpMode && client.initOpMode(effectiveSelectedOpMode),
+    onStart: () => effectiveSelectedOpMode && client.startOpMode(effectiveSelectedOpMode),
+    onStop: () => client.stopOpMode(),
+  });
 
   const restart = () => {
     Alert.alert(
@@ -561,11 +689,18 @@ function NativeDriverStation() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom', 'left', 'right']}>
+    <View className="flex-1 bg-background">
       <StatusBar hidden />
-      <DriverStationHeader snapshot={snapshot} onBack={leave} onRestart={restart} />
-      <View className="flex-1 flex-row">
-        <TabBar value={tab} onChange={setTab} />
+      <DriverStationHeader
+        snapshot={snapshot}
+        leftInset={insets.left}
+        onBack={tab === 'hardware' ? () => changeTab('control') : leave}
+        onConfiguration={() => changeTab('hardware')}
+        controllerView={tab === 'controller'}
+        onToggleController={() => changeTab(tab === 'controller' ? 'control' : 'controller')}
+        onRestart={restart}
+      />
+      <SafeAreaView className="flex-1" edges={['left']}>
         {tab === 'control' ? (
           <View className="min-w-0 flex-1 flex-row">
             <ControlPanel
@@ -578,6 +713,30 @@ function NativeDriverStation() {
             />
             <TelemetryPanel snapshot={snapshot} />
           </View>
+        ) : tab === 'controller' ? (
+          <ControllerPanel
+            key={`${snapshot.status}-${snapshot.opModePhase}`}
+            client={client}
+            gamepadUser={gamepadUser}
+            onSelectGamepad={(user) => {
+              client.setGamepadUser(user);
+              setGamepadUser(user);
+            }}
+            connected={snapshot.status === 'connected' && snapshot.opModePhase === 'running'}
+            opMode={snapshot.activeOpMode === STOP_OP_MODE ? effectiveSelectedOpMode : snapshot.activeOpMode}
+            action={
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={action.label}
+                disabled={!action.enabled}
+                onPress={action.onPress}
+                className={cn('h-12 w-36 flex-row items-center justify-center gap-2 rounded-sm', action.className, !action.enabled && 'opacity-40')}
+              >
+                <Icon as={action.icon} size={24} className={action.iconClassName} />
+                <Text className={cn('text-base font-extrabold', action.textClassName)}>{action.label}</Text>
+              </Pressable>
+            }
+          />
         ) : (
           <HardwarePanel
             key={snapshot.hardwareXml ?? 'no-hardware-configuration'}
@@ -586,8 +745,8 @@ function NativeDriverStation() {
             onSave={(xml) => client.saveHardwareConfiguration(xml)}
           />
         )}
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 

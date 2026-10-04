@@ -12,3 +12,5 @@ export const driverStationTransport: DriverStationTransport = {
   onDatagram: () => null,
   onError: () => null,
 };
+
+export const createDriverStationTransport = () => driverStationTransport;

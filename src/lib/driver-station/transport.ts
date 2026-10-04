@@ -7,6 +7,7 @@ import {
   stopDriverStationSocket,
   type DatagramEvent,
 } from '../../../modules/gentoo-driver-station';
+import { createTransportSessions } from './transport-sessions';
 
 export type RemoveListener = { remove: () => void };
 
@@ -29,3 +30,5 @@ export const driverStationTransport: DriverStationTransport = {
     return addDriverStationSocketErrorListener((event) => listener(event.message));
   },
 };
+
+export const createDriverStationTransport = createTransportSessions(driverStationTransport);

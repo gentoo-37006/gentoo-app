@@ -4,6 +4,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { isSupabaseConfigured } from '@/lib/env';
 import {
+  readCachedProfile,
+  removeCachedProfile,
+  writeCachedProfile,
+} from '@/lib/auth-profile-cache';
+import {
   DEMO_USER_ID,
   demoProfile,
   demoSession,
@@ -36,16 +41,12 @@ const PROFILE_RETRY_BASE_MS = 400;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * Resolving to `null` means "there is no profile for this user", NOT "we could
- * not tell" — the auth gate routes on the difference, and a fetch that failed
- * used to be reported as an absent profile, which pinned `routeSettled` false
- * and stranded the app on the splash screen for the rest of the session.
- *
- * A transport failure is worth retrying; `data === null` from a successful query
- * is an answer, so it returns straight away.
- */
-async function fetchProfile(userId: string): Promise<Profile | null> {
+type ProfileFetchResult =
+  | { available: true; profile: Profile | null }
+  | { available: false };
+
+/** A failed request is different from a successful response with no profile. */
+async function fetchProfile(userId: string): Promise<ProfileFetchResult> {
   for (let attempt = 1; attempt <= PROFILE_FETCH_ATTEMPTS; attempt++) {
     const { data, error } = await supabase
       .from('profiles')
@@ -53,7 +54,7 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
       .eq('id', userId)
       .maybeSingle();
 
-    if (!error) return (data as Profile) ?? null;
+    if (!error) return { available: true, profile: (data as Profile) ?? null };
 
     console.warn(
       `[auth] failed to load profile (attempt ${attempt}/${PROFILE_FETCH_ATTEMPTS}):`,
@@ -61,9 +62,7 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
     );
     if (attempt < PROFILE_FETCH_ATTEMPTS) await delay(PROFILE_RETRY_BASE_MS * attempt);
   }
-  // Out of attempts. The caller treats this like an unapproved account, which
-  // lands on /pending — a screen with retry, sign-out and delete-account on it.
-  return null;
+  return { available: false };
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -138,19 +137,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Fetch the profile for the (non-demo) signed-in user. Sync state resets
-  // (sign-out, user switch) live in the render-time adjustment above — no
-  // synchronous setState in this effect (react-hooks/set-state-in-effect).
+  // Restore the last verified profile before asking the server. This lets an
+  // approved user stay signed in while connected to a Control Hub network,
+  // which intentionally has no internet access.
   React.useEffect(() => {
     let active = true;
     if (!isSupabaseConfigured) return;
     if (isDemoMode() || userId === DEMO_USER_ID) return;
     if (!userId) return;
-    fetchProfile(userId).then((p) => {
+    void (async () => {
+      const cached = await readCachedProfile(userId);
       if (!active) return;
-      setProfile(p);
-      setProfileResolved(true);
-    });
+      if (cached) {
+        setProfile(cached);
+        setProfileResolved(true);
+      }
+
+      const result = await fetchProfile(userId);
+      if (!active) return;
+
+      if (result.available) {
+        setProfile(result.profile);
+        setProfileResolved(true);
+        if (result.profile) await writeCachedProfile(result.profile);
+        else await removeCachedProfile(userId);
+      } else if (!cached) {
+        // With no previously verified account data, /pending explains that the
+        // server is unavailable and offers a retry.
+        setProfileResolved(true);
+      }
+    })();
     return () => {
       active = false;
     };
@@ -165,10 +181,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfile(null);
       return;
     }
-    setProfile(await fetchProfile(userId));
+    const result = await fetchProfile(userId);
+    if (!result.available) return;
+    setProfile(result.profile);
+    if (result.profile) await writeCachedProfile(result.profile);
+    else await removeCachedProfile(userId);
   }, [userId]);
 
   const signOut = React.useCallback(async () => {
+    if (userId) await removeCachedProfile(userId);
     if (isDemoMode()) await stopDemoAuth();
     else await supabase.auth.signOut({ scope: 'local' });
     setDemoActive(false);
@@ -177,7 +198,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(null);
     setAuthResolved(true);
     setProfileResolved(true);
-  }, [queryClient]);
+  }, [queryClient, userId]);
 
   const signInDemo = React.useCallback(async () => {
     queryClient.clear();

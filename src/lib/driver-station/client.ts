@@ -1,4 +1,5 @@
 import { base64ToBytes, bytesToBase64 } from './base64';
+import { neutralGamepad, type GamepadState } from './gamepad';
 import {
   DriverStationCommand,
   FTC_SDK_VERSION,
@@ -11,6 +12,7 @@ import {
   parseRobocolPacket,
   serializeCommand,
   serializeHeartbeat,
+  serializeGamepad,
   serializePeerDiscovery,
   type CommandPacket,
   type TelemetryEntry,
@@ -18,7 +20,8 @@ import {
 import type { DriverStationTransport, RemoveListener } from './transport';
 
 const CONTROL_HUB_ADDRESSES = ['192.168.43.1', '192.168.49.1'];
-const DISCOVERY_INTERVAL_MS = 200;
+const DISCOVERY_INTERVAL_MS = 1_000;
+const HEARTBEAT_INTERVAL_MS = 100;
 const CONNECTION_TIMEOUT_MS = 2_000;
 const COMMAND_RETRY_MS = 100;
 const MAX_COMMAND_ATTEMPTS = 10;
@@ -137,6 +140,42 @@ export class DriverStationClient {
   private lastHeartbeatSentAt = 0;
   private lastDiscoveryAt = 0;
   private running = false;
+  private lifecycleGeneration = 0;
+  private gamepad: GamepadState = { ...neutralGamepad };
+  private controllerEnabled = false;
+  private neutralGamepadUntil = 0;
+  private gamepadUser: 1 | 2 = 1;
+
+  setGamepadUser(user: 1 | 2) {
+    this.resetGamepad();
+    this.gamepadUser = user;
+  }
+
+  setControllerEnabled(enabled: boolean) {
+    this.resetGamepad();
+    this.controllerEnabled = enabled;
+  }
+
+  updateGamepad(patch: Partial<GamepadState>) {
+    if (!this.controllerEnabled || this.snapshot.status !== 'connected' || this.snapshot.opModePhase !== 'running') return;
+    this.gamepad = { ...this.gamepad, ...patch };
+  }
+
+  resetGamepad() {
+    this.gamepad = { ...neutralGamepad };
+    // UDP has no acknowledgements: repeat neutral input briefly after release.
+    this.neutralGamepadUntil = Date.now() + 1_000;
+    if (this.remoteHost) {
+      this.sendGamepads(Date.now());
+    }
+  }
+
+  private sendGamepads(now: number) {
+    if (!this.remoteHost) return;
+    for (const user of [1, 2] as const) {
+      this.sendRaw(serializeGamepad(this.nextSequence(), user === this.gamepadUser ? this.gamepad : neutralGamepad, now, user), this.remoteHost);
+    }
+  }
 
   constructor(private readonly transport: DriverStationTransport) {
     this.snapshot = {
@@ -158,23 +197,35 @@ export class DriverStationClient {
 
   async start() {
     if (this.running || !this.transport.available) return;
+    const generation = ++this.lifecycleGeneration;
     this.running = true;
+    this.lastDiscoveryAt = 0;
+    this.lastHeartbeatSentAt = 0;
+    this.update({ ...initialSnapshot });
     const datagramSubscription = this.transport.onDatagram((event) => {
-      this.handleDatagram(base64ToBytes(event.data), event.host);
+      if (this.running && generation === this.lifecycleGeneration) {
+        this.handleDatagram(base64ToBytes(event.data), event.host);
+      }
     });
     const errorSubscription = this.transport.onError((message) => {
-      this.update({ status: 'error', statusMessage: message });
+      if (this.running && generation === this.lifecycleGeneration) {
+        this.update({ status: 'error', statusMessage: message });
+      }
     });
     if (datagramSubscription) this.subscriptions.push(datagramSubscription);
     if (errorSubscription) this.subscriptions.push(errorSubscription);
 
     try {
       await this.transport.start(ROBOCOL_PORT);
+      if (!this.running || generation !== this.lifecycleGeneration) return;
       this.update({ status: 'discovering', statusMessage: 'Looking for a REV Control Hub...' });
       this.timer = setInterval(() => this.tick(), 50);
       this.tick();
     } catch (error) {
+      if (generation !== this.lifecycleGeneration) return;
       this.running = false;
+      this.subscriptions.forEach((subscription) => subscription.remove());
+      this.subscriptions = [];
       this.update({
         status: 'error',
         statusMessage: error instanceof Error ? error.message : 'Unable to start Driver Station networking.',
@@ -183,6 +234,8 @@ export class DriverStationClient {
   }
 
   disconnect() {
+    this.lifecycleGeneration += 1;
+    this.setControllerEnabled(false);
     if (!this.running) return;
     if (this.remoteHost && this.snapshot.activeOpMode !== STOP_OP_MODE) {
       this.sendCommand(DriverStationCommand.InitOpMode, STOP_OP_MODE);
@@ -192,7 +245,10 @@ export class DriverStationClient {
     this.timer = null;
     this.subscriptions.forEach((subscription) => subscription.remove());
     this.subscriptions = [];
-    setTimeout(() => void this.transport.stop(), 150);
+    this.pendingCommands.clear();
+    this.remoteHost = null;
+    // The transport queues the final neutral/stop packets before socket close.
+    void this.transport.stop().catch(() => undefined);
   }
 
   initOpMode(name: string) {
@@ -206,6 +262,13 @@ export class DriverStationClient {
   }
 
   stopOpMode() {
+    this.setControllerEnabled(false);
+    // Do not retry a pending start after an emergency stop.
+    for (const [key, command] of this.pendingCommands) {
+      if (command.name === DriverStationCommand.RunOpMode || command.name === DriverStationCommand.InitOpMode) {
+        this.pendingCommands.delete(key);
+      }
+    }
     this.sendCommand(DriverStationCommand.InitOpMode, STOP_OP_MODE);
   }
 
@@ -249,12 +312,17 @@ export class DriverStationClient {
   }
 
   private sendRaw(packet: Uint8Array, host: string) {
+    const generation = this.lifecycleGeneration;
     void this.transport
       .send(bytesToBase64(packet), host, ROBOCOL_PORT)
       .catch((error) => {
+        if (!this.running || generation !== this.lifecycleGeneration || (this.remoteHost && host !== this.remoteHost)) return;
+        const status = this.remoteHost ? 'error' : 'discovering';
+        const statusMessage = error instanceof Error ? error.message : 'Unable to send to the Control Hub.';
+        if (this.snapshot.status === status && this.snapshot.statusMessage === statusMessage) return;
         this.update({
-          status: 'error',
-          statusMessage: error instanceof Error ? error.message : 'Unable to send to the Control Hub.',
+          status,
+          statusMessage,
         });
       });
   }
@@ -284,6 +352,7 @@ export class DriverStationClient {
     const now = Date.now();
 
     if (this.remoteHost && now - this.lastHeartbeatAt > CONNECTION_TIMEOUT_MS) {
+      this.gamepad = { ...neutralGamepad };
       this.remoteHost = null;
       this.sequence = 0;
       this.pendingCommands.clear();
@@ -302,16 +371,27 @@ export class DriverStationClient {
       });
     }
 
-    if (!this.remoteHost && now - this.lastDiscoveryAt >= DISCOVERY_INTERVAL_MS) {
-      this.lastDiscoveryAt = now;
-      const discovery = serializePeerDiscovery(this.nextSequence());
-      CONTROL_HUB_ADDRESSES.forEach((host) => this.sendRaw(discovery, host));
-    } else if (
-      this.remoteHost &&
-      now - this.lastHeartbeatSentAt >= DISCOVERY_INTERVAL_MS
-    ) {
+    if (!this.remoteHost) {
+      if (now - this.lastDiscoveryAt >= DISCOVERY_INTERVAL_MS) {
+        this.lastDiscoveryAt = now;
+        const discovery = serializePeerDiscovery(this.nextSequence());
+        CONTROL_HUB_ADDRESSES.forEach((host) => this.sendRaw(discovery, host));
+      }
+      // The Robot Controller accepts discovery but does not normally reply
+      // with another discovery packet. A heartbeat gives it traffic to echo,
+      // which confirms the peer address and completes the handshake.
+      if (now - this.lastHeartbeatSentAt >= HEARTBEAT_INTERVAL_MS) {
+        this.lastHeartbeatSentAt = now;
+        const heartbeat = serializeHeartbeat(this.nextSequence(), now);
+        CONTROL_HUB_ADDRESSES.forEach((host) => this.sendRaw(heartbeat, host));
+      }
+    } else if (now - this.lastHeartbeatSentAt >= HEARTBEAT_INTERVAL_MS) {
       this.lastHeartbeatSentAt = now;
       this.sendRaw(serializeHeartbeat(this.nextSequence(), now), this.remoteHost);
+    }
+
+    if (this.remoteHost && (this.controllerEnabled || now < this.neutralGamepadUntil) && this.snapshot.status === 'connected') {
+      this.sendGamepads(now);
     }
 
     for (const [key, pending] of this.pendingCommands) {
@@ -354,26 +434,19 @@ export class DriverStationClient {
         return;
       }
       if (packet.peerType !== PeerType.Peer) return;
-      if (!this.remoteHost) {
-        this.remoteHost = host;
-        this.sequence = 0;
-        this.lastHeartbeatAt = now;
-        this.update({
-          status: 'connected',
-          statusMessage: 'Connected',
-          peerHost: host,
-          lastPacketAt: now,
-          sdkVersion: `${packet.sdkMajorVersion}.${packet.sdkMinorVersion}`,
-        });
-        this.sendCommand(DriverStationCommand.RequestActiveConfig);
-        this.sendCommand(DriverStationCommand.RequestOpModeList);
-      }
+      this.connectToPeer(host, `${packet.sdkMajorVersion}.${packet.sdkMinorVersion}`);
       return;
     }
 
+    // A normal Robot Controller does not echo peer discovery. Its first valid
+    // heartbeat, command, or telemetry packet is therefore the connection
+    // confirmation. Only adopt a known Control Hub address during discovery.
+    if (!this.remoteHost && CONTROL_HUB_ADDRESSES.includes(host)) {
+      this.connectToPeer(host);
+    }
     if (host !== this.remoteHost) return;
     this.lastHeartbeatAt = now;
-    this.update({ lastPacketAt: now });
+    this.update({ status: 'connected', statusMessage: 'Connected', lastPacketAt: now });
 
     if (packet.type === RobocolMessageType.Heartbeat) {
       const latency = packet.t0 > 0n ? Math.max(0, now - Number(packet.t0)) : null;
@@ -392,6 +465,24 @@ export class DriverStationClient {
     if (packet.type === RobocolMessageType.Command) {
       this.handleCommand(packet);
     }
+  }
+
+  private connectToPeer(host: string, sdkVersion: string | null = null) {
+    if (this.remoteHost) return;
+    const now = Date.now();
+    this.remoteHost = host;
+    this.sequence = 0;
+    this.lastHeartbeatAt = now;
+    this.lastHeartbeatSentAt = 0;
+    this.update({
+      status: 'connected',
+      statusMessage: 'Connected',
+      peerHost: host,
+      lastPacketAt: now,
+      sdkVersion,
+    });
+    this.sendCommand(DriverStationCommand.RequestActiveConfig);
+    this.sendCommand(DriverStationCommand.RequestOpModeList);
   }
 
   private acknowledge(packet: CommandPacket) {
