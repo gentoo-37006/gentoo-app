@@ -7,10 +7,11 @@ import {
   ScrollView,
   TextInput,
   View,
+  type GestureResponderEvent,
 } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Activity,
   AlertTriangle,
@@ -50,7 +51,8 @@ import {
 } from '@/lib/driver-station/hardware-config';
 import { STOP_OP_MODE } from '@/lib/driver-station/protocol';
 import { useDriverStation } from '@/lib/driver-station/use-driver-station';
-import { ControllerPanel } from '@/components/driver-station/controller-panel';
+import { ControllerPanel, type ControllerPanelHandle } from '@/components/driver-station/controller-panel';
+import { controllerPressHaptic } from '@/lib/driver-station/haptics';
 
 type DriverStationTab = 'control' | 'controller' | 'hardware';
 
@@ -98,7 +100,6 @@ function DriverStationHeader({
   onBack,
   onConfiguration,
   onRestart,
-  leftInset,
   controllerView,
   onToggleController,
 }: {
@@ -106,7 +107,6 @@ function DriverStationHeader({
   onBack: () => void;
   onConfiguration: () => void;
   onRestart: () => void;
-  leftInset: number;
   controllerView: boolean;
   onToggleController: () => void;
 }) {
@@ -115,8 +115,7 @@ function DriverStationHeader({
   const [connectionDetailsOpen, setConnectionDetailsOpen] = React.useState(false);
   return (
     <View
-      className="h-14 flex-row items-center border-b border-border bg-card pr-1"
-      style={{ paddingLeft: leftInset + 4 }}
+      className="h-14 flex-row items-center border-b border-border bg-card px-6"
     >
       <Pressable
         accessibilityRole="button"
@@ -650,11 +649,14 @@ function HardwarePanel({
 
 function NativeDriverStation() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { client, snapshot } = useDriverStation();
   const [tab, setTab] = React.useState<DriverStationTab>('control');
   const [selectedOpMode, setSelectedOpMode] = React.useState<string | null>(null);
   const [gamepadUser, setGamepadUser] = React.useState<1 | 2>(1);
+  const controllerRef = React.useRef<ControllerPanelHandle>(null);
+  const resetWhenNoTouches = (event: GestureResponderEvent) => {
+    if (event.nativeEvent.touches.length === 0) controllerRef.current?.resetTouches();
+  };
   const effectiveSelectedOpMode =
     selectedOpMode && snapshot.opModes.some((opMode) => opMode.name === selectedOpMode)
       ? selectedOpMode
@@ -689,18 +691,17 @@ function NativeDriverStation() {
   };
 
   return (
-    <View className="flex-1 bg-background">
+    <View className="flex-1 bg-background" onTouchEnd={resetWhenNoTouches} onTouchCancel={resetWhenNoTouches} onTouchMove={resetWhenNoTouches}>
       <StatusBar hidden />
       <DriverStationHeader
         snapshot={snapshot}
-        leftInset={insets.left}
         onBack={tab === 'hardware' ? () => changeTab('control') : leave}
         onConfiguration={() => changeTab('hardware')}
         controllerView={tab === 'controller'}
         onToggleController={() => changeTab(tab === 'controller' ? 'control' : 'controller')}
         onRestart={restart}
       />
-      <SafeAreaView className="flex-1" edges={['left']}>
+      <SafeAreaView className="flex-1" edges={tab === 'controller' ? [] : ['left']}>
         {tab === 'control' ? (
           <View className="min-w-0 flex-1 flex-row">
             <ControlPanel
@@ -715,6 +716,7 @@ function NativeDriverStation() {
           </View>
         ) : tab === 'controller' ? (
           <ControllerPanel
+            ref={controllerRef}
             key={`${snapshot.status}-${snapshot.opModePhase}`}
             client={client}
             gamepadUser={gamepadUser}
@@ -723,13 +725,12 @@ function NativeDriverStation() {
               setGamepadUser(user);
             }}
             connected={snapshot.status === 'connected' && snapshot.opModePhase === 'running'}
-            opMode={snapshot.activeOpMode === STOP_OP_MODE ? effectiveSelectedOpMode : snapshot.activeOpMode}
             action={
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={action.label}
                 disabled={!action.enabled}
-                onPress={action.onPress}
+                onPress={() => { controllerPressHaptic(action.label === 'STOP'); action.onPress(); }}
                 className={cn('h-12 w-36 flex-row items-center justify-center gap-2 rounded-sm', action.className, !action.enabled && 'opacity-40')}
               >
                 <Icon as={action.icon} size={24} className={action.iconClassName} />

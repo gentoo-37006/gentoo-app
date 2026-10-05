@@ -1,5 +1,7 @@
 import Darwin
+import CoreHaptics
 import ExpoModulesCore
+import UIKit
 
 private final class DriverStationSocketException: GenericException<String>, @unchecked Sendable {
   override var reason: String { param }
@@ -10,6 +12,8 @@ public final class GentooDriverStationModule: Module {
   private let receiveQueue = DispatchQueue(label: "com.gentoo.driverstation.udp")
   private var socketDescriptor: Int32 = -1
   private var readSource: DispatchSourceRead?
+  private var hapticEngine: CHHapticEngine?
+  private var rumblePlayer: CHHapticAdvancedPatternPlayer?
 
   public func definition() -> ModuleDefinition {
     Name("GentooDriverStation")
@@ -28,9 +32,93 @@ public final class GentooDriverStationModule: Module {
       try self.sendDatagram(base64: base64, host: host, port: port)
     }
 
+    AsyncFunction("rumble") { (steps: [[String: Int]]) in
+      try self.playRumble(steps)
+    }
+    .runOnQueue(.main)
+
+    AsyncFunction("stopRumble") {
+      self.stopRumble()
+    }
+    .runOnQueue(.main)
+
+    AsyncFunction("joystickTick") { (strength: Double, sharpness: Double) in
+      guard UIApplication.shared.applicationState == .active,
+            CHHapticEngine.capabilitiesForHardware().supportsHaptics else { return }
+      let engine = try self.engineForHaptics()
+      try engine.start()
+      let event = CHHapticEvent(eventType: .hapticTransient, parameters: [
+        CHHapticEventParameter(parameterID: .hapticIntensity, value: Float(max(0, min(1, strength)))),
+        CHHapticEventParameter(parameterID: .hapticSharpness, value: Float(max(0, min(1, sharpness))))
+      ], relativeTime: 0)
+      let pattern = try CHHapticPattern(events: [event], parameters: [])
+      let player = try engine.makePlayer(with: pattern)
+      try player.start(atTime: CHHapticTimeImmediate)
+    }
+    .runOnQueue(.main)
+
     OnDestroy {
       self.stopSocket()
+      DispatchQueue.main.async { self.stopRumble() }
     }
+  }
+
+  private func stopRumble() {
+    try? rumblePlayer?.stop(atTime: CHHapticTimeImmediate)
+    rumblePlayer = nil
+  }
+
+  private func engineForHaptics() throws -> CHHapticEngine {
+    if let engine = hapticEngine { return engine }
+    let engine = try CHHapticEngine()
+    engine.playsHapticsOnly = true
+    engine.isAutoShutdownEnabled = true
+    hapticEngine = engine
+    return engine
+  }
+
+  private func playRumble(_ steps: [[String: Int]]) throws {
+    stopRumble()
+    guard UIApplication.shared.applicationState == .active,
+          CHHapticEngine.capabilitiesForHardware().supportsHaptics else { return }
+
+    var events: [CHHapticEvent] = []
+    var time: TimeInterval = 0
+    var continuous = false
+    for step in steps.prefix(128) {
+      let large = Float(max(0, min(255, step["large"] ?? 0))) / 255
+      let small = Float(max(0, min(255, step["small"] ?? 0))) / 255
+      let milliseconds = step["duration"] ?? 0
+      continuous = milliseconds == -1 && steps.count == 1
+      var remaining = continuous ? 1.0 : Double(max(0, min(60_000, milliseconds))) / 1000
+      if large == 0 && small == 0 {
+        time += remaining
+        continue
+      }
+      while remaining > 0 {
+        let duration = min(30, remaining)
+        events.append(CHHapticEvent(
+          eventType: .hapticContinuous,
+          parameters: [
+            CHHapticEventParameter(parameterID: .hapticIntensity, value: max(large, small)),
+            CHHapticEventParameter(parameterID: .hapticSharpness, value: small)
+          ],
+          relativeTime: time,
+          duration: duration
+        ))
+        time += duration
+        remaining -= duration
+      }
+    }
+    guard !events.isEmpty else { return }
+    let engine = try engineForHaptics()
+    try engine.start()
+    let pattern = try CHHapticPattern(events: events, parameters: [])
+    let player = try engine.makeAdvancedPlayer(with: pattern)
+    player.loopEnabled = continuous
+    if continuous { player.loopEnd = time }
+    rumblePlayer = player
+    try player.start(atTime: CHHapticTimeImmediate)
   }
 
   private func startSocket(port: Int) throws {

@@ -1,6 +1,11 @@
 package com.gentoo.driverstation
 
 import android.util.Base64
+import android.content.Context
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.core.os.bundleOf
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -15,6 +20,7 @@ class GentooDriverStationModule : Module() {
   private val running = AtomicBoolean(false)
   private var socket: DatagramSocket? = null
   private var receiveThread: Thread? = null
+  private var rumbleVibrator: Vibrator? = null
 
   override fun definition() = ModuleDefinition {
     Name("GentooDriverStation")
@@ -38,8 +44,73 @@ class GentooDriverStationModule : Module() {
       activeSocket.send(packet)
     }
 
+    AsyncFunction("rumble") { steps: List<Map<String, Int>> ->
+      stopRumble()
+      val vibrator = phoneVibrator()
+      if (vibrator != null && vibrator.hasVibrator() && steps.isNotEmpty()) {
+        val bounded = steps.take(128)
+        val timings = bounded.map { step ->
+          if (step["duration"] == -1) 1000L else (step["duration"] ?: 0).coerceIn(0, 60000).toLong()
+        }.toLongArray()
+        val amplitudes = bounded.map { step ->
+          maxOf(step["large"] ?: 0, step["small"] ?: 0).coerceIn(0, 255)
+        }.toIntArray()
+        val repeat = if (bounded.size == 1 && bounded[0]["duration"] == -1) 0 else -1
+        if (timings.any { it > 0 } && amplitudes.any { it > 0 }) {
+          rumbleVibrator = vibrator
+          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, repeat))
+          } else {
+            // Android 7 supports timed vibration but not adjustable strength.
+            val pattern = mutableListOf(0L)
+            timings.indices.forEach { index ->
+              val on = amplitudes[index] > 0
+              if ((pattern.lastIndex % 2 == 1) == on) {
+                pattern[pattern.lastIndex] += timings[index]
+              } else {
+                pattern.add(timings[index])
+              }
+            }
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(pattern.toLongArray(), repeat)
+          }
+        }
+      }
+    }
+
+    AsyncFunction("stopRumble") { stopRumble() }
+
+    AsyncFunction("joystickTick") { strength: Double, _sharpness: Double ->
+      val vibrator = phoneVibrator()
+      if (vibrator != null && vibrator.hasVibrator()) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+          val amplitude = (strength.coerceIn(0.0, 1.0) * 255).toInt().coerceIn(1, 255)
+          vibrator.vibrate(VibrationEffect.createOneShot(12, amplitude))
+        } else {
+          @Suppress("DEPRECATION")
+          vibrator.vibrate(12L)
+        }
+      }
+    }
+
     OnDestroy {
       stopSocket()
+      stopRumble()
+    }
+  }
+
+  private fun stopRumble() {
+    rumbleVibrator?.cancel()
+    rumbleVibrator = null
+  }
+
+  @Suppress("DEPRECATION")
+  private fun phoneVibrator(): Vibrator? {
+    val context = appContext.reactContext ?: return null
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      context.getSystemService(VibratorManager::class.java)?.defaultVibrator
+    } else {
+      context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
     }
   }
 

@@ -19,6 +19,9 @@ declare class GentooDriverStationNativeModule extends NativeModule<DriverStation
   start(port: number): Promise<void>;
   stop(): Promise<void>;
   send(data: string, host: string, port: number): Promise<void>;
+  rumble(steps: { large: number; small: number; duration: number }[]): Promise<void>;
+  stopRumble(): Promise<void>;
+  joystickTick(strength: number, sharpness: number): Promise<void>;
 }
 
 const nativeModule =
@@ -27,6 +30,18 @@ const nativeModule =
   );
 
 export const isDriverStationTransportAvailable = nativeModule !== null;
+
+export async function playDriverStationRumble(steps: { large: number; small: number; duration: number }[]) {
+  await nativeModule?.rumble(steps);
+}
+
+export async function stopDriverStationRumble() {
+  await nativeModule?.stopRumble();
+}
+
+export async function playDriverStationJoystickTick(strength: number, sharpness: number) {
+  await nativeModule?.joystickTick(strength, sharpness);
+}
 
 export async function startDriverStationSocket(port: number) {
   if (!nativeModule) throw new Error('The Driver Station native module is not installed. Rebuild Gentoo.');

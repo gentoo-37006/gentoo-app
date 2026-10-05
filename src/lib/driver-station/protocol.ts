@@ -48,6 +48,7 @@ export const DriverStationCommand = {
   NotifyInitOpMode: 'CMD_NOTIFY_INIT_OP_MODE',
   NotifyRunOpMode: 'CMD_NOTIFY_RUN_OP_MODE',
   ShowStacktrace: 'CMD_SHOW_STACKTRACE',
+  RumbleGamepad: 'CMD_RUMBLE_EFFECT',
 } as const;
 
 export type DriverStationCommandName =

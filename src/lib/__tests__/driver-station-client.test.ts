@@ -37,6 +37,60 @@ function createTransport() {
 }
 
 describe('DriverStationClient', () => {
+  it('does not send or retain controller input entered offline', async () => {
+    vi.useFakeTimers();
+    try {
+      const fake = createTransport();
+      const client = new DriverStationClient(fake.transport);
+      await client.start();
+      client.setControllerEnabled(true);
+      client.updateGamepad({ leftStickX: 1, buttons: 0x100 });
+      await vi.advanceTimersByTimeAsync(100);
+      expect(fake.sent.some((item) => base64ToBytes(item.data)[0] === RobocolMessageType.Gamepad)).toBe(false);
+      fake.receive(serializeHeartbeat(1));
+      fake.receive(serializeCommand({ sequence: 2, timestamp: 2n, name: DriverStationCommand.NotifyRunOpMode, extra: 'TeleOp' }));
+      await vi.advanceTimersByTimeAsync(50);
+      const gamepads = fake.sent.map((item) => base64ToBytes(item.data)).filter((item) => item[0] === RobocolMessageType.Gamepad);
+      expect(gamepads.length).toBeGreaterThan(0);
+      expect(gamepads.every((bytes) => new DataView(bytes.buffer).getFloat32(18) === 0 && new DataView(bytes.buffer).getUint32(42) === 0)).toBe(true);
+      client.disconnect();
+      await vi.runAllTimersAsync();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('routes rumble to the selected gamepad, acknowledges retries without replaying, and cancels on stop', async () => {
+    vi.useFakeTimers();
+    try {
+      const fake = createTransport();
+      const client = new DriverStationClient(fake.transport);
+      const rumble = vi.fn();
+      client.subscribeRumble(rumble);
+      await client.start();
+      fake.receive(serializeHeartbeat(1));
+      fake.receive(serializeCommand({ sequence: 2, timestamp: 2n, name: DriverStationCommand.NotifyRunOpMode, extra: 'TeleOp' }));
+      const effect = { user: 1, steps: [{ large: 255, small: 64, duration: 250 }] };
+      const packet = serializeCommand({ sequence: 3, timestamp: 3n, name: DriverStationCommand.RumbleGamepad, extra: effect });
+      fake.receive(packet);
+      fake.receive(packet);
+      expect(rumble).toHaveBeenCalledTimes(1);
+      expect(rumble).toHaveBeenLastCalledWith(effect);
+      const acknowledgements = fake.sent.map((item) => parseRobocolPacket(base64ToBytes(item.data)))
+        .filter((item) => item?.type === RobocolMessageType.Command && item.name === DriverStationCommand.RumbleGamepad);
+      expect(acknowledgements).toHaveLength(2);
+      client.setGamepadUser(2);
+      expect(rumble).toHaveBeenLastCalledWith(null);
+      rumble.mockClear();
+      fake.receive(serializeCommand({ sequence: 4, timestamp: 4n, name: DriverStationCommand.RumbleGamepad, extra: effect }));
+      expect(rumble).not.toHaveBeenCalled();
+      fake.receive(serializeCommand({ sequence: 5, timestamp: 5n, name: DriverStationCommand.RumbleGamepad, extra: { ...effect, user: 2 } }));
+      expect(rumble).toHaveBeenLastCalledWith({ ...effect, user: 2 });
+      client.stopOpMode();
+      expect(rumble).toHaveBeenLastCalledWith(null);
+      client.disconnect();
+      await vi.runAllTimersAsync();
+    } finally { vi.useRealTimers(); }
+  });
+
   it('does not create a polling timer after disconnecting during startup', async () => {
     vi.useFakeTimers();
     try {

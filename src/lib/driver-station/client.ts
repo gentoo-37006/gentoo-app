@@ -1,5 +1,6 @@
 import { base64ToBytes, bytesToBase64 } from './base64';
 import { neutralGamepad, type GamepadState } from './gamepad';
+import { parseRumbleEffect, type RumbleEffect } from './rumble';
 import {
   DriverStationCommand,
   FTC_SDK_VERSION,
@@ -141,17 +142,30 @@ export class DriverStationClient {
   private lastDiscoveryAt = 0;
   private running = false;
   private lifecycleGeneration = 0;
+  private rumbleListeners = new Set<(effect: RumbleEffect | null) => void>();
+  private receivedRumbleCommands = new Set<string>();
+
+  subscribeRumble(listener: (effect: RumbleEffect | null) => void) {
+    this.rumbleListeners.add(listener);
+    return () => { this.rumbleListeners.delete(listener); };
+  }
+
+  private stopRumble() {
+    this.rumbleListeners.forEach((listener) => listener(null));
+  }
   private gamepad: GamepadState = { ...neutralGamepad };
   private controllerEnabled = false;
   private neutralGamepadUntil = 0;
   private gamepadUser: 1 | 2 = 1;
 
   setGamepadUser(user: 1 | 2) {
+    this.stopRumble();
     this.resetGamepad();
     this.gamepadUser = user;
   }
 
   setControllerEnabled(enabled: boolean) {
+    if (!enabled) this.stopRumble();
     this.resetGamepad();
     this.controllerEnabled = enabled;
   }
@@ -199,6 +213,7 @@ export class DriverStationClient {
     if (this.running || !this.transport.available) return;
     const generation = ++this.lifecycleGeneration;
     this.running = true;
+    this.receivedRumbleCommands.clear();
     this.lastDiscoveryAt = 0;
     this.lastHeartbeatSentAt = 0;
     this.update({ ...initialSnapshot });
@@ -352,6 +367,8 @@ export class DriverStationClient {
     const now = Date.now();
 
     if (this.remoteHost && now - this.lastHeartbeatAt > CONNECTION_TIMEOUT_MS) {
+      this.stopRumble();
+      this.receivedRumbleCommands.clear();
       this.gamepad = { ...neutralGamepad };
       this.remoteHost = null;
       this.sequence = 0;
@@ -513,6 +530,19 @@ export class DriverStationClient {
 
     this.acknowledge(packet);
     switch (packet.name) {
+      case DriverStationCommand.RumbleGamepad: {
+        const key = `${packet.name}:${packet.timestamp}`;
+        if (this.receivedRumbleCommands.has(key)) break;
+        this.receivedRumbleCommands.add(key);
+        if (this.receivedRumbleCommands.size > 128) {
+          this.receivedRumbleCommands.delete(this.receivedRumbleCommands.values().next().value!);
+        }
+        const effect = parseRumbleEffect(packet.extra);
+        if (effect && effect.user === this.gamepadUser && this.snapshot.opModePhase === 'running') {
+          this.rumbleListeners.forEach((listener) => listener(effect));
+        }
+        break;
+      }
       case DriverStationCommand.NotifyOpModeList: {
         const opModes = Array.isArray(packet.extra)
           ? packet.extra.filter(isOpMode).sort((a, b) =>
@@ -525,6 +555,7 @@ export class DriverStationClient {
         break;
       }
       case DriverStationCommand.NotifyInitOpMode: {
+        this.stopRumble();
         const activeOpMode = typeof packet.extra === 'string' ? packet.extra : STOP_OP_MODE;
         this.update({
           activeOpMode,
