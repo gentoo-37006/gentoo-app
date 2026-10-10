@@ -13,7 +13,7 @@ import { useDownloads, downloadUrl, formatSize, type DownloadItem } from '@/lib/
 
 /** The published iOS app. Hard-coded rather than fetched: the App Store listing
  *  is not a GitHub release asset, so the downloads function never returns it. */
-const APP_STORE_URL = 'https://apps.apple.com/us/app/gentoo/id6785305308';
+const APP_STORE_URL = 'https://apps.apple.com/ca/app/gentoo/id6785305308';
 
 /** Everything installable, including the platforms with no downloadable asset. */
 type InstallPlatform = DownloadItem['os'] | 'iOS';
