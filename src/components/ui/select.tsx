@@ -110,6 +110,7 @@ function OptionDropdown<T extends string>({
       <View className="flex-1">
         <Pressable className="absolute inset-0 cursor-default" onPress={onClose} />
         <View
+          testID="select-dropdown"
           className="absolute overflow-hidden rounded-md border border-border bg-popover"
           style={{ left: frame.left, top: frame.top, width: frame.width, maxHeight: frame.maxHeight }}
         >
@@ -219,6 +220,7 @@ export function Select<T extends string>({
   className,
   renderValue,
   triggerContent,
+  menuAnchorRef,
   onOpenChange,
   pinnedValues,
 }: {
@@ -229,6 +231,7 @@ export function Select<T extends string>({
   className?: string;
   renderValue?: (option: SelectOption<T>) => React.ReactNode;
   triggerContent?: React.ReactNode;
+  menuAnchorRef?: React.RefObject<View | null>;
   onOpenChange?: (open: boolean) => void;
   pinnedValues?: T[];
 }) {
@@ -237,7 +240,7 @@ export function Select<T extends string>({
   const triggerRef = React.useRef<View>(null);
   const current = options.find((o) => o.value === value);
   const openDropdown = () =>
-    triggerRef.current?.measureInWindow((left, top, width, height) => {
+    (menuAnchorRef ?? triggerRef).current?.measureInWindow((left, top, width, height) => {
       setAnchor({ left, top, width, height });
       setOpen(true);
       onOpenChange?.(true);

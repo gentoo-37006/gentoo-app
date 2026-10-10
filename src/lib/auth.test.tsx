@@ -11,7 +11,6 @@ import type { Profile } from './types';
 jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn() }));
 jest.mock('@/lib/env', () => ({ isSupabaseConfigured: true }));
 jest.mock('@/lib/auth-profile-cache', () => ({ readCachedProfile: jest.fn(), writeCachedProfile: jest.fn(), removeCachedProfile: jest.fn() }));
-jest.mock('@/lib/driver-station/resume', () => ({ forgetDriverStation: jest.fn() }));
 jest.mock('@/lib/demo', () => ({ initDemoAuth: jest.fn(async () => false), isDemoMode: () => false }));
 jest.mock('@tanstack/react-query', () => {
   const queryClient = { resetQueries: jest.fn(), clear: jest.fn() };

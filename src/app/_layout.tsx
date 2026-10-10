@@ -39,7 +39,6 @@ import { Providers } from '@/components/providers';
 import { UpdateBanner } from '@/components/update-banner';
 import { useAuth } from '@/lib/auth';
 import { useDatabaseRealtime } from '@/lib/use-database-realtime';
-import { shouldResumeDriverStation } from '@/lib/driver-station/resume';
 import { canReloadNativeUpdate } from '@/lib/native-update-policy';
 
 const SPLASH_FADE_DURATION = 75;
@@ -229,19 +228,6 @@ function RootNavigator({
   const onSignIn = segments[1] === 'sign-in';
   const onPending = segments[1] === 'pending';
   const onDownloads = pathname === '/downloads';
-  const resumeChecked = React.useRef(false);
-  React.useEffect(() => {
-    if (Platform.OS === 'web' || initializing || !session || profile?.status !== 'approved') return;
-    if (resumeChecked.current || inAuthGroup) return;
-    if (pathname !== '/') { resumeChecked.current = true; return; }
-    let cancelled = false;
-    void shouldResumeDriverStation(session.user.id).then((resume) => {
-      if (cancelled) return;
-      resumeChecked.current = true;
-      if (resume) router.replace('/driver-station');
-    });
-    return () => { cancelled = true; };
-  }, [initializing, session, profile?.status, inAuthGroup, pathname, router]);
 
   React.useEffect(() => {
     if (Platform.OS === 'web') return;

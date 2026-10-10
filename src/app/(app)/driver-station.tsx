@@ -1,7 +1,6 @@
 import * as React from 'react';
 import {
   Alert,
-  AppState,
   Dimensions,
   Platform,
   Pressable,
@@ -55,8 +54,6 @@ import { OpModeActionButton } from '@/components/driver-station/opmode-action-bu
 import { RobotWifiPanel } from '@/components/driver-station/robot-wifi-panel';
 import { OpModePicker } from '@/components/driver-station/opmode-picker';
 import { selectedOpModeForCategory, type OpModeCategory } from '@/lib/driver-station/opmode-selection';
-import { forgetDriverStation, rememberDriverStation } from '@/lib/driver-station/resume';
-import { useAuth } from '@/lib/auth';
 
 type DriverStationTab = 'control' | 'controller' | 'hardware' | 'wifi';
 
@@ -620,7 +617,6 @@ function HardwarePanel({
 function NativeDriverStation() {
   const router = useRouter();
   const navigation = useNavigation();
-  const { session } = useAuth();
   const { client, snapshot } = useDriverStation();
   const [tab, setTab] = React.useState<DriverStationTab>('control');
   const [selectedOpMode, setSelectedOpMode] = React.useState<string | null>(null);
@@ -631,24 +627,13 @@ function NativeDriverStation() {
     if (event.nativeEvent.touches.length === 0) controllerRef.current?.resetTouches();
   };
   const effectiveSelectedOpMode = selectedOpModeForCategory(snapshot.opModes, category, selectedOpMode);
-  const userId = session?.user.id;
   React.useEffect(() => navigation.addListener('beforeRemove', () => {
     client.stopOpMode();
-    void forgetDriverStation();
   }), [navigation, client]);
-  React.useEffect(() => {
-    if (!userId) return;
-    void rememberDriverStation(userId);
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state !== 'active') void rememberDriverStation(userId);
-    });
-    return () => subscription.remove();
-  }, [userId]);
 
-  const leave = async () => {
+  const leave = () => {
     client.stopOpMode();
-    await forgetDriverStation();
-    router.back();
+    router.replace('/');
   };
 
   const changeTab = (next: DriverStationTab) => {

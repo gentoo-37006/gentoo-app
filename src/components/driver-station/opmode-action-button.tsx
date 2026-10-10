@@ -14,12 +14,12 @@ export function OpModeActionButton({ action, canStop, onStop, compact = false }:
   action: Action; canStop: boolean; onStop: () => void; compact?: boolean;
 }) {
   return (
-    <View className={compact ? 'h-12 w-36' : 'h-28 w-28'}>
+    <View className={compact ? 'h-12 w-36' : 'h-32 w-32'}>
       <Pressable accessibilityRole="button" accessibilityLabel={action.label} disabled={!action.enabled}
         onPress={() => { controllerPressHaptic(action.label === 'STOP'); action.onPress(); }}
-        className={cn(compact ? 'h-12 w-36 flex-row gap-2 rounded-sm' : 'h-28 w-28 rounded-full border-4 border-background',
+        className={cn(compact ? 'h-12 w-36 flex-row gap-2 rounded-sm' : 'h-32 w-32 rounded-full border-4 border-background',
           'items-center justify-center active:opacity-85', action.className, !action.enabled && 'opacity-40')}>
-        <Icon as={action.icon} size={compact ? 24 : 27} className={action.iconClassName} />
+        <Icon as={action.icon} size={compact ? 24 : 32} className={action.iconClassName} />
         <Text className={cn('text-base font-extrabold', !compact && 'mt-1', action.textClassName)}>{action.label}</Text>
       </Pressable>
       {canStop && action.label !== 'STOP' ? (

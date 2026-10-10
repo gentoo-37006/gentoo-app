@@ -21,7 +21,6 @@ import {
   stopDemoAuth,
 } from '@/lib/demo';
 import type { Profile } from '@/lib/types';
-import { forgetDriverStation } from '@/lib/driver-station/resume';
 
 type AuthContextValue = {
   /** True until the initial session + profile have been resolved. */
@@ -227,7 +226,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [userId]);
 
   const signOut = React.useCallback(async () => {
-    await forgetDriverStation();
     if (userId) await removeCachedProfile(userId);
     if (isDemoMode()) await stopDemoAuth();
     else await supabase.auth.signOut({ scope: 'local' });

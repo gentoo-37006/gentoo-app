@@ -1,9 +1,10 @@
 # Driver Station
 
 Native Driver Station keeps the screen awake while foregrounded. Backgrounding
-still neutralizes gamepads and stops the active OpMode. If the OS restarts Gentoo,
-the page is restored for the same approved account for up to 12 hours, but no
-OpMode or input is restored. Leaving the page or signing out clears the marker.
+still neutralizes gamepads and stops the active OpMode. A cold launch returns
+to the home screen after the normal account gate; Driver Station is never
+restored automatically. Its back button stops the OpMode and navigates home
+even when there is no back history.
 Native update reloads are deferred while this page is open.
 Autonomous and TeleOp each open a separate filtered OpMode dropdown.
 
