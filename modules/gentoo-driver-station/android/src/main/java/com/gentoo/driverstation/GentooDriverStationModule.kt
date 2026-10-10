@@ -2,6 +2,12 @@ package com.gentoo.driverstation
 
 import android.util.Base64
 import android.content.Context
+import android.content.Intent
+import android.net.Network
+import android.provider.Settings
+import android.os.Handler
+import android.os.Looper
+import android.view.WindowManager
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -9,6 +15,7 @@ import android.os.VibratorManager
 import androidx.core.os.bundleOf
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import expo.modules.kotlin.Promise
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
@@ -21,11 +28,36 @@ class GentooDriverStationModule : Module() {
   private var socket: DatagramSocket? = null
   private var receiveThread: Thread? = null
   private var rumbleVibrator: Vibrator? = null
+  private var robotWifi: RobotWifiConnection? = null
+  private var wifiNetwork: Network? = null
 
   override fun definition() = ModuleDefinition {
     Name("GentooDriverStation")
 
     Events("onDatagram", "onSocketError")
+
+    AsyncFunction("keepAwake") { enabled: Boolean ->
+      setKeepAwake(enabled)
+    }
+    AsyncFunction("joinWifi") { ssid: String, password: String, promise: Promise ->
+      Handler(Looper.getMainLooper()).post {
+        val context = appContext.reactContext
+        if (context == null) promise.reject("ERR_WIFI_CONTEXT", "The app is unavailable.", null)
+        else {
+          val connection = robotWifi ?: RobotWifiConnection(context) { network ->
+            setWifiNetwork(network)
+          }.also { robotWifi = it }
+          try { connection.join(ssid, password, promise) }
+          catch (error: Exception) { promise.reject("ERR_WIFI_JOIN", "Could not join the robot network.", error) }
+        }
+      }
+    }
+    AsyncFunction("releaseWifi") {
+      Handler(Looper.getMainLooper()).post { robotWifi?.release() }
+    }
+    AsyncFunction("openWifiSettings") {
+      appContext.reactContext?.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
 
     AsyncFunction("start") { port: Int ->
       startSocket(port)
@@ -96,6 +128,29 @@ class GentooDriverStationModule : Module() {
     OnDestroy {
       stopSocket()
       stopRumble()
+      setKeepAwake(false)
+      Handler(Looper.getMainLooper()).post { robotWifi?.release() }
+    }
+  }
+
+  private fun setKeepAwake(enabled: Boolean) {
+    val activity = appContext.currentActivity ?: return
+    activity.runOnUiThread {
+      if (enabled) activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+      else activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+  }
+
+  @Synchronized
+  private fun setWifiNetwork(network: Network?) {
+    if (wifiNetwork == network) return
+    wifiNetwork = network
+    socket?.localPort?.let { port ->
+      try { startSocket(port) }
+      catch (error: Exception) {
+        sendEvent("onSocketError", bundleOf("message" to "Could not reopen the robot UDP socket."))
+        if (network != null) throw error
+      }
     }
   }
 
@@ -121,6 +176,8 @@ class GentooDriverStationModule : Module() {
       reuseAddress = true
       bind(InetSocketAddress(port))
     }
+    try { wifiNetwork?.bindSocket(newSocket) }
+    catch (error: Exception) { newSocket.close(); throw error }
     socket = newSocket
     running.set(true)
     receiveThread = Thread({ receiveLoop(newSocket) }, "GentooDriverStationUdp").apply {
@@ -158,7 +215,7 @@ class GentooDriverStationModule : Module() {
           )
         )
       } catch (_: SocketException) {
-        if (running.get()) {
+        if (running.get() && socket === activeSocket) {
           sendEvent("onSocketError", bundleOf("message" to "The UDP socket closed unexpectedly."))
         }
         return

@@ -1,7 +1,10 @@
 import * as React from 'react';
-import type { Session } from '@supabase/supabase-js';
+import { isAuthRetryableFetchError, type Session } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
+import { authStorageKey, supabase } from '@/lib/supabase';
+import { parseStoredSession } from '@/lib/auth-startup';
 import { isSupabaseConfigured } from '@/lib/env';
 import {
   readCachedProfile,
@@ -18,6 +21,7 @@ import {
   stopDemoAuth,
 } from '@/lib/demo';
 import type { Profile } from '@/lib/types';
+import { forgetDriverStation } from '@/lib/driver-station/resume';
 
 type AuthContextValue = {
   /** True until the initial session + profile have been resolved. */
@@ -82,6 +86,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     let sub: { subscription: { unsubscribe: () => void } } | null = null;
     let cancelled = false;
+    let startupFinished = false;
+    let startupTimer: ReturnType<typeof setTimeout> | undefined;
+    const applySession = (next: Session | null) => {
+      if (cancelled) return;
+      setSession(next);
+      setAuthResolved(true);
+      if (!next?.user?.id) setProfileResolved(true);
+    };
+    const restoreOfflineSession = async () => {
+      try {
+        const next = Platform.OS === 'web' ? null : parseStoredSession(await AsyncStorage.getItem(authStorageKey));
+        if (!cancelled && !startupFinished) applySession(next);
+      } catch {
+        if (!cancelled && !startupFinished) applySession(null);
+      }
+    };
 
     initDemoAuth().then(async (active) => {
       if (cancelled) return;
@@ -104,22 +124,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfileResolved(true);
         return;
       }
-      supabase.auth.getSession().then(({ data }) => {
-        if (cancelled) return;
-        setSession(data.session);
-        setAuthResolved(true);
-        setProfileResolved(!data.session?.user?.id);
+      // Refreshing an expired token requires internet. Allow the existing local
+      // session/profile gate to settle on robot Wi-Fi, then reconcile online.
+      startupTimer = setTimeout(() => void restoreOfflineSession(), 5_000);
+      void supabase.auth.getSession().then(async ({ data, error }) => {
+        if (cancelled || startupFinished) return;
+        clearTimeout(startupTimer);
+        if (error && isAuthRetryableFetchError(error)) await restoreOfflineSession();
+        else applySession(data.session);
+        startupFinished = true;
+      }).catch(async (error) => {
+        console.warn('[auth] session startup failed', error);
+        if (cancelled || startupFinished) return;
+        clearTimeout(startupTimer);
+        applySession(null);
+        startupFinished = true;
       });
-      const { data } = supabase.auth.onAuthStateChange((_event, next) => {
-        setSession(next);
-        setAuthResolved(true);
-        if (!next?.user?.id) setProfileResolved(true);
+      const { data } = supabase.auth.onAuthStateChange((event, next) => {
+        if (cancelled) return;
+        // INITIAL_SESSION can be null after an offline token refresh. The
+        // getSession result above distinguishes this from a genuine sign-out.
+        if (event === 'INITIAL_SESSION') return;
+        startupFinished = true;
+        clearTimeout(startupTimer);
+        applySession(next);
       });
       sub = data;
+    }).catch((error) => {
+      console.warn('[auth] initialization failed', error);
+      applySession(null);
     });
 
     return () => {
       cancelled = true;
+      clearTimeout(startupTimer);
       sub?.subscription.unsubscribe();
     };
   }, [queryClient]);
@@ -189,6 +227,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [userId]);
 
   const signOut = React.useCallback(async () => {
+    await forgetDriverStation();
     if (userId) await removeCachedProfile(userId);
     if (isDemoMode()) await stopDemoAuth();
     else await supabase.auth.signOut({ scope: 'local' });

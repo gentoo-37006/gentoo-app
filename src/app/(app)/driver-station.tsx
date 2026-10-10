@@ -1,6 +1,7 @@
 import * as React from 'react';
 import {
   Alert,
+  AppState,
   Dimensions,
   Platform,
   Pressable,
@@ -9,7 +10,7 @@ import {
   View,
   type GestureResponderEvent,
 } from 'react-native';
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect, useNavigation, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -33,7 +34,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { FadeModal } from '@/components/ui/fade-modal';
 import { Icon } from '@/components/ui/icon';
-import { Select } from '@/components/ui/select';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 import {
@@ -41,7 +41,6 @@ import {
   describeRobotState,
   driverStationCompatibilityLabel,
   type DriverStationSnapshot,
-  type OpMode,
 } from '@/lib/driver-station/client';
 import {
   listHardwareNames,
@@ -52,9 +51,14 @@ import {
 import { STOP_OP_MODE } from '@/lib/driver-station/protocol';
 import { useDriverStation } from '@/lib/driver-station/use-driver-station';
 import { ControllerPanel, type ControllerPanelHandle } from '@/components/driver-station/controller-panel';
-import { controllerPressHaptic } from '@/lib/driver-station/haptics';
+import { OpModeActionButton } from '@/components/driver-station/opmode-action-button';
+import { RobotWifiPanel } from '@/components/driver-station/robot-wifi-panel';
+import { OpModePicker } from '@/components/driver-station/opmode-picker';
+import { selectedOpModeForCategory, type OpModeCategory } from '@/lib/driver-station/opmode-selection';
+import { forgetDriverStation, rememberDriverStation } from '@/lib/driver-station/resume';
+import { useAuth } from '@/lib/auth';
 
-type DriverStationTab = 'control' | 'controller' | 'hardware';
+type DriverStationTab = 'control' | 'controller' | 'hardware' | 'wifi';
 
 function StatusDot({ status }: { status: DriverStationSnapshot['status'] }) {
   return (
@@ -100,6 +104,7 @@ function DriverStationHeader({
   onBack,
   onConfiguration,
   onRestart,
+  onWifi,
   controllerView,
   onToggleController,
 }: {
@@ -107,6 +112,7 @@ function DriverStationHeader({
   onBack: () => void;
   onConfiguration: () => void;
   onRestart: () => void;
+  onWifi: () => void;
   controllerView: boolean;
   onToggleController: () => void;
 }) {
@@ -164,6 +170,9 @@ function DriverStationHeader({
                 {snapshot.peerHost ? `Control Hub: ${snapshot.peerHost}:20884` : 'Searching: 192.168.43.1:20884, 192.168.49.1:20884'}
               </Text>
             </ScrollView>
+            <Button variant="outline" className="mt-3" onPress={() => { setConnectionDetailsOpen(false); onWifi(); }}>
+              <Icon as={Wifi} size={17} className="text-foreground" /><Text>Connect to robot Wi-Fi</Text>
+            </Button>
           </Pressable>
         </Pressable>
       </FadeModal>
@@ -197,6 +206,7 @@ function DriverStationHeader({
         <Icon as={controllerView ? LayoutDashboard : Gamepad2} size={22} className="text-foreground" />
       </Pressable>
       <DriverStationMenu
+        onWifi={onWifi}
         canRestart={canRestart}
         onConfiguration={onConfiguration}
         onRestart={onRestart}
@@ -209,10 +219,12 @@ function DriverStationMenu({
   canRestart,
   onConfiguration,
   onRestart,
+  onWifi,
 }: {
   canRestart: boolean;
   onConfiguration: () => void;
   onRestart: () => void;
+  onWifi: () => void;
 }) {
   const [open, setOpen] = React.useState(false);
   const [position, setPosition] = React.useState<{ right: number; top: number } | null>(null);
@@ -249,6 +261,11 @@ function DriverStationMenu({
               className="absolute w-56 overflow-hidden rounded-sm border border-border bg-popover p-1"
               style={position}
             >
+              <Pressable className="h-11 flex-row items-center gap-3 rounded-sm px-3 active:bg-accent"
+                onPress={() => { setOpen(false); onWifi(); }}>
+                <Icon as={Wifi} size={18} className="text-muted-foreground" />
+                <Text className="text-sm font-semibold">Robot Wi-Fi</Text>
+              </Pressable>
               <Pressable
                 className="h-11 flex-row items-center gap-3 rounded-sm px-3 active:bg-accent"
                 onPress={() => {
@@ -277,23 +294,6 @@ function DriverStationMenu({
           </Pressable>
         </FadeModal>
       ) : null}
-    </View>
-  );
-}
-
-function OpModeLabel({ opMode }: { opMode: OpMode }) {
-  return (
-    <View className="flex-row items-center gap-2">
-      <Text className="flex-1 text-sm font-semibold" numberOfLines={1}>
-        {opMode.name}
-      </Text>
-      <Text className="text-[10px] font-semibold text-muted-foreground">
-        {opMode.flavor === 'AUTONOMOUS'
-          ? 'AUTO'
-          : opMode.flavor === 'TELEOP'
-            ? 'TELEOP'
-            : opMode.flavor}
-      </Text>
     </View>
   );
 }
@@ -378,7 +378,7 @@ function getOpModeAction({
 function ControlPanel(props: {
   snapshot: DriverStationSnapshot;
   selectedOpMode: string | null;
-  onSelect: (name: string) => void;
+  onSelect: (name: string, category: OpModeCategory) => void;
   onInit: () => void;
   onStart: () => void;
   onStop: () => void;
@@ -386,25 +386,11 @@ function ControlPanel(props: {
   const { snapshot, selectedOpMode, onSelect } = props;
   const connected = snapshot.status === 'connected';
   const action = getOpModeAction(props);
-  const options = snapshot.opModes.map((opMode) => ({
-    value: opMode.name,
-    label: opMode.name,
-  }));
 
   return (
     <View className="w-[46%] min-w-72 border-r border-border">
       <View className="border-b border-border p-3">
-        <Text className="mb-1 text-[10px] font-bold uppercase text-muted-foreground">OpMode</Text>
-        <Select
-          options={options}
-          value={selectedOpMode}
-          onChange={onSelect}
-          placeholder={connected ? 'Select an OpMode...' : 'Waiting for Control Hub...'}
-          renderValue={(option) => {
-            const opMode = snapshot.opModes.find((item) => item.name === option.value);
-            return opMode ? <OpModeLabel opMode={opMode} /> : null;
-          }}
-        />
+        <OpModePicker opModes={snapshot.opModes} selected={selectedOpMode} connected={connected} onSelect={onSelect} />
       </View>
 
       <View className="border-b border-border bg-card px-3 py-2.5">
@@ -426,27 +412,8 @@ function ControlPanel(props: {
       </View>
 
       <View className="min-h-32 flex-1 items-center justify-center p-3">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={action.label}
-          disabled={!action.enabled}
-          onPress={action.onPress}
-          className={cn(
-            'h-28 w-28 items-center justify-center rounded-full border-4 border-background active:opacity-85',
-            action.className,
-            !action.enabled && 'opacity-40'
-          )}
-        >
-          <Icon as={action.icon} size={27} className={action.iconClassName} />
-          <Text className={cn('mt-1 text-base font-extrabold', action.textClassName)}>
-            {action.label}
-          </Text>
-        </Pressable>
+        <OpModeActionButton action={action} canStop={connected && snapshot.activeOpMode !== STOP_OP_MODE} onStop={props.onStop} />
       </View>
-
-      <ScrollView className="max-h-24 px-3 pb-3" showsVerticalScrollIndicator={false}>
-        <SystemMessages snapshot={snapshot} />
-      </ScrollView>
     </View>
   );
 }
@@ -460,6 +427,9 @@ function TelemetryPanel({ snapshot }: { snapshot: DriverStationSnapshot }) {
           {snapshot.telemetry.length} values
         </Text>
       </View>
+      {snapshot.error || snapshot.warning ? (
+        <ScrollView className="max-h-40 shrink-0 px-3 py-2"><SystemMessages snapshot={snapshot} /></ScrollView>
+      ) : null}
       <ScrollView className="flex-1">
         {snapshot.telemetry.map((entry, index) => (
           <View
@@ -649,21 +619,35 @@ function HardwarePanel({
 
 function NativeDriverStation() {
   const router = useRouter();
+  const navigation = useNavigation();
+  const { session } = useAuth();
   const { client, snapshot } = useDriverStation();
   const [tab, setTab] = React.useState<DriverStationTab>('control');
   const [selectedOpMode, setSelectedOpMode] = React.useState<string | null>(null);
+  const [category, setCategory] = React.useState<OpModeCategory>('AUTONOMOUS');
   const [gamepadUser, setGamepadUser] = React.useState<1 | 2>(1);
   const controllerRef = React.useRef<ControllerPanelHandle>(null);
   const resetWhenNoTouches = (event: GestureResponderEvent) => {
     if (event.nativeEvent.touches.length === 0) controllerRef.current?.resetTouches();
   };
-  const effectiveSelectedOpMode =
-    selectedOpMode && snapshot.opModes.some((opMode) => opMode.name === selectedOpMode)
-      ? selectedOpMode
-      : snapshot.opModes[0]?.name ?? null;
-
-  const leave = () => {
+  const effectiveSelectedOpMode = selectedOpModeForCategory(snapshot.opModes, category, selectedOpMode);
+  const userId = session?.user.id;
+  React.useEffect(() => navigation.addListener('beforeRemove', () => {
     client.stopOpMode();
+    void forgetDriverStation();
+  }), [navigation, client]);
+  React.useEffect(() => {
+    if (!userId) return;
+    void rememberDriverStation(userId);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') void rememberDriverStation(userId);
+    });
+    return () => subscription.remove();
+  }, [userId]);
+
+  const leave = async () => {
+    client.stopOpMode();
+    await forgetDriverStation();
     router.back();
   };
 
@@ -695,11 +679,12 @@ function NativeDriverStation() {
       <StatusBar hidden />
       <DriverStationHeader
         snapshot={snapshot}
-        onBack={tab === 'hardware' ? () => changeTab('control') : leave}
+        onBack={tab === 'hardware' || tab === 'wifi' ? () => changeTab('control') : leave}
         onConfiguration={() => changeTab('hardware')}
         controllerView={tab === 'controller'}
         onToggleController={() => changeTab(tab === 'controller' ? 'control' : 'controller')}
         onRestart={restart}
+        onWifi={() => changeTab('wifi')}
       />
       <SafeAreaView className="flex-1" edges={tab === 'controller' ? [] : ['left']}>
         {tab === 'control' ? (
@@ -707,7 +692,7 @@ function NativeDriverStation() {
             <ControlPanel
               snapshot={snapshot}
               selectedOpMode={effectiveSelectedOpMode}
-              onSelect={setSelectedOpMode}
+              onSelect={(name, next) => { setCategory(next); setSelectedOpMode(name); }}
               onInit={() => effectiveSelectedOpMode && client.initOpMode(effectiveSelectedOpMode)}
               onStart={() => effectiveSelectedOpMode && client.startOpMode(effectiveSelectedOpMode)}
               onStop={() => client.stopOpMode()}
@@ -726,18 +711,11 @@ function NativeDriverStation() {
             }}
             connected={snapshot.status === 'connected' && snapshot.opModePhase === 'running'}
             action={
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={action.label}
-                disabled={!action.enabled}
-                onPress={() => { controllerPressHaptic(action.label === 'STOP'); action.onPress(); }}
-                className={cn('h-12 w-36 flex-row items-center justify-center gap-2 rounded-sm', action.className, !action.enabled && 'opacity-40')}
-              >
-                <Icon as={action.icon} size={24} className={action.iconClassName} />
-                <Text className={cn('text-base font-extrabold', action.textClassName)}>{action.label}</Text>
-              </Pressable>
+              <OpModeActionButton compact action={action} canStop={snapshot.status === 'connected' && snapshot.activeOpMode !== STOP_OP_MODE} onStop={() => client.stopOpMode()} />
             }
           />
+        ) : tab === 'wifi' ? (
+          <RobotWifiPanel onClose={() => changeTab('control')} canConnect={snapshot.activeOpMode === STOP_OP_MODE} />
         ) : (
           <HardwarePanel
             key={snapshot.hardwareXml ?? 'no-hardware-configuration'}

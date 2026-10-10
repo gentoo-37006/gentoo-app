@@ -39,6 +39,8 @@ import { Providers } from '@/components/providers';
 import { UpdateBanner } from '@/components/update-banner';
 import { useAuth } from '@/lib/auth';
 import { useDatabaseRealtime } from '@/lib/use-database-realtime';
+import { shouldResumeDriverStation } from '@/lib/driver-station/resume';
+import { canReloadNativeUpdate } from '@/lib/native-update-policy';
 
 const SPLASH_FADE_DURATION = 75;
 
@@ -137,7 +139,6 @@ export default function RootLayout() {
   const theme = colorScheme === 'dark' ? NAV_THEME.dark : NAV_THEME.light;
   const { loaded: themeLoaded, restored: themeRestored } =
     useRestoreThemeMode(nativeSplashReleased);
-  useNativeUpdates();
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -166,9 +167,9 @@ export default function RootLayout() {
   );
 }
 
-function useNativeUpdates() {
+function useNativeUpdates(pathname: string) {
   React.useEffect(() => {
-    if (__DEV__ || Platform.OS === 'web' || !Updates.isEnabled) return;
+    if (__DEV__ || Platform.OS === 'web' || !Updates.isEnabled || !canReloadNativeUpdate(pathname)) return;
 
     let cancelled = false;
 
@@ -189,7 +190,7 @@ function useNativeUpdates() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [pathname]);
 }
 
 /**
@@ -222,11 +223,25 @@ function RootNavigator({
   >(null);
   const segments = useSegments() as string[];
   const pathname = usePathname();
+  useNativeUpdates(pathname);
   const router = useRouter();
   const inAuthGroup = segments[0] === '(auth)';
   const onSignIn = segments[1] === 'sign-in';
   const onPending = segments[1] === 'pending';
   const onDownloads = pathname === '/downloads';
+  const resumeChecked = React.useRef(false);
+  React.useEffect(() => {
+    if (Platform.OS === 'web' || initializing || !session || profile?.status !== 'approved') return;
+    if (resumeChecked.current || inAuthGroup) return;
+    if (pathname !== '/') { resumeChecked.current = true; return; }
+    let cancelled = false;
+    void shouldResumeDriverStation(session.user.id).then((resume) => {
+      if (cancelled) return;
+      resumeChecked.current = true;
+      if (resume) router.replace('/driver-station');
+    });
+    return () => { cancelled = true; };
+  }, [initializing, session, profile?.status, inAuthGroup, pathname, router]);
 
   React.useEffect(() => {
     if (Platform.OS === 'web') return;

@@ -2,6 +2,7 @@ import Darwin
 import CoreHaptics
 import ExpoModulesCore
 import UIKit
+import NetworkExtension
 
 private final class DriverStationSocketException: GenericException<String>, @unchecked Sendable {
   override var reason: String { param }
@@ -14,11 +15,43 @@ public final class GentooDriverStationModule: Module {
   private var readSource: DispatchSourceRead?
   private var hapticEngine: CHHapticEngine?
   private var rumblePlayer: CHHapticAdvancedPatternPlayer?
+  private var previousIdleTimerDisabled: Bool?
 
   public func definition() -> ModuleDefinition {
     Name("GentooDriverStation")
 
     Events("onDatagram", "onSocketError")
+
+    AsyncFunction("keepAwake") { (enabled: Bool) in
+      self.setKeepAwake(enabled)
+    }.runOnQueue(.main)
+
+    AsyncFunction("joinWifi") { (ssid: String, password: String, promise: Promise) in
+      guard Bundle.main.object(forInfoDictionaryKey: "GentooHotspotConfigurationEnabled") as? Bool == true else {
+        promise.resolve("settings-required")
+        return
+      }
+      let configuration = password.isEmpty
+        ? NEHotspotConfiguration(ssid: ssid)
+        : NEHotspotConfiguration(ssid: ssid, passphrase: password, isWEP: false)
+      configuration.joinOnce = false
+      NEHotspotConfigurationManager.shared.apply(configuration) { error in
+        if let error = error as NSError?,
+           !(error.domain == NEHotspotConfigurationErrorDomain && error.code == NEHotspotConfigurationError.alreadyAssociated.rawValue) {
+          promise.reject(DriverStationSocketException(error.localizedDescription))
+        } else {
+          promise.resolve("requested")
+        }
+      }
+    }.runOnQueue(.main)
+
+    AsyncFunction("releaseWifi") { /* Persistent Wi-Fi profiles are owned by iOS. */ }
+
+    AsyncFunction("openWifiSettings") {
+      if let url = URL(string: UIApplication.openSettingsURLString) {
+        UIApplication.shared.open(url)
+      }
+    }.runOnQueue(.main)
 
     AsyncFunction("start") { (port: Int) in
       try self.startSocket(port: port)
@@ -59,7 +92,17 @@ public final class GentooDriverStationModule: Module {
 
     OnDestroy {
       self.stopSocket()
-      DispatchQueue.main.async { self.stopRumble() }
+      DispatchQueue.main.async { self.stopRumble(); self.setKeepAwake(false) }
+    }
+  }
+
+  private func setKeepAwake(_ enabled: Bool) {
+    if enabled {
+      if previousIdleTimerDisabled == nil { previousIdleTimerDisabled = UIApplication.shared.isIdleTimerDisabled }
+      UIApplication.shared.isIdleTimerDisabled = true
+    } else if let previous = previousIdleTimerDisabled {
+      UIApplication.shared.isIdleTimerDisabled = previous
+      previousIdleTimerDisabled = nil
     }
   }
 

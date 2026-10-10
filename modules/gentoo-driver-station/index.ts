@@ -22,6 +22,10 @@ declare class GentooDriverStationNativeModule extends NativeModule<DriverStation
   rumble(steps: { large: number; small: number; duration: number }[]): Promise<void>;
   stopRumble(): Promise<void>;
   joystickTick(strength: number, sharpness: number): Promise<void>;
+  keepAwake(enabled: boolean): Promise<void>;
+  joinWifi(ssid: string, password: string): Promise<'requested' | 'settings-required'>;
+  releaseWifi(): Promise<void>;
+  openWifiSettings(): Promise<void>;
 }
 
 const nativeModule =
@@ -30,6 +34,18 @@ const nativeModule =
   );
 
 export const isDriverStationTransportAvailable = nativeModule !== null;
+
+export async function keepDriverStationAwake(enabled: boolean) {
+  await nativeModule?.keepAwake(enabled);
+}
+
+export async function joinDriverStationWifi(ssid: string, password: string) {
+  if (!nativeModule) throw new Error('Rebuild Gentoo to connect to robot Wi-Fi.');
+  return nativeModule.joinWifi(ssid, password);
+}
+
+export async function releaseDriverStationWifi() { await nativeModule?.releaseWifi(); }
+export async function openDriverStationWifiSettings() { await nativeModule?.openWifiSettings(); }
 
 export async function playDriverStationRumble(steps: { large: number; small: number; duration: number }[]) {
   await nativeModule?.rumble(steps);

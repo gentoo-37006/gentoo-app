@@ -218,6 +218,7 @@ export function Select<T extends string>({
   placeholder = 'Select…',
   className,
   renderValue,
+  triggerContent,
   onOpenChange,
   pinnedValues,
 }: {
@@ -227,6 +228,7 @@ export function Select<T extends string>({
   placeholder?: string;
   className?: string;
   renderValue?: (option: SelectOption<T>) => React.ReactNode;
+  triggerContent?: React.ReactNode;
   onOpenChange?: (open: boolean) => void;
   pinnedValues?: T[];
 }) {
@@ -252,7 +254,7 @@ export function Select<T extends string>({
         placeholder={placeholder}
         onPress={openDropdown}
         className={className}
-        valueContent={current && renderValue ? renderValue(current) : undefined}
+        valueContent={triggerContent ?? (current && renderValue ? renderValue(current) : undefined)}
       />
       {anchor ? (
         <OptionDropdown

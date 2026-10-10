@@ -14,6 +14,7 @@ Pod::Spec.new do |s|
   s.swift_version  = '5.9'
   s.source         = { git: 'https://github.com/gentoo-37006/gentoo-app.git' }
   s.static_framework = true
+  s.frameworks = 'NetworkExtension'
 
   s.dependency 'ExpoModulesCore'
   s.source_files = '**/*.{h,m,swift}'

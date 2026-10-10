@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 import { DriverStationClient, type DriverStationSnapshot } from './client';
 import { createDriverStationTransport } from './transport';
 import { setPhoneRumble } from './phone-rumble';
+import { keepDriverStationAwake, releaseDriverStationWifi } from '../../../modules/gentoo-driver-station';
 
 export function useDriverStation() {
   const [client] = React.useState(
@@ -18,11 +19,13 @@ export function useDriverStation() {
       setPhoneRumble(AppState.currentState === 'active' ? effect : null);
     });
     void client.start();
+    void keepDriverStationAwake(true).catch(() => {});
     const appStateSubscription = AppState.addEventListener('change', (state) => {
       if (state !== 'active') {
         client.setControllerEnabled(false);
         client.stopOpMode();
       }
+      void keepDriverStationAwake(state === 'active').catch(() => {});
     });
     return () => {
       appStateSubscription.remove();
@@ -30,6 +33,8 @@ export function useDriverStation() {
       client.disconnect();
       unsubscribeRumble();
       setPhoneRumble(null);
+      void keepDriverStationAwake(false).catch(() => {});
+      void releaseDriverStationWifi().catch(() => {});
     };
   }, [client]);
 

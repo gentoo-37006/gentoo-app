@@ -1,0 +1,20 @@
+diff --git a/node_modules/expo-screen-orientation/ios/ScreenOrientationRegistry.swift b/node_modules/expo-screen-orientation/ios/ScreenOrientationRegistry.swift
+index 9e0b369..678ef9a 100644
+--- a/node_modules/expo-screen-orientation/ios/ScreenOrientationRegistry.swift
++++ b/node_modules/expo-screen-orientation/ios/ScreenOrientationRegistry.swift
+@@ -210,8 +210,13 @@ public class ScreenOrientationRegistry: NSObject, UIApplicationDelegate {
+     }
+     queue.async {
+       // Read without the barrier:
+-      for controller in self.orientationControllers {
+-        controller.screenOrientationDidChange(newScreenOrientation)
++      let controllers = self.orientationControllers
++      // Callbacks can query UIKit, which synchronously reads this registry.
++      // Never hold the registry queue while waiting on the main queue.
++      DispatchQueue.main.async {
++        for controller in controllers {
++          controller.screenOrientationDidChange(newScreenOrientation)
++        }
+       }
+     }
+   }

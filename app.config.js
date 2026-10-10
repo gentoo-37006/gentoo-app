@@ -32,6 +32,10 @@ const BETA_HOST = 'beta.gentoo.ethanyanxu.com';
 module.exports = ({ config }) => {
   const android = { ...config.android };
   const plugins = [...(config.plugins ?? [])];
+  plugins.push(['expo-secure-store', { faceIDPermission: false }]);
+  plugins.push(['./plugins/withDriverStationWifi', {
+    iosHotspotConfiguration: process.env.GENTOO_IOS_HOTSPOT_CONFIGURATION !== '0',
+  }]);
 
   if (isBeta) {
     android.package = 'com.gentoo.app.beta';
