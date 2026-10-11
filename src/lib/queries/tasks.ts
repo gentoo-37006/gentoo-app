@@ -56,7 +56,7 @@ export function useProjects() {
         .is('tasks.deleted_at', null)
         .neq('tasks.status', 'done')
         .order('sort_order', { ascending: true })
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as ProjectWithTasks[];
     },

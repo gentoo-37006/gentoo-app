@@ -621,7 +621,7 @@ export async function demoProjects() {
     .filter((p) => !p.deleted_at)
     .sort(
       (a, b) =>
-        (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.created_at.localeCompare(b.created_at)
+        (a.sort_order ?? 0) - (b.sort_order ?? 0) || b.created_at.localeCompare(a.created_at)
     )
     .map((p) => ({
       ...p,
@@ -764,12 +764,12 @@ export async function demoCreateProject(vars: { name: string; description?: stri
   const db = await getDemoWorkspace();
   const sortOrder =
     vars.sort_order ??
-    Math.max(
+    Math.min(
       0,
       ...db.projects
         .filter((project) => !project.deleted_at)
         .map((project) => project.sort_order ?? 0)
-    ) + 10;
+    ) - 10;
   db.projects.push({ id: id('project'), name: vars.name, description: vars.description ?? null, status: vars.status, priority: vars.priority, sort_order: sortOrder, created_by: DEMO_USER_ID, created_at: now(), updated_at: now(), deleted_at: null });
   await persist();
 }

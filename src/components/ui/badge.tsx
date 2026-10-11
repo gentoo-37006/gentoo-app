@@ -66,13 +66,13 @@ export function Badge({ className, variant, label, singleLine, children, ...prop
   return (
     <TextClassContext.Provider value={badgeTextVariants({ variant })}>
       <View
-        className={cn(badgeVariants({ variant }), singleLine && 'shrink-0', className)}
+        className={cn(badgeVariants({ variant }), singleLine ? 'shrink-0' : 'max-w-full', className)}
         {...props}
       >
         {label ? (
           <Text
             numberOfLines={singleLine ? 1 : undefined}
-            className={badgeTextVariants({ variant })}
+            className={cn(badgeTextVariants({ variant }), !singleLine && 'min-w-0 shrink web:break-words')}
           >
             {label}
           </Text>

@@ -35,7 +35,7 @@ function PartThumbnail({ part }: { part: PartWithOpen }) {
   const [loadedUrl, setLoadedUrl] = React.useState<string | null>(null);
 
   return (
-    <View className="min-h-16 flex-none self-stretch aspect-square items-center justify-center overflow-hidden rounded-sm bg-muted">
+    <View className="h-20 w-20 flex-none items-center justify-center overflow-hidden rounded-sm bg-muted">
       {url && failedUrl !== url ? (
         <Image
           source={url}
@@ -77,24 +77,26 @@ function PartRow({ part, onPress }: { part: PartWithOpen; onPress: () => void })
       <View className="flex-row items-start gap-3">
         <PartThumbnail part={part} />
         <View className="min-w-0 flex-1 gap-3">
-          <View className="flex-row items-center gap-3">
-            <View className="min-w-0 flex-1">
-              <Text className="font-bold">
-                {part.name}
-              </Text>
-              {meta ? (
-                <Text variant="muted" numberOfLines={1}>
-                  {meta}
+          <View className="flex-row items-start gap-3">
+            <View className="min-w-0 flex-1 flex-row flex-wrap items-start gap-x-3 gap-y-2">
+              <View className="min-w-0 basis-32 grow shrink">
+                <Text className="font-bold web:break-words">
+                  {part.name}
                 </Text>
-              ) : null}
+                {meta ? (
+                  <Text variant="muted" className="web:break-words">
+                    {meta}
+                  </Text>
+                ) : null}
+              </View>
+              <View className="max-w-full flex-row flex-wrap items-baseline gap-1">
+                <Text className="max-w-full text-lg font-extrabold web:break-words">{available}</Text>
+                <Text variant="small" className="max-w-full web:break-words">
+                  {part.consumable ? part.unit || 'in stock' : `of ${part.quantity}`}
+                </Text>
+              </View>
             </View>
-            <View className="shrink-0 self-start flex-row items-baseline gap-1">
-              <Text className="text-lg font-extrabold">{available}</Text>
-              <Text variant="small">
-                {part.consumable ? part.unit || 'in stock' : `of ${part.quantity}`}
-              </Text>
-            </View>
-            <Icon as={ChevronRight} size={20} className="text-muted-foreground" />
+            <Icon as={ChevronRight} size={20} className="shrink-0 text-muted-foreground" />
           </View>
           <View className="flex-row flex-wrap gap-2">
             <Badge variant="muted" label={labelOf(PART_CATEGORIES, part.category)} />

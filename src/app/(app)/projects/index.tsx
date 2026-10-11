@@ -172,7 +172,7 @@ export default function ProjectsScreen() {
       status: 'planning',
       priority: 'medium',
       sort_order:
-        Math.max(0, ...(projects ?? []).map((project) => project.sort_order ?? 0)) + 10,
+        Math.min(0, ...(projects ?? []).map((project) => project.sort_order ?? 0)) - 10,
     });
 
   return (
@@ -190,7 +190,7 @@ export default function ProjectsScreen() {
           label="New"
           icon={Plus}
           loading={createProject.isPending}
-          disabled={createProject.isPending}
+          disabled={isLoading || createProject.isPending}
           onPress={addProject}
         />
       </ScreenHeader>
