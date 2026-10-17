@@ -1,12 +1,21 @@
 import * as React from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, View, type TextStyle } from 'react-native';
+import {
+  ActivityIndicator,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text as RNText,
+  View,
+  type TextStyle,
+} from 'react-native';
 import { Sparkles, X } from 'lucide-react-native';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { FadeModal } from '@/components/ui/fade-modal';
 import { APP_VERSION } from '@/lib/app-version';
-import { parseNotes, type NotesLine } from '@/lib/notes-markdown';
+import { parseInline, parseNotes, type NotesLine } from '@/lib/notes-markdown';
 import { useReleaseNotes, shouldShowWhatsNew, markWhatsNewSeen } from '@/lib/release-notes';
 
 // Release notes carry long unbroken tokens — migration names like
@@ -17,6 +26,30 @@ const WRAP_ANYWHERE = (Platform.OS === 'web' ? { overflowWrap: 'anywhere' } : un
   | TextStyle
   | undefined;
 
+/** A line's text with its links made tappable. Each link is a bare RN Text,
+ *  not the ui one, so it inherits the line's size instead of resetting it to
+ *  text-base. */
+function InlineText({ text }: { text: string }) {
+  return (
+    <>
+      {parseInline(text).map((span, i) =>
+        span.kind === 'link' ? (
+          <RNText
+            key={i}
+            accessibilityRole="link"
+            className="text-primary underline"
+            onPress={() => Linking.openURL(span.href)}
+          >
+            {span.text}
+          </RNText>
+        ) : (
+          span.text
+        )
+      )}
+    </>
+  );
+}
+
 /** One parsed line. Quotes recurse once, so `> - item` is a quoted bullet
  *  rather than a line that literally reads "- item". */
 function NotesLineView({ node }: { node: NotesLine }) {
@@ -24,7 +57,7 @@ function NotesLineView({ node }: { node: NotesLine }) {
     case 'heading':
       return (
         <Text className="pt-2 font-bold" style={WRAP_ANYWHERE}>
-          {node.text}
+          <InlineText text={node.text} />
         </Text>
       );
     case 'bullet':
@@ -34,7 +67,7 @@ function NotesLineView({ node }: { node: NotesLine }) {
           {/* min-w-0 lets the flex child shrink below its content width —
               without it a long token widens the row instead of wrapping. */}
           <Text className="min-w-0 flex-1 text-sm" style={WRAP_ANYWHERE}>
-            {node.text}
+            <InlineText text={node.text} />
           </Text>
         </View>
       );
@@ -56,14 +89,14 @@ function NotesLineView({ node }: { node: NotesLine }) {
     default:
       return (
         <Text className="text-sm" style={WRAP_ANYWHERE}>
-          {node.text}
+          <InlineText text={node.text} />
         </Text>
       );
   }
 }
 
 /** Just enough markdown for GitHub release notes: headings, bullets,
- *  blockquotes, and stripped bold/inline-code markers. Parsing lives in
+ *  blockquotes, links, and stripped bold/inline-code markers. Parsing lives in
  *  lib/notes-markdown.ts so it is covered by `npm test`. */
 function NotesBody({ notes }: { notes: string }) {
   return (

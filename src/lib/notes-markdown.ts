@@ -17,7 +17,14 @@ export type NotesLine =
   /** `inner` is never another quote — every leading `>` is consumed at once. */
   | { kind: 'quote'; depth: number; inner: Exclude<NotesLine, { kind: 'quote' }> };
 
-/** Bold and inline code are stripped, not rendered: no nested styling here. */
+/** A run of one line's text, as `parseInline` splits it. */
+export type NotesSpan =
+  | { kind: 'text'; text: string }
+  | { kind: 'link'; text: string; href: string };
+
+/** Bold and inline code are stripped, not rendered: no nested styling here.
+ *  Links are left in place for `parseInline` — stripping one would lose where
+ *  it points. */
 function stripInline(line: string): string {
   return line.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/`([^`]+)`/g, '$1');
 }
@@ -102,4 +109,44 @@ export function parseNotes(notes: string): NotesLine[] {
   }
 
   return lines;
+}
+
+/** `[label](url)`. The URL may hold one balanced pair of parentheses, as
+ *  Wikipedia's `.../Mercury_(planet)` does. A leading `!` is captured so an
+ *  image isn't misread as a "!" followed by a link. */
+const LINK = /(!?)\[([^[\]]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)/g;
+
+/** Only absolute web and mail links are tappable. A relative path resolves on
+ *  GitHub but not in the app, and a `javascript:` URL must never run. */
+const OPENABLE = /^(?:https?:\/\/|mailto:)/i;
+
+/** Split a line's text into plain runs and links. Applied to the text that
+ *  `parseNotes` produced, so a link the source wrapped mid-label still reads
+ *  as one link. */
+export function parseInline(text: string): NotesSpan[] {
+  const spans: NotesSpan[] = [];
+  let plain = '';
+  let end = 0;
+
+  for (const match of text.matchAll(LINK)) {
+    const [whole, bang, label, href] = match;
+    plain += text.slice(end, match.index);
+    end = match.index + whole.length;
+
+    if (bang) {
+      // Nothing here can show an image, so it stays as written.
+      plain += whole;
+    } else if (!OPENABLE.test(href)) {
+      // Nowhere to go: keep the words, drop the markup.
+      plain += label;
+    } else {
+      if (plain) spans.push({ kind: 'text', text: plain });
+      spans.push({ kind: 'link', text: label, href });
+      plain = '';
+    }
+  }
+
+  plain += text.slice(end);
+  if (plain) spans.push({ kind: 'text', text: plain });
+  return spans;
 }
