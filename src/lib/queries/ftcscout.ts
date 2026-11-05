@@ -1,7 +1,8 @@
-import { getEventMatches, getEventTeams, populateTeamNames } from '@/lib/api/ftcscout';
+import { currentSeason, getEventDetails, getEventMatches, getEventTeams, populateTeamNames } from '@/lib/api/ftcscout';
+import { useAuth } from '@/lib/auth';
 import { isDemoMode } from '@/lib/demo';
 import { supabase } from '@/lib/supabase';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { matchKeys } from './matches';
 import { picklistKey } from './picklist';
 import { scoutingKeys } from './scouting';
@@ -21,6 +22,21 @@ interface FTCScoutTeamInput {
     ties: number;
     rank: number;
   }
+}
+
+export function useFTCScoutEvent(eventCode: string, season: number) {
+  const { isDemo } = useAuth();
+  return useQuery({
+    queryKey: ['ftcscout_event', season, eventCode],
+    enabled: !!eventCode && !isDemo,
+    staleTime: 30 * 60_000,
+    retry: 1,
+    queryFn: async () => {
+      if (isDemoMode()) return null;
+      if (!eventCode) return null;
+      return getEventDetails(eventCode, season);
+    },
+  });
 }
 
 interface FTCScoutMatchInput {
@@ -65,8 +81,9 @@ export function useSyncFTCScout() {
       }
 
       // 1. Fetch from FTC Scout
-      const matchesData = (await getEventMatches(eventCode)) as FTCScoutMatchInput[] | null;
-      const teamsData = (await getEventTeams(eventCode)) as FTCScoutTeamInput[] | null;
+      const season = currentSeason();
+      const matchesData = (await getEventMatches(eventCode, season)) as FTCScoutMatchInput[] | null;
+      const teamsData = (await getEventTeams(eventCode, season)) as FTCScoutTeamInput[] | null;
       // 2. Parse into clean arrays. The event endpoint only returns numbers, so
       // names come from the GraphQL endpoint.
       const teams: TeamInfo[] = await populateTeamNames(
@@ -156,7 +173,7 @@ export function useSyncFTCScout() {
       // 6. Point the app at this event.
       await setSetting.mutateAsync({
         key: ACTIVE_EVENT_KEY,
-        value: { eventCode, last_synced: new Date().toISOString() },
+        value: { eventCode, season, last_synced: new Date().toISOString() },
       });
     },
     onSuccess: () => {

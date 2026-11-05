@@ -14,15 +14,49 @@ export function currentSeason(now: Date = new Date()): number {
   return now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
 }
 
+/** Event metadata returned by FTCScout's REST event endpoint. */
+export interface FTCScoutEvent {
+  season: number;
+  code: string;
+  name: string;
+  start: string | null;
+  end: string | null;
+  venue: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+}
+
+export async function getEventDetails(eventCode: string, season: number): Promise<FTCScoutEvent> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(`${API_BASE}/events/${season}/${encodeURIComponent(eventCode)}`, {
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to fetch event details for ${eventCode}: ${res.status}`);
+    }
+    return await res.json();
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request to FTC Scout API timed out (Event details).');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 /**
  * Fetches the match schedule for a given FTC event.
  * @param eventCode e.g CAONCMP
  */
-export async function getEventMatches(eventCode: string): Promise<any> {
+export async function getEventMatches(eventCode: string, season = currentSeason()): Promise<any> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), 10000);
   try {
-    const res = await fetch(`${API_BASE}/events/${currentSeason()}/${eventCode}/matches`, {
+    const res = await fetch(`${API_BASE}/events/${season}/${eventCode}/matches`, {
       signal: controller.signal
     });
     clearTimeout(id);
@@ -41,11 +75,11 @@ export async function getEventMatches(eventCode: string): Promise<any> {
  * Fetches the participating teams for a given FTC event.
  * @param eventCode e.g CAONCMP
  */
-export async function getEventTeams(eventCode: string): Promise<any> {
+export async function getEventTeams(eventCode: string, season = currentSeason()): Promise<any> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), 10000);
   try {
-    const res = await fetch(`${API_BASE}/events/${currentSeason()}/${eventCode}/teams`, {
+    const res = await fetch(`${API_BASE}/events/${season}/${eventCode}/teams`, {
       signal: controller.signal
     });
     clearTimeout(id);

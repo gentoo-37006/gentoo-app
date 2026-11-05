@@ -18,6 +18,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import { Badge } from '@/components/ui/badge';
+import { ActiveEventCard } from '@/components/active-event-card';
 import { useAuth } from '@/lib/auth';
 import { useMatches, type MatchWithAssignments } from '@/lib/queries/matches';
 import { usePitShifts } from '@/lib/queries/schedule';
@@ -177,6 +178,8 @@ export default function CompetitionScreen() {
   return (
     <Screen>
       <ScreenHeader title="Competition" description="Live event operations at a glance." />
+
+      <ActiveEventCard />
 
       <View className="flex-row flex-wrap gap-3">
         <Card className="min-w-[150px] flex-1">
