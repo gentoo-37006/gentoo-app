@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { SUPABASE_ANON_KEY } from '@/lib/env';
+import { appReturnTo, appWebUrl } from '@/lib/app-links';
 
 export type SignInResult = { error?: string; cancelled?: boolean };
 
@@ -10,7 +11,15 @@ function getRedirectTo() {
   // (localhost:8081). `gentoo://app` matches; Electron's open-url handler accepts
   // `gentoo://app?code=...` (startsWith 'gentoo://app') and completes the exchange.
   if (window.location.protocol === 'gentoo:') return 'gentoo://app';
-  return window.location.origin;
+  const returnTo = appReturnTo(new URLSearchParams(window.location.search).get('returnTo'));
+  const callback = new URL(
+    process.env.NODE_ENV === 'production'
+      ? appWebUrl(window.location.origin, '/sign-in')
+      : '/sign-in',
+    window.location.origin
+  );
+  if (returnTo) callback.searchParams.set('returnTo', returnTo);
+  return callback.toString();
 }
 
 /**

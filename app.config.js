@@ -63,6 +63,11 @@ module.exports = ({ config }) => {
     version: getStoreVersion(appVersion),
     android,
     plugins,
+    experiments: {
+      ...config.experiments,
+      // Native keeps its existing routes. Only web exports use the mount path.
+      baseUrl: process.env.GENTOO_WEB_EXPORT === '1' ? '/app' : '',
+    },
     extra: {
       ...config.extra,
       appVersion,

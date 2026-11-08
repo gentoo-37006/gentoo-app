@@ -18,9 +18,10 @@
         document.documentElement.classList.add(
           splashDark ? 'splash-dark' : 'splash-light'
         );
-        window.gentooSplashIcon = splashDark
+        var splashBase = /^\/app(?:\/|$)/.test(window.location.pathname) ? '/app' : '';
+        window.gentooSplashIcon = splashBase + (splashDark
           ? '/splash-icon-dark.png'
-          : '/splash-icon-light.png';
+          : '/splash-icon-light.png');
       } catch (_error) {}
     </script>
     <style id="expo-reset">
@@ -88,10 +89,10 @@
   <body>
     <div id="gentoo-static-splash" aria-hidden="true">
       <div id="gentoo-static-splash-logo">
-        <img id="gentoo-static-splash-image" src="/splash-icon-light.png" alt="" />
+        <img id="gentoo-static-splash-image" src="/app/splash-icon-light.png" alt="" />
         <script>
           document.getElementById('gentoo-static-splash-image').src =
-            window.gentooSplashIcon || '/splash-icon-light.png';
+            window.gentooSplashIcon || '/app/splash-icon-light.png';
         </script>
       </div>
     </div>

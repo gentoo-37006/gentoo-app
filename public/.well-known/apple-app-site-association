@@ -5,6 +5,14 @@
         "appIDs": ["29LT93G54W.com.gentoo.app"],
         "components": [
           {
+            "/": "/app",
+            "comment": "Open the team app without claiming the public team website."
+          },
+          {
+            "/": "/app/*",
+            "comment": "App screens and new printed QR labels."
+          },
+          {
             "/": "/inventory/*",
             "comment": "Printed QR labels open the part in the app when installed."
           }

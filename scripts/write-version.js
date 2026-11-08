@@ -1,4 +1,4 @@
-// Writes dist/version.json after `expo export`, so the running web app can poll
+// Writes dist/app/version.json after `expo export`, so the running web app can poll
 // it and detect when a newer build has been deployed.
 //
 // The identifier matches what the client bakes in (see src/lib/env.ts):
@@ -19,7 +19,7 @@ const id = commit || version;
 
 const manifest = { channel, id, commit, version, appVersion, builtAt: new Date().toISOString() };
 
-const distDir = path.join(__dirname, '..', 'dist');
+const distDir = path.join(__dirname, '..', 'dist', 'app');
 if (!fs.existsSync(distDir)) {
   console.error(`[write-version] dist directory not found at ${distDir} — run after "expo export".`);
   process.exit(1);

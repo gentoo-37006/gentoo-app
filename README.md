@@ -6,6 +6,43 @@ account approval.
 
 Built with **Expo Router**, **NativeWind** + **React Native Reusables**, and **Supabase**.
 
+## Website and app URLs
+
+The public team website lives at `https://gentoo.ethanyanxu.com/`. The Gentoo app
+lives at `https://gentoo.ethanyanxu.com/app`, with screens such as
+`/app/projects` and `/app/inventory/<part-id>`. Beta uses the same `/app` prefix
+on `beta.gentoo.ethanyanxu.com`.
+
+`npm run export:web` builds both into `dist`: the public homepage from `website/`
+at the root, and the Expo app, assets, splash images, and version manifest under
+`dist/app/`. Use this command instead of a bare `expo export` for web deployments.
+Metro development (`npm start` / `npm run web`) retains Expo's root-based routes;
+the `/app` mount is applied to production web exports.
+
+Run `npm run preview:web` after exporting to test the complete deployment locally,
+including the team homepage, `/app` navigation, and legacy QR redirects.
+
+Deployment requirements:
+
+- Sync the updated `render.yaml` Blueprint (or mirror its build command, headers,
+  and redirect/rewrite rules in both Render services). The SPA fallback must only
+  apply to `/app` and `/app/*`, never `/*`.
+- In Supabase **Authentication > URL Configuration**, set the production Site URL
+  to `https://gentoo.ethanyanxu.com/app` and allow
+  `https://gentoo.ethanyanxu.com/app/**` plus
+  `https://beta.gentoo.ethanyanxu.com/app/**` as redirect URLs. Keep native
+  `gentoo://*` and any development callbacks allowed. Web Google sign-in returns
+  to `/app/sign-in` and preserves the page requested before sign-in.
+- Build and distribute new iOS and Android binaries for the changed link handling.
+  The root `/.well-known/apple-app-site-association` and
+  `/.well-known/assetlinks.json` files must remain publicly available without
+  authentication or redirects. The team homepage is outside the native link scope.
+- New QR labels encode `/app/inventory/<part-id>`. Legacy `/inventory/...` labels
+  remain supported by web redirects and native link handling.
+
+Native app screens retain their internal routes. `+native-intent.ts` removes the
+web-only `/app` prefix from incoming links before Expo Router processes them.
+
 ## Features
 
 - **Projects & tasks** — projects containing assignable tasks (status, assignee, due date,

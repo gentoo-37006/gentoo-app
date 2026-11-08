@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { APP_VERSION } from '@/lib/app-version';
 import { WEB_URL_OVERRIDE } from '@/lib/env';
 import { labelOrigin } from '@/lib/label-origin';
+import { appWebUrl } from '@/lib/app-links';
 import { qrPath } from '@/lib/qr';
 import { PART_CATEGORIES, type Part } from '@/lib/types';
 
@@ -15,7 +16,7 @@ export function partUrl(partId: string): string {
           appVersion: APP_VERSION,
           override: WEB_URL_OVERRIDE,
         });
-  return `${origin}/inventory/${partId}`;
+  return appWebUrl(origin, `/inventory/${encodeURIComponent(partId)}`);
 }
 
 const ESCAPES: Record<string, string> = {

@@ -28,7 +28,7 @@ import {
 import * as SplashScreen from 'expo-splash-screen';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as Updates from 'expo-updates';
-import { Stack, ThemeProvider, usePathname, useRouter, useSegments } from 'expo-router';
+import { Stack, ThemeProvider, useGlobalSearchParams, usePathname, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -40,6 +40,7 @@ import { UpdateBanner } from '@/components/update-banner';
 import { useAuth } from '@/lib/auth';
 import { useDatabaseRealtime } from '@/lib/use-database-realtime';
 import { canReloadNativeUpdate } from '@/lib/native-update-policy';
+import { appReturnTo } from '@/lib/app-links';
 
 const SPLASH_FADE_DURATION = 75;
 
@@ -223,11 +224,23 @@ function RootNavigator({
   const segments = useSegments() as string[];
   const pathname = usePathname();
   useNativeUpdates(pathname);
+  const searchParams = useGlobalSearchParams();
+  const returnTo = appReturnTo(searchParams.returnTo);
   const router = useRouter();
   const inAuthGroup = segments[0] === '(auth)';
   const onSignIn = segments[1] === 'sign-in';
   const onPending = segments[1] === 'pending';
   const onDownloads = pathname === '/downloads';
+  const destinationQuery = new URLSearchParams(
+    Object.entries(searchParams).flatMap(([key, value]) =>
+      key === 'returnTo' || value === undefined ? [] :
+        (Array.isArray(value) ? value : [value]).map((entry) => [key, entry])
+    )
+  ).toString();
+  const destination = appReturnTo(pathname) && pathname !== '/'
+    ? `${pathname}${destinationQuery ? `?${destinationQuery}` : ''}`
+    : null;
+  const authDestination = returnTo ?? destination;
 
   React.useEffect(() => {
     if (Platform.OS === 'web') return;
@@ -304,15 +317,21 @@ function RootNavigator({
     if (onDownloads) return;
 
     if (!isConfigured || !session) {
-      if (!onSignIn) router.replace('/sign-in');
+      if (!onSignIn) router.replace({
+        pathname: '/sign-in',
+        params: authDestination ? { returnTo: authDestination } : {},
+      });
       return;
     }
     if (!profile || profile.status !== 'approved') {
-      if (!onPending) router.replace('/pending');
+      if (!onPending) router.replace({
+        pathname: '/pending',
+        params: authDestination ? { returnTo: authDestination } : {},
+      });
       return;
     }
 
-    if (inAuthGroup) router.replace('/');
+    if (inAuthGroup) router.replace((returnTo ?? '/') as Parameters<typeof router.replace>[0]);
   }, [
     initializing,
     isConfigured,
@@ -323,6 +342,8 @@ function RootNavigator({
     onSignIn,
     onPending,
     onDownloads,
+    returnTo,
+    authDestination,
   ]);
 
   return (

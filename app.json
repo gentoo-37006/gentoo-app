@@ -46,6 +46,16 @@
             {
               "scheme": "https",
               "host": "gentoo.ethanyanxu.com",
+              "path": "/app"
+            },
+            {
+              "scheme": "https",
+              "host": "gentoo.ethanyanxu.com",
+              "pathPrefix": "/app/"
+            },
+            {
+              "scheme": "https",
+              "host": "gentoo.ethanyanxu.com",
               "pathPrefix": "/inventory"
             }
           ]

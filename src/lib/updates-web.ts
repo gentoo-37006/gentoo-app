@@ -6,7 +6,7 @@ import { COMMIT_SHA, RELEASE_CHANNEL, type ReleaseChannel } from '@/lib/env';
 /**
  * Web-only "a newer build is deployed" detector.
  *
- * Each deploy publishes /version.json (see scripts/write-version.js). The running
+ * Each deploy publishes /app/version.json (see scripts/write-version.js). The running
  * tab knows its own build id from what was baked into the bundle at build time —
  * the commit SHA on beta, or the app version on release — and polls the manifest
  * to see if a newer build is live. Native uses expo-updates instead (see _layout).
@@ -32,7 +32,8 @@ export function useWebUpdateAvailable() {
 
     async function check() {
       try {
-        const res = await fetch(`/version.json?ts=${Date.now()}`, { cache: 'no-store' });
+        const basePath = process.env.NODE_ENV === 'production' ? '/app' : '';
+        const res = await fetch(`${basePath}/version.json?ts=${Date.now()}`, { cache: 'no-store' });
         if (!res.ok) return;
         const manifest: Manifest = await res.json();
         const latestId = manifest.id ?? manifest.commit ?? manifest.version ?? '';
