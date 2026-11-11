@@ -4,6 +4,7 @@ import { appReturnTo, appWebPath, appWebUrl, nativeAppPath } from '@/lib/app-lin
 describe('app web links', () => {
   it('mounts every public app link under /app exactly once', () => {
     expect(appWebPath('/')).toBe('/app');
+    expect(appWebPath('/dashboard')).toBe('/app/dashboard');
     expect(appWebPath('/inventory/part-1')).toBe('/app/inventory/part-1');
     expect(appWebPath('/app/inventory/part-1')).toBe('/app/inventory/part-1');
     expect(appWebPath('/application')).toBe('/app/application');
@@ -25,6 +26,7 @@ describe('native app links', () => {
   it('handles the app root, relative links, and custom app scheme', () => {
     expect(nativeAppPath('https://gentoo.ethanyanxu.com/app')).toBe('/');
     expect(nativeAppPath('/app/projects/project-1')).toBe('/projects/project-1');
+    expect(nativeAppPath('/app/dashboard/')).toBe('/dashboard/');
     expect(nativeAppPath('gentoo://app/inventory/part-1')).toBe('/inventory/part-1');
   });
 
@@ -43,6 +45,7 @@ describe('returning after sign-in', () => {
     expect(appReturnTo('/app/inventory/part-1')).toBe('/inventory/part-1');
     expect(appReturnTo('/projects/project-1?task=task-1')).toBe('/projects/project-1?task=task-1');
     expect(appReturnTo('/app/driver-station')).toBe('/driver-station');
+    expect(appReturnTo('/app/dashboard/')).toBe('/dashboard/');
     expect(appReturnTo('/')).toBe('/');
   });
 

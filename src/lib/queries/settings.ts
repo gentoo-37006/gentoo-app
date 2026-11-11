@@ -20,18 +20,27 @@ export async function activeEventCode(): Promise<string> {
   return (data?.value?.eventCode as string) ?? '';
 }
 
-export function useAppSetting(key: string) {
+export function useAppSetting(key: string, { enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: appSettingKey(key),
+    enabled,
     queryFn: async (): Promise<AppSetting | null> => {
       if (isDemoMode()) return null;
-      const { data, error } = await supabase
-        .from('app_settings')
-        .select('*')
-        .eq('key', key)
-        .maybeSingle();
-      if (error) throw error;
-      return data as AppSetting | null;
+      // Settings can gate the startup route, so an offline request must settle.
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10_000);
+      try {
+        const { data, error } = await supabase
+          .from('app_settings')
+          .select('*')
+          .eq('key', key)
+          .abortSignal(controller.signal)
+          .maybeSingle();
+        if (error) throw error;
+        return data as AppSetting | null;
+      } finally {
+        clearTimeout(timeout);
+      }
     },
   });
 }

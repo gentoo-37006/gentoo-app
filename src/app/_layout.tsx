@@ -41,6 +41,7 @@ import { useAuth } from '@/lib/auth';
 import { useDatabaseRealtime } from '@/lib/use-database-realtime';
 import { canReloadNativeUpdate } from '@/lib/native-update-policy';
 import { appReturnTo } from '@/lib/app-links';
+import { useHomeRoute } from '@/lib/use-home-route';
 
 const SPLASH_FADE_DURATION = 75;
 
@@ -223,6 +224,10 @@ function RootNavigator({
   >(null);
   const segments = useSegments() as string[];
   const pathname = usePathname();
+  const onHome = pathname === '/';
+  const home = useHomeRoute(
+    onHome && !initializing && isConfigured && !!session && profile?.status === 'approved'
+  );
   useNativeUpdates(pathname);
   const searchParams = useGlobalSearchParams();
   const returnTo = appReturnTo(searchParams.returnTo);
@@ -264,7 +269,7 @@ function RootNavigator({
   // A stale-null profile is covered by `initializing`: auth.tsx restores a
   // previously verified mobile profile before settling an offline request.
   else if (!profile || profile.status !== 'approved') routeSettled = onPending;
-  else routeSettled = !inAuthGroup;
+  else routeSettled = !inAuthGroup && !onHome;
   const settled = themeRestored && routeSettled;
 
   React.useEffect(() => {
@@ -332,6 +337,7 @@ function RootNavigator({
     }
 
     if (inAuthGroup) router.replace((returnTo ?? '/') as Parameters<typeof router.replace>[0]);
+    else if (onHome && home.ready) router.replace(home.href);
   }, [
     initializing,
     isConfigured,
@@ -344,6 +350,9 @@ function RootNavigator({
     onDownloads,
     returnTo,
     authDestination,
+    onHome,
+    home.ready,
+    home.href,
   ]);
 
   return (

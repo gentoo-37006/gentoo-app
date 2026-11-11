@@ -28,7 +28,6 @@ for (const entry of entries) {
   fs.renameSync(path.join(dist, entry), path.join(app, entry));
 }
 fs.cpSync(path.join(projectRoot, 'website'), dist, { recursive: true });
-fs.copyFileSync(path.join(projectRoot, 'assets/images/icon.png'), path.join(dist, 'team-icon.png'));
 
 require('./write-version');
 console.log('[export-web] Team website: /; Gentoo app: /app');

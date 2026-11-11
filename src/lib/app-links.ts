@@ -30,7 +30,7 @@ export function nativeAppPath(path: string): string {
 }
 
 const APP_ROUTE_ROOTS = new Set([
-  'projects', 'inventory', 'competition', 'scouting', 'picklist', 'talkie',
+  'dashboard', 'projects', 'inventory', 'competition', 'scouting', 'picklist', 'talkie',
   'schedule', 'driver-station', 'notifications', 'settings', 'admin', 'downloads',
 ]);
 
