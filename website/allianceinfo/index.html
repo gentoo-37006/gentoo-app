@@ -7,7 +7,8 @@
     <meta name="robots" content="noindex, nofollow" />
     <meta name="description" content="A scouting card from Gentoo Robotics, FIRST Tech Challenge Team 37006, for an alliance partner." />
     <title>Scouting card | Gentoo Robotics</title>
-    <link rel="icon" href="/team-icon.png" />
+    <link rel="icon" type="image/png" href="/assets/gentoo-mark.png" />
+    <link rel="apple-touch-icon" href="/assets/gentoo-mark.png" />
     <style>
       :root { color-scheme: light; --ink: #352d3f; --purple: #79599c; --lilac: #cbb0ed; --yellow: #ffe68b; --paper: #f0eaf3; --card: #fbf8fd; --line: #d9cce6; --muted: #6a5d78; }
       * { box-sizing: border-box; letter-spacing: 0; }
@@ -18,7 +19,8 @@
       a:focus-visible, button:focus-visible { outline: 3px solid var(--purple); outline-offset: 4px; }
       .container { width: min(100% - 36px, 720px); margin-inline: auto; }
       header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 20px; }
-      .brand { font-weight: 800; font-size: 16px; text-decoration: none; }
+      .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; font-size: 16px; text-decoration: none; white-space: nowrap; }
+      .brand-icon { width: 34px; height: 34px; flex: none; object-fit: contain; }
       .team-number { font: bold 12px/1.5 ui-monospace, monospace; color: var(--muted); }
       main { padding-bottom: 56px; }
       .eyebrow { margin: 18px 0 6px; font: bold 12px/1.5 ui-monospace, monospace; color: var(--purple); }
@@ -54,7 +56,10 @@
   </head>
   <body>
     <header class="container">
-      <a class="brand" href="/" aria-label="Gentoo Robotics home">Gentoo Robotics</a>
+      <a class="brand" href="/" aria-label="Gentoo Robotics home">
+        <img class="brand-icon" src="/assets/gentoo-mark.png" alt="" width="34" height="34" />
+        <span>Gentoo Robotics</span>
+      </a>
       <span class="team-number">FTC #37006</span>
     </header>
 
