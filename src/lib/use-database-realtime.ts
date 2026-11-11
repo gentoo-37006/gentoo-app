@@ -24,6 +24,7 @@ const REALTIME_QUERY_ROOTS = {
   pit_shifts: ['pit_shifts'],
   inventory_parts: ['inventory_parts', 'inventory_part'],
   inventory_checkouts: ['inventory_parts', 'inventory_part', 'my_checkouts'],
+  alliance_cards: ['alliance_cards'],
   app_settings: [
     'app_settings',
     'matches',

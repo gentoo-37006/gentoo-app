@@ -29,5 +29,17 @@ for (const entry of entries) {
 }
 fs.cpSync(path.join(projectRoot, 'website'), dist, { recursive: true });
 
+// The scouting-card page (/allianceinfo/<team>) is plain HTML with no bundler,
+// so it cannot have the public Supabase settings inlined the way the app does.
+// Hand them over in a script it loads, with the field images the app ships.
+const { publicEnv } = require('./public-env');
+const cardDir = path.join(dist, 'allianceinfo');
+const cardConfig = {
+  supabaseUrl: publicEnv('EXPO_PUBLIC_SUPABASE_URL'),
+  supabaseAnonKey: publicEnv('EXPO_PUBLIC_SUPABASE_ANON_KEY'),
+};
+fs.writeFileSync(path.join(cardDir, 'config.js'), `window.GENTOO_PUBLIC = ${JSON.stringify(cardConfig)};\n`);
+fs.cpSync(path.join(projectRoot, 'assets/images/fields'), path.join(cardDir, 'fields'), { recursive: true });
+
 require('./write-version');
-console.log('[export-web] Team website: /; Gentoo app: /app');
+console.log('[export-web] Team website: /; Gentoo app: /app; scouting cards: /allianceinfo/<team>');

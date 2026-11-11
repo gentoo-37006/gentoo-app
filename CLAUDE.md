@@ -104,6 +104,24 @@ values from EAS secrets / environment variables instead.
   table to the query-key roots it invalidates, batched so a bulk import refetches each family
   once. **Adding a table means adding it to `REALTIME_QUERY_ROOTS`** or its screens go stale.
 
+### Scouting cards: one feature, two front ends
+
+A scouting card is the one-day page about our robot that an alliance partner opens at
+`/allianceinfo/<their team number>`. The editor is in the app
+(`src/app/(app)/scouting/card/`); the page the partner sees is
+`website/allianceinfo/index.html` — plain HTML with no bundler, outside `/app`, because
+the partner has no account.
+
+- The page repeats the field list, path colours and coordinate maths from
+  `src/lib/alliance-card.ts`. Change them in both places.
+- It cannot have `EXPO_PUBLIC_*` values inlined, so `scripts/export-web.js` writes
+  `dist/allianceinfo/config.js` and copies `assets/images/fields/` beside it.
+- It reads through the `get_alliance_card` RPC as `anon`. The table itself is
+  approved-members-only, and the database sets the expiry — a client cannot ask for a
+  longer life (`supabase/migrations/0030_alliance_cards.sql`).
+- A press on react-native-web carries `offsetX/Y`, not `locationX/Y`; `pressPoint()`
+  reads whichever the platform gives. Typecheck cannot catch that — run the screen.
+
 ### Styling
 
 NativeWind v4 (`className`) with `tailwind.config.js`; design-system primitives in

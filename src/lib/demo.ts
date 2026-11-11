@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
+  AllianceCard,
   AnswerValue,
   AppNotification,
   CapabilityQuestion,
@@ -26,6 +27,13 @@ import type {
 import type { ParsedMatch } from '@/lib/csv';
 import type { GeneratedShift } from '@/lib/scheduler';
 import { nextTaskSortOrder } from '@/lib/task-order';
+import {
+  CARD_LIFETIME_MS,
+  DEFAULT_CARD_FIELDS,
+  DEFAULT_FIELD,
+  isCardExpired,
+  type CardField,
+} from '@/lib/alliance-card';
 
 const STORAGE_KEY = 'gentoo.demo.workspace.v3';
 const AUTH_KEY = 'gentoo.demo.enabled.v1';
@@ -55,6 +63,9 @@ type DemoWorkspace = {
   pitShifts: PitShift[];
   parts: Part[];
   checkouts: PartCheckout[];
+  /** Optional: workspaces saved before scouting cards existed have neither. */
+  allianceCards?: AllianceCard[];
+  allianceCardTemplate?: CardField[];
   seededAt: string;
 };
 
@@ -245,6 +256,40 @@ function seedWorkspace(): DemoWorkspace {
     ],
     parts,
     checkouts,
+    allianceCards: [
+      {
+        partner_team: 7244,
+        partner_name: 'Out of the Box',
+        fields: [
+          { id: 'auton-points', label: 'Auton points', kind: 'number', value: '32' },
+          { id: 'teleop-points', label: 'TeleOp points', kind: 'number', value: '78' },
+          { id: 'bot-type', label: 'Type of bot', kind: 'text', value: 'Shooter with a floor intake' },
+          {
+            id: 'compatibility',
+            label: 'Compatibility',
+            kind: 'paragraph',
+            value: 'We start on the near side and stay out of the far lane, so a far-side auton fits with ours.',
+          },
+        ],
+        auton: {
+          field: DEFAULT_FIELD,
+          paths: [
+            {
+              name: 'Near side',
+              curves: [
+                { start: { x: -60, y: -48 }, end: { x: -24, y: -48 } },
+                { start: { x: -24, y: -48 }, end: { x: -24, y: 0 } },
+                { start: { x: -24, y: 0 }, end: { x: -48, y: 24 } },
+              ],
+            },
+          ],
+        },
+        created_by: DEMO_ADMIN_ID,
+        created_at: timestamp,
+        updated_at: timestamp,
+        expires_at: hoursFromNow(20),
+      },
+    ],
     seededAt: timestamp,
   };
 }
@@ -1053,5 +1098,61 @@ export async function demoReturnCheckout(idValue: string) {
   db.checkouts = db.checkouts.map((c) =>
     c.id === idValue ? { ...c, returned_at: now(), returned_by: DEMO_USER_ID } : c
   );
+  await persist();
+}
+
+// ---- Scouting cards ---------------------------------------------------------
+
+/** Mirrors the database: a card past its expiry is deleted, not just hidden. */
+function liveAllianceCards(db: DemoWorkspace): AllianceCard[] {
+  const nowMs = Date.now();
+  db.allianceCards = (db.allianceCards ?? []).filter((card) => !isCardExpired(card.expires_at, nowMs));
+  return db.allianceCards;
+}
+
+export async function demoAllianceCards(): Promise<AllianceCard[]> {
+  const db = await getDemoWorkspace();
+  return [...liveAllianceCards(db)].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+}
+
+export async function demoAllianceCard(team: number): Promise<AllianceCard | null> {
+  const db = await getDemoWorkspace();
+  return liveAllianceCards(db).find((card) => card.partner_team === team) ?? null;
+}
+
+export async function demoSaveAllianceCard(
+  vars: Pick<AllianceCard, 'partner_team' | 'partner_name' | 'fields' | 'auton'>
+): Promise<AllianceCard> {
+  const db = await getDemoWorkspace();
+  const cards = liveAllianceCards(db);
+  const existing = cards.find((card) => card.partner_team === vars.partner_team);
+  const timestamp = now();
+  const card: AllianceCard = {
+    ...vars,
+    created_by: DEMO_USER_ID,
+    created_at: existing?.created_at ?? timestamp,
+    updated_at: timestamp,
+    // Saving restarts the day, as the stamp_alliance_card trigger does.
+    expires_at: new Date(Date.now() + CARD_LIFETIME_MS).toISOString(),
+  };
+  db.allianceCards = [...cards.filter((c) => c.partner_team !== vars.partner_team), card];
+  await persist();
+  return card;
+}
+
+export async function demoDeleteAllianceCard(team: number) {
+  const db = await getDemoWorkspace();
+  db.allianceCards = liveAllianceCards(db).filter((card) => card.partner_team !== team);
+  await persist();
+}
+
+export async function demoCardTemplate(): Promise<CardField[]> {
+  const db = await getDemoWorkspace();
+  return db.allianceCardTemplate ?? DEFAULT_CARD_FIELDS;
+}
+
+export async function demoSaveCardTemplate(fields: CardField[]) {
+  const db = await getDemoWorkspace();
+  db.allianceCardTemplate = fields;
   await persist();
 }

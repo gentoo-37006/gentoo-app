@@ -32,6 +32,10 @@ const server = http.createServer((request, response) => {
     if (!fs.existsSync(file) && (pathname === '/app' || pathname.startsWith('/app/'))) {
       file = path.join(dist, 'app/index.html');
     }
+    // One static page serves every scouting card; it reads the team from the path.
+    if (!fs.existsSync(file) && pathname.startsWith('/allianceinfo/')) {
+      file = path.join(dist, 'allianceinfo/index.html');
+    }
     if (!fs.existsSync(file)) {
       response.writeHead(404).end('Not found');
       return;
@@ -54,4 +58,5 @@ server.on('error', (error) => {
 server.listen(Number(process.env.PORT) || 4173, '127.0.0.1', () => {
   console.log(`Team website: http://127.0.0.1:${server.address().port}`);
   console.log(`Gentoo app: http://127.0.0.1:${server.address().port}/app`);
+  console.log(`Scouting card: http://127.0.0.1:${server.address().port}/allianceinfo/<team>`);
 });

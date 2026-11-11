@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- A card is for one alliance partner for one day. Keep it out of search results. -->
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="description" content="A scouting card from Gentoo Robotics, FIRST Tech Challenge Team 37006, for an alliance partner." />
+    <title>Scouting card | Gentoo Robotics</title>
+    <link rel="icon" href="/team-icon.png" />
+    <style>
+      :root { color-scheme: light; --ink: #352d3f; --purple: #79599c; --lilac: #cbb0ed; --yellow: #ffe68b; --paper: #f0eaf3; --card: #fbf8fd; --line: #d9cce6; --muted: #6a5d78; }
+      * { box-sizing: border-box; letter-spacing: 0; }
+      html { background: var(--paper); color: var(--ink); }
+      body { margin: 0; font-family: 'Trebuchet MS', Arial, sans-serif; border-top: 6px solid var(--yellow); }
+      a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 5px; }
+      a:hover { color: var(--purple); }
+      a:focus-visible, button:focus-visible { outline: 3px solid var(--purple); outline-offset: 4px; }
+      .container { width: min(100% - 36px, 720px); margin-inline: auto; }
+      header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 20px; }
+      .brand { font-weight: 800; font-size: 16px; text-decoration: none; }
+      .team-number { font: bold 12px/1.5 ui-monospace, monospace; color: var(--muted); }
+      main { padding-bottom: 56px; }
+      .eyebrow { margin: 18px 0 6px; font: bold 12px/1.5 ui-monospace, monospace; color: var(--purple); }
+      h1 { margin: 0; font-family: 'Arial Rounded MT Bold', 'Trebuchet MS', sans-serif; font-size: 40px; line-height: 1.15; overflow-wrap: anywhere; }
+      .partner-name { margin: 6px 0 0; font-size: 19px; font-weight: 700; overflow-wrap: anywhere; }
+      .note { margin: 12px 0 0; font-size: 14px; line-height: 1.5; color: var(--muted); }
+      section { margin-top: 30px; }
+      h2 { margin: 0 0 12px; font-size: 21px; }
+      .panel { background: var(--card); border: 2px solid var(--ink); border-radius: 8px; box-shadow: 5px 5px 0 var(--lilac); }
+      dl { margin: 0; }
+      .field { padding: 14px 16px; border-top: 1px solid var(--line); }
+      .field:first-child { border-top: 0; }
+      dt { font: bold 12px/1.5 ui-monospace, monospace; color: var(--muted); text-transform: uppercase; }
+      dd { margin: 3px 0 0; font-size: 18px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+      dd.number { font-size: 28px; font-weight: 800; line-height: 1.2; }
+      .map { position: relative; aspect-ratio: 1; overflow: hidden; border-radius: 6px; background: #ded4e8; }
+      .map img, .map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+      .map img { object-fit: fill; }
+      .map-panel { padding: 10px; }
+      .legend { list-style: none; margin: 0; padding: 4px 6px 4px; }
+      .legend li { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 16px; overflow-wrap: anywhere; }
+      .swatch { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; font: bold 13px/1 'Trebuchet MS', Arial, sans-serif; }
+      .state { margin-top: 34px; padding: 26px 20px; text-align: center; }
+      .state h2 { margin-bottom: 8px; }
+      .state p { margin: 0; font-size: 16px; line-height: 1.5; color: var(--muted); }
+      button { margin-top: 16px; padding: 10px 18px; font: bold 14px 'Trebuchet MS', Arial, sans-serif; color: var(--ink); background: var(--yellow); border: 2px solid var(--ink); border-radius: 6px; cursor: pointer; }
+      footer { background: var(--ink); color: #d9cce6; }
+      .footer-inner { padding-block: 20px; font-size: 13px; }
+      footer a:hover { color: var(--yellow); }
+      [hidden] { display: none !important; }
+      @media (max-width: 480px) { h1 { font-size: 32px; } dd { font-size: 17px; } dd.number { font-size: 25px; } }
+    </style>
+  </head>
+  <body>
+    <header class="container">
+      <a class="brand" href="/" aria-label="Gentoo Robotics home">Gentoo Robotics</a>
+      <span class="team-number">FTC #37006</span>
+    </header>
+
+    <main class="container">
+      <div id="loading" class="state panel" role="status">
+        <h2>Loading the card</h2>
+        <p>One moment.</p>
+      </div>
+
+      <div id="missing" class="state panel" hidden>
+        <h2>This card is not available</h2>
+        <p>It may have expired. A scouting card is deleted one day after it is sent. Ask Gentoo for a new link.</p>
+      </div>
+
+      <div id="failed" class="state panel" hidden>
+        <h2>The card did not load</h2>
+        <p id="failed-detail">Check your connection, then try again.</p>
+        <button id="retry" type="button">Try again</button>
+      </div>
+
+      <article id="card" hidden>
+        <p class="eyebrow">SCOUTING CARD FROM GENTOO #37006</p>
+        <h1 id="title"></h1>
+        <p id="partner-name" class="partner-name" hidden></p>
+        <p id="expiry" class="note"></p>
+
+        <section id="fields-section" aria-labelledby="fields-heading" hidden>
+          <h2 id="fields-heading">Our robot</h2>
+          <dl id="fields" class="panel"></dl>
+        </section>
+
+        <section id="auton-section" aria-labelledby="auton-heading" hidden>
+          <h2 id="auton-heading">Our auton paths</h2>
+          <div class="panel map-panel">
+            <div class="map">
+              <img id="field-image" alt="" />
+              <svg id="paths" role="img"></svg>
+            </div>
+            <ol id="legend" class="legend"></ol>
+          </div>
+          <p class="note">Each number on the field marks where that path starts.</p>
+        </section>
+      </article>
+    </main>
+
+    <footer>
+      <div class="container footer-inner">Gentoo Robotics, FIRST Tech Challenge Team 37006. <a href="/">Team website</a></div>
+    </footer>
+
+    <!-- Written by scripts/export-web.js: the public Supabase URL and anon key. -->
+    <script src="/allianceinfo/config.js"></script>
+    <script>
+      (function () {
+        'use strict';
+
+        // Keep in step with src/lib/alliance-card.ts.
+        var FIELD_SIZE = 144;
+        var FIELDS = ['biobuzz', 'decode', 'intothedeep', 'centerstage'];
+        var COLOURS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300'];
+        var INKS = ['#ffffff', '#ffffff', '#ffffff', '#0b0b0b', '#ffffff', '#ffffff'];
+        var SVG_NS = 'http://www.w3.org/2000/svg';
+
+        var config = window.GENTOO_PUBLIC || {};
+        var states = ['loading', 'missing', 'failed', 'card'];
+        var expiryTimer = null;
+        // The paths on show, already checked: [{ name, curves }], or null for none.
+        var shownPaths = null;
+
+        function byId(id) { return document.getElementById(id); }
+
+        function show(state) {
+          states.forEach(function (name) { byId(name).hidden = name !== state; });
+        }
+
+        function teamFromPath() {
+          var match = window.location.pathname.match(/\/allianceinfo\/(\d{1,5})\/?$/);
+          return match ? Number(match[1]) : null;
+        }
+
+        function isPosition(value) {
+          return value && typeof value === 'object' &&
+            typeof value.x === 'number' && typeof value.y === 'number' &&
+            isFinite(value.x) && isFinite(value.y);
+        }
+
+        // Field inches (origin at the centre, +y up) to pixels on a map `size` wide.
+        function point(position, size) {
+          var x = (position.x / FIELD_SIZE + 0.5) * size;
+          var y = (0.5 - position.y / FIELD_SIZE) * size;
+          return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+        }
+
+        // Returns the drawable curves only, so nothing from the database is
+        // ever written into the page except numbers this function produced.
+        function cleanCurves(curves) {
+          if (!Array.isArray(curves)) return [];
+          return curves.filter(function (curve) {
+            return curve && isPosition(curve.start) && isPosition(curve.end);
+          });
+        }
+
+        function pathData(curves, size) {
+          var start = point(curves[0].start, size);
+          var parts = ['M ' + start.x + ' ' + start.y];
+          curves.forEach(function (curve) {
+            var end = point(curve.end, size);
+            if (isPosition(curve.control1) && isPosition(curve.control2)) {
+              var c1 = point(curve.control1, size);
+              var c2 = point(curve.control2, size);
+              parts.push('C ' + c1.x + ' ' + c1.y + ' ' + c2.x + ' ' + c2.y + ' ' + end.x + ' ' + end.y);
+            } else {
+              parts.push('L ' + end.x + ' ' + end.y);
+            }
+          });
+          return parts.join(' ');
+        }
+
+        function svg(name, attributes) {
+          var element = document.createElementNS(SVG_NS, name);
+          Object.keys(attributes).forEach(function (key) { element.setAttribute(key, attributes[key]); });
+          return element;
+        }
+
+        function renderFields(fields) {
+          var list = byId('fields');
+          list.textContent = '';
+          var shown = 0;
+          (Array.isArray(fields) ? fields : []).forEach(function (field) {
+            if (!field || typeof field.label !== 'string' || typeof field.value !== 'string') return;
+            var value = field.value.trim();
+            if (!field.label.trim() || !value) return;
+            var row = document.createElement('div');
+            row.className = 'field';
+            var term = document.createElement('dt');
+            term.textContent = field.label.trim();
+            var detail = document.createElement('dd');
+            detail.textContent = value;
+            if (field.kind === 'number') detail.className = 'number';
+            row.appendChild(term);
+            row.appendChild(detail);
+            list.appendChild(row);
+            shown += 1;
+          });
+          byId('fields-section').hidden = shown === 0;
+        }
+
+        // Draws the paths in screen pixels, not in a scaled drawing, so the lines
+        // and numbers stay a readable size on a phone. Runs again when the map
+        // changes width.
+        function drawMap() {
+          var drawing = byId('paths');
+          drawing.textContent = '';
+          if (!shownPaths) return;
+          var size = Math.round(drawing.getBoundingClientRect().width);
+          if (!size) return; // the card is hidden; render() draws once it is shown
+          drawing.setAttribute('viewBox', '0 0 ' + size + ' ' + size);
+
+          // Phone sizes match the map in the app; a wide map gets up to 1.5 times those.
+          var scale = Math.max(1, Math.min(1.5, size / 400));
+          var badge = 10 * scale;
+          var edge = badge + scale; // the badge and its ring, kept whole at the wall
+          function inside(value) { return Math.max(edge, Math.min(size - edge, value)); }
+
+          shownPaths.forEach(function (path, index) {
+            var colour = COLOURS[index];
+            var d = pathData(path.curves, size);
+            var start = point(path.curves[0].start, size);
+            var end = point(path.curves[path.curves.length - 1].end, size);
+            var cx = inside(start.x);
+            var cy = inside(start.y);
+            // A white casing under the colour keeps the path readable on any part of the field.
+            drawing.appendChild(svg('path', { d: d, fill: 'none', stroke: '#ffffff', 'stroke-width': 7 * scale, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+            drawing.appendChild(svg('path', { d: d, fill: 'none', stroke: colour, 'stroke-width': 4 * scale, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+            drawing.appendChild(svg('circle', { cx: end.x, cy: end.y, r: 5 * scale, fill: colour, stroke: '#ffffff', 'stroke-width': 2 * scale }));
+            drawing.appendChild(svg('circle', { cx: cx, cy: cy, r: badge, fill: colour, stroke: '#ffffff', 'stroke-width': 2 * scale }));
+            var label = svg('text', { x: cx, y: cy + 4 * scale, fill: INKS[index], 'font-size': 11 * scale, 'font-weight': 'bold', 'font-family': "'Trebuchet MS', Arial, sans-serif", 'text-anchor': 'middle' });
+            label.textContent = String(index + 1);
+            drawing.appendChild(label);
+          });
+        }
+
+        function renderAuton(auton) {
+          var section = byId('auton-section');
+          var legend = byId('legend');
+          legend.textContent = '';
+          shownPaths = null;
+
+          var paths = [];
+          if (auton && Array.isArray(auton.paths)) {
+            auton.paths.forEach(function (path) {
+              if (paths.length >= COLOURS.length) return;
+              var curves = cleanCurves(path && path.curves);
+              if (curves.length === 0) return;
+              var name = path && typeof path.name === 'string' && path.name.trim() ? path.name.trim() : 'Path ' + (paths.length + 1);
+              paths.push({ name: name, curves: curves });
+            });
+          }
+          if (paths.length === 0) { section.hidden = true; return; }
+
+          var field = FIELDS.indexOf(auton.field) >= 0 ? auton.field : FIELDS[0];
+          byId('field-image').src = '/allianceinfo/fields/' + field + '.webp';
+          shownPaths = paths;
+
+          var names = [];
+          paths.forEach(function (path, index) {
+            var item = document.createElement('li');
+            var swatch = document.createElement('span');
+            swatch.className = 'swatch';
+            swatch.style.background = COLOURS[index];
+            swatch.style.color = INKS[index];
+            swatch.textContent = String(index + 1);
+            var text = document.createElement('span');
+            text.textContent = path.name;
+            item.appendChild(swatch);
+            item.appendChild(text);
+            legend.appendChild(item);
+            names.push((index + 1) + ', ' + path.name);
+          });
+          byId('paths').setAttribute('aria-label', 'Auton paths drawn on the field: ' + names.join('; '));
+          section.hidden = false;
+        }
+
+        function render(card) {
+          byId('title').textContent = 'For team ' + card.partner_team;
+          document.title = 'Scouting card for team ' + card.partner_team + ' | Gentoo Robotics';
+
+          var name = byId('partner-name');
+          name.hidden = !(typeof card.partner_name === 'string' && card.partner_name.trim());
+          name.textContent = name.hidden ? '' : card.partner_name.trim();
+
+          var expires = new Date(card.expires_at);
+          var remaining = expires.getTime() - Date.now();
+          if (isNaN(remaining) || remaining <= 0) { show('missing'); return; }
+          byId('expiry').textContent = 'This page is deleted on ' +
+            expires.toLocaleString([], { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + '.';
+
+          renderFields(card.fields);
+          renderAuton(card.auton);
+          show('card');
+          drawMap(); // after show(): the map has no width while the card is hidden
+
+          // The page itself stops showing the card at the moment it expires.
+          if (expiryTimer) clearTimeout(expiryTimer);
+          expiryTimer = setTimeout(function () { show('missing'); }, Math.min(remaining, 2147483647));
+        }
+
+        function fail(detail) {
+          byId('failed-detail').textContent = detail;
+          show('failed');
+        }
+
+        function load() {
+          var team = teamFromPath();
+          if (team === null || team < 1) { show('missing'); return; }
+          if (!config.supabaseUrl || !config.supabaseAnonKey) {
+            fail('This page is not set up yet. Tell Gentoo their site is missing its settings.');
+            byId('retry').hidden = true;
+            return;
+          }
+          show('loading');
+          fetch(config.supabaseUrl.replace(/\/+$/, '') + '/rest/v1/rpc/get_alliance_card', {
+            method: 'POST',
+            headers: {
+              apikey: config.supabaseAnonKey,
+              Authorization: 'Bearer ' + config.supabaseAnonKey,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ team_number: team })
+          })
+            .then(function (response) {
+              if (!response.ok) throw new Error('HTTP ' + response.status);
+              return response.json();
+            })
+            .then(function (card) {
+              if (!card || typeof card !== 'object') { show('missing'); return; }
+              render(card);
+            })
+            .catch(function () { fail('Check your connection, then try again.'); });
+        }
+
+        byId('retry').addEventListener('click', load);
+        window.addEventListener('resize', drawMap);
+        load();
+      })();
+    </script>
+  </body>
+</html>

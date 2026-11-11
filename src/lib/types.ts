@@ -3,6 +3,8 @@
  * generated) and extended per feature phase.
  */
 
+import type { AutonPlan, CardField } from '@/lib/alliance-card';
+
 export type UserRole = 'admin' | 'member';
 export type UserStatus = 'pending' | 'approved' | 'rejected';
 
@@ -223,6 +225,24 @@ export function matchLabelFor(
   const name = TOURNAMENT_LEVEL_NAMES[tournamentLevel] ?? tournamentLevel;
   return series ? `${name} ${series}` : name;
 }
+
+// ---- Scouting cards ---------------------------------------------------------
+
+/**
+ * Row of alliance_cards: the one-day public page we hand an alliance partner.
+ * Keyed by the partner's team number; the database deletes it a day after the
+ * last save.
+ */
+export type AllianceCard = {
+  partner_team: number;
+  partner_name: string | null;
+  fields: CardField[];
+  auton: AutonPlan | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  expires_at: string;
+};
 
 // ---- Talkie -----------------------------------------------------------------
 

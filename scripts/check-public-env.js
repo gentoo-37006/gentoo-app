@@ -8,41 +8,11 @@
 // Values come from the environment (Render, EAS, CI) or from a local .env file,
 // which is what Expo itself reads for desktop builds.
 
-const fs = require('node:fs');
-const path = require('node:path');
+const { publicEnv } = require('./public-env');
 
 const required = ['EXPO_PUBLIC_SUPABASE_URL', 'EXPO_PUBLIC_SUPABASE_ANON_KEY'];
-// Same precedence Expo uses: .env.local wins over .env, and a real environment
-// variable wins over both.
-const ENV_FILES = ['.env.local', '.env'];
 
-function readEnvFile(file) {
-  const values = {};
-  let contents;
-  try {
-    contents = fs.readFileSync(path.join(process.cwd(), file), 'utf8');
-  } catch {
-    return values; // absent or unreadable — the env may still supply the value
-  }
-
-  for (const line of contents.split(/\r?\n/)) {
-    const match = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(line);
-    if (!match) continue;
-    const [, key, rawValue] = match;
-    values[key] = rawValue.trim().replace(/^(['"])(.*)\1$/, '$2');
-  }
-  return values;
-}
-
-const fromFiles = {};
-for (const file of ENV_FILES) {
-  const values = readEnvFile(file);
-  for (const [key, value] of Object.entries(values)) {
-    if (!(key in fromFiles)) fromFiles[key] = value; // earlier file wins
-  }
-}
-
-const missing = required.filter((key) => !(process.env[key] || fromFiles[key]));
+const missing = required.filter((key) => !publicEnv(key));
 
 if (missing.length > 0) {
   console.error(

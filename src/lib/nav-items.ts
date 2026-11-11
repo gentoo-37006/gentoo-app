@@ -9,6 +9,7 @@ import {
   ListOrdered,
   CalendarClock,
   Gamepad2,
+  Handshake,
   Trophy,
   Bell,
   Download,
@@ -64,6 +65,7 @@ export const NAV_SECTIONS: NavSection[] = [
 export const SCOUTING_MENU: NavItem[] = [
   { name: 'pit-scouting', label: 'Pit scouting', href: '/scouting/pit', icon: ClipboardList },
   { name: 'match-scouting', label: 'Match scouting', href: '/scouting/matches', icon: CalendarRange },
+  { name: 'scouting-cards', label: 'Scouting cards', href: '/scouting/card', icon: Handshake },
   { name: 'picklist', label: 'Picklist', href: '/picklist', icon: ListOrdered },
   { name: 'talkie', label: 'Talkie', href: '/talkie', icon: Radio },
 ];

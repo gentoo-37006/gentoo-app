@@ -4,6 +4,7 @@ import {
   ClipboardList,
   CalendarRange,
   ChevronRight,
+  Handshake,
   type LucideIcon,
 } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
@@ -32,6 +33,12 @@ const SECTIONS: Section[] = [
     description: 'Assign scouters to matches and collect their reports.',
     icon: CalendarRange,
     href: '/scouting/matches',
+  },
+  {
+    label: 'Scouting cards',
+    description: 'Send an alliance partner a one-day page about our robot.',
+    icon: Handshake,
+    href: '/scouting/card',
   },
 ];
 

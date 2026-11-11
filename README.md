@@ -19,14 +19,26 @@ at the root, and the Expo app, assets, splash images, and version manifest under
 Metro development (`npm start` / `npm run web`) retains Expo's root-based routes;
 the `/app` mount is applied to production web exports.
 
+Scouting cards live beside the website, outside `/app`, because the alliance
+partner who opens one has no account: `https://gentoo.ethanyanxu.com/allianceinfo/16417`
+is the card made for team 16417. One static page, `website/allianceinfo/index.html`,
+serves every card and reads the team number from the path. The export writes the
+public Supabase URL and anon key to `dist/allianceinfo/config.js` for it and copies
+the field images to `dist/allianceinfo/fields/`.
+
 Run `npm run preview:web` after exporting to test the complete deployment locally,
-including the team homepage, `/app` navigation, and legacy QR redirects.
+including the team homepage, `/app` navigation, scouting cards, and legacy QR
+redirects.
 
 Deployment requirements:
 
 - Sync the updated `render.yaml` Blueprint (or mirror its build command, headers,
   and redirect/rewrite rules in both Render services). The SPA fallback must only
-  apply to `/app` and `/app/*`, never `/*`.
+  apply to `/app` and `/app/*`, never `/*`. Scouting cards need the
+  `/allianceinfo/*` rewrite to `/allianceinfo/index.html`.
+- Run `supabase/migrations/0030_alliance_cards.sql` before deploying a build with
+  scouting cards. Until it has run, the cards screen cannot save and every card
+  link shows "The card did not load".
 - In Supabase **Authentication > URL Configuration**, set the production Site URL
   to `https://gentoo.ethanyanxu.com/app` and allow
   `https://gentoo.ethanyanxu.com/app/**` plus
@@ -51,6 +63,10 @@ web-only `/app` prefix from incoming links before Expo Router processes them.
   flags, and printable labels.
 - **Scouting suite** — pit scouting with weighted capability scoring, match-scouting
   assignments and schedule import, and "talkie" pit-intel requests.
+- **Scouting cards** — a public page about our robot for an alliance partner, at
+  `/allianceinfo/<their team number>`: answers from a form the team edits, plus our
+  auton paths drawn on the field. Shared as a link or a QR code, and deleted one day
+  after it was last saved.
 - **Picklist** — tiered alliance-selection board with weighted scores and a head-to-head
   compare view for settling a pair during the pick meeting.
 - **Competition dashboard** — event-day view: next-match countdown, your pit shifts, and
@@ -141,7 +157,7 @@ src/
     (app)/               # authenticated shell + features
       projects/          # projects, their tasks, and the trash
       inventory/         # parts list + part detail
-      scouting/          # hub, pit/, matches/, questions.tsx
+      scouting/          # hub, pit/, matches/, questions.tsx, card/ (scouting cards)
       picklist/          # tiered alliance-selection board
       competition.tsx    # event-day dashboard
       schedule.tsx       # pit-duty scheduler
@@ -155,11 +171,15 @@ src/
     auth.tsx, supabase.ts, notify.ts, push.ts
     apple-auth.ts, google-auth.ts    # google-auth.web.ts on web
     scoring.ts           # weighted pick-list score
+    alliance-card.ts     # scouting cards: form fields, auton paths, link
     scheduler.ts         # fair pit-duty rotation
     nav-items.ts         # single source of truth for navigation
     api/ftcscout.ts      # official event/team stats
     queries/             # TanStack Query hooks per domain
     __tests__/           # vitest unit tests for the pure lib modules
+website/
+  index.html             # the public team website, served at /
+  allianceinfo/          # the public scouting-card page, served at /allianceinfo/<team>
 supabase/
   migrations/            # 0001… — run in filename order
   functions/send-push/   # Expo push Edge Function

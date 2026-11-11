@@ -31,6 +31,11 @@ services:
       - type: rewrite
         source: /app/*
         destination: /app/index.html
+      # Scouting cards for alliance partners. One static page serves every card
+      # and reads the partner's team number from the path.
+      - type: rewrite
+        source: /allianceinfo/*
+        destination: /allianceinfo/index.html
       - type: redirect
         source: /sign-in
         destination: /app/sign-in
@@ -129,6 +134,11 @@ services:
       - type: rewrite
         source: /app/*
         destination: /app/index.html
+      # Scouting cards for alliance partners. One static page serves every card
+      # and reads the partner's team number from the path.
+      - type: rewrite
+        source: /allianceinfo/*
+        destination: /allianceinfo/index.html
       - type: redirect
         source: /sign-in
         destination: /app/sign-in

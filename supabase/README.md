@@ -84,3 +84,26 @@ iOS/Android:
    that POSTs to the `send-push` function URL.
 3. Native push tokens require an **EAS project id** — set `expo.extra.eas.projectId` in `app.json`
    (run `eas init`) and use a dev/standalone build. Web uses in-app realtime only.
+
+## 7. Scouting cards (optional scheduled cleanup)
+
+A scouting card (`/allianceinfo/<team>`) expires one day after it was last saved.
+`0030_alliance_cards.sql` makes an expired card unreadable at once and deletes it the
+next time anyone saves a card, opens the cards screen, or opens any card link. Nothing
+more is needed for the feature to work.
+
+To have expired cards deleted on a timer as well, enable **pg_cron**
+(Database → Extensions) *before* running the migration, and it schedules a purge every
+15 minutes. If you enable pg_cron afterwards, schedule it once in the SQL editor:
+
+```sql
+select cron.schedule(
+  'purge-expired-alliance-cards',
+  '*/15 * * * *',
+  'select public.purge_expired_alliance_cards()'
+);
+```
+
+The partner's page reads a card through the `get_alliance_card` function with the anon
+key, so it works without an account. It returns one live card by team number and
+cannot list cards.
