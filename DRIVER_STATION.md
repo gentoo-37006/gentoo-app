@@ -1,7 +1,13 @@
 # Driver Station
 
 Native Driver Station keeps the screen awake while foregrounded. Backgrounding
-still neutralizes gamepads and stops the active OpMode. A cold launch returns
+still neutralizes gamepads and stops the active OpMode at once. A brief
+inactive state (iOS reports one for a screenshot, Control Center, the
+notification shade or a system dialog) neutralizes gamepads immediately but
+stops the OpMode only if the app is still not active after two seconds
+(`src/lib/driver-station/app-state-stop.ts`), so a screenshot no longer ends a
+run. Until then the robot keeps running whatever the OpMode does with neutral
+input. A cold launch returns
 to the home screen after the normal account gate; Driver Station is never
 restored automatically. Its back button stops the OpMode and navigates home
 even when there is no back history.
