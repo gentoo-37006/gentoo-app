@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 
 export type TextareaProps = React.ComponentProps<typeof TextInput>;
 
-export const Textarea = React.forwardRef<TextInput, TextareaProps>(
+export const Textarea = React.forwardRef<React.ComponentRef<typeof TextInput>, TextareaProps>(
   ({ className, placeholderTextColor, ...props }, ref) => {
     return (
       <TextInput

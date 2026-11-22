@@ -126,8 +126,7 @@
         }
       ],
       "./plugins/withPodfileDeploymentTarget",
-      "./plugins/withAndroidDefaultOrientation",
-      "./plugins/withUISceneSupport"
+      "./plugins/withAndroidDefaultOrientation"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -17,7 +17,7 @@ function TouchStick({ label, onChange, feedback }: {
 }) {
   const [position, setPosition] = React.useState({ x: 0, y: 0 });
   const [size, setSize] = React.useState(0);
-  const touch = React.useRef<{ id: string; x: number; y: number } | null>(null);
+  const touch = React.useRef<{ id: number; x: number; y: number } | null>(null);
   React.useEffect(() => () => feedback.release(label), [feedback, label]);
   const move = (event: GestureResponderEvent) => {
     const origin = touch.current;
@@ -78,7 +78,7 @@ function HoldButton({ label, onChange, wide = false, icon }: {
   icon?: typeof ChevronUp;
 }) {
   const [held, setHeld] = React.useState(false);
-  const touch = React.useRef<string | null>(null);
+  const touch = React.useRef<number | null>(null);
   const release = () => {
     if (touch.current !== null) controllerReleaseHaptic();
     touch.current = null; setHeld(false); onChange(false);

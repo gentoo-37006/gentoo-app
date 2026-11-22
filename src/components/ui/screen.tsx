@@ -113,7 +113,7 @@ export function Screen({
 }) {
   const { height: windowHeight } = useWindowDimensions();
   const [dragActive, setDragActive] = React.useState(false);
-  const scrollRef = React.useRef<ScrollView>(null);
+  const scrollRef = React.useRef<React.ComponentRef<typeof ScrollView>>(null);
   const contentHeight = React.useRef(0);
   const viewportHeight = React.useRef(0);
   const pointerY = React.useRef<number | null>(null);

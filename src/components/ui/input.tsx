@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 
 export type InputProps = React.ComponentProps<typeof TextInput>;
 
-export const Input = React.forwardRef<TextInput, InputProps>(
+export const Input = React.forwardRef<React.ComponentRef<typeof TextInput>, InputProps>(
   ({ className, placeholderTextColor, ...props }, ref) => {
     return (
       <TextInput

@@ -29,7 +29,7 @@ export function AutoGrowingTextInput({
   className,
   ...props
 }: AutoGrowingTextInputProps) {
-  const inputRef = React.useRef<TextInput>(null);
+  const inputRef = React.useRef<React.ComponentRef<typeof TextInput>>(null);
   const [height, setHeight] = React.useState(minHeight);
   const [nativeWidth, setNativeWidth] = React.useState(0);
   const hiddenMeasurementKey = React.useRef<string | null>(null);

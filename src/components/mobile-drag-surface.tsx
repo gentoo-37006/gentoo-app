@@ -4,6 +4,7 @@ import {
   type NativeSyntheticEvent,
   type NativeTouchEvent,
   View,
+  type HostInstance,
 } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -35,7 +36,7 @@ export function MobileDragSurface({
   const screenDragController = useScreenDragController();
   const dragOverlay = useDragOverlay();
   const [ghostVisible, setGhostVisible] = React.useState(false);
-  const surfaceRef = React.useRef<View>(null);
+  const surfaceRef = React.useRef<HostInstance>(null);
   const holdTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const disabledRef = React.useRef(disabled);
   const touchStart = React.useRef<{

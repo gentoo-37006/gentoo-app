@@ -131,7 +131,7 @@ export default function InventoryScreen() {
   const [category, setCategory] = React.useState<CategoryFilter>('all');
   const [creating, setCreating] = React.useState(false);
   const creatingRef = React.useRef(false);
-  const searchInputRef = React.useRef<TextInput>(null);
+  const searchInputRef = React.useRef<React.ComponentRef<typeof TextInput>>(null);
 
   const setEditorOpen = React.useCallback((open: boolean) => {
     creatingRef.current = open;

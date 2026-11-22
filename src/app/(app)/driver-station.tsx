@@ -8,8 +8,9 @@ import {
   TextInput,
   View,
   type GestureResponderEvent,
+  type HostInstance,
 } from 'react-native';
-import { Redirect, useNavigation, useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -225,7 +226,7 @@ function DriverStationMenu({
 }) {
   const [open, setOpen] = React.useState(false);
   const [position, setPosition] = React.useState<{ right: number; top: number } | null>(null);
-  const triggerRef = React.useRef<View>(null);
+  const triggerRef = React.useRef<HostInstance>(null);
 
   const openMenu = () => {
     triggerRef.current?.measureInWindow((x, y, width, height) => {
@@ -616,7 +617,6 @@ function HardwarePanel({
 
 function NativeDriverStation() {
   const router = useRouter();
-  const navigation = useNavigation();
   const { client, snapshot } = useDriverStation();
   const [tab, setTab] = React.useState<DriverStationTab>('control');
   const [selectedOpMode, setSelectedOpMode] = React.useState<string | null>(null);
@@ -627,9 +627,9 @@ function NativeDriverStation() {
     if (event.nativeEvent.touches.length === 0) controllerRef.current?.resetTouches();
   };
   const effectiveSelectedOpMode = selectedOpModeForCategory(snapshot.opModes, category, selectedOpMode);
-  React.useEffect(() => navigation.addListener('beforeRemove', () => {
-    client.stopOpMode();
-  }), [navigation, client]);
+  // Leaving the screen by any route (back gesture, replace, sign-out) unmounts it, and
+  // useDriverStation's cleanup then disconnects the client, which sends STOP for a running
+  // OpMode. (Expo Router 58 removed the `beforeRemove` event this screen used to listen for.)
 
   const leave = () => {
     client.stopOpMode();
