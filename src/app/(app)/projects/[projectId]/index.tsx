@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type HostInstance,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, {
@@ -120,7 +121,7 @@ function FilterMenu({ groups }: { groups: FilterGroup[] }) {
   const [open, setOpen] = React.useState(false);
   const [pos, setPos] = React.useState<{ left: number; top: number } | null>(null);
   const [tab, setTab] = React.useState(groups[0].key);
-  const btnRef = React.useRef<View>(null);
+  const btnRef = React.useRef<HostInstance>(null);
   const active = groups.find((g) => g.key === tab) ?? groups[0];
   const isSet = (g: FilterGroup) => g.value !== g.options[0].value;
 

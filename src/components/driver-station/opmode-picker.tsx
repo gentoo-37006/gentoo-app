@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View } from 'react-native';
+import { View, type HostInstance } from 'react-native';
 import { ChevronDown } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import { Select } from '@/components/ui/select';
@@ -13,7 +13,7 @@ export function OpModePicker({ opModes, selected, connected, onSelect }: {
   connected: boolean;
   onSelect: (name: string, category: OpModeCategory) => void;
 }) {
-  const menuAnchorRef = React.useRef<View>(null);
+  const menuAnchorRef = React.useRef<HostInstance>(null);
   const categories: OpModeCategory[] = ['AUTONOMOUS', 'TELEOP'];
   if (opModesForCategory(opModes, 'OTHER').length) categories.push('OTHER');
   return (

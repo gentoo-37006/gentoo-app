@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Dimensions, Pressable, View } from 'react-native';
+import { Dimensions, Pressable, View, type HostInstance } from 'react-native';
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { Button } from '@/components/ui/button';
 import { FadeModal } from '@/components/ui/fade-modal';
@@ -62,7 +62,7 @@ export function DatePicker({
   const [anchor, setAnchor] = React.useState<Anchor | null>(null);
   const [month, setMonth] = React.useState(() => parseDate(value) ?? new Date());
   const [hovered, setHovered] = React.useState(false);
-  const triggerRef = React.useRef<View>(null);
+  const triggerRef = React.useRef<HostInstance>(null);
   const selected = parseDate(value);
 
   const openPicker = () =>

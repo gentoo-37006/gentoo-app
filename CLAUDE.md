@@ -128,7 +128,7 @@ NativeWind v4 (`className`) with `tailwind.config.js`; design-system primitives 
 `src/components/ui/`. Dark mode is `darkMode: 'class'`, which has no media-query fallback, so
 `theme-mode.ts` resolves `'system'` to the actual OS scheme itself on web.
 
-React Native 0.85: `pointerEvents` goes in `style`, **not** as a prop (the prop is deprecated).
+React Native 0.88 (Expo SDK 58): `pointerEvents` goes in `style`, **not** as a prop (the prop is deprecated).
 The whole codebase was migrated in 24dc64e — don't reintroduce the prop form.
 
 ## Backend

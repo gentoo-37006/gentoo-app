@@ -6,6 +6,7 @@ import {
   Pressable,
   useWindowDimensions,
   View,
+  type HostInstance,
 } from 'react-native';
 import { Trash2 } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
@@ -170,7 +171,7 @@ export function ConfirmationButton({
   const [tooltipSession, setTooltipSession] = React.useState(0);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const confirmReadyAt = React.useRef(0);
-  const buttonRef = React.useRef<View>(null);
+  const buttonRef = React.useRef<HostInstance>(null);
   const tooltipId = React.useId().replace(/[^a-z0-9_-]/gi, '');
   const tooltipAnchorName = `--delete-tooltip-${tooltipId}`;
   const isDisabled = disabled || loading;

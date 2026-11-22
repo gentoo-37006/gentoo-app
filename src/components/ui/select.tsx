@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Dimensions, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Dimensions, Platform, Pressable, ScrollView, TextInput, View, type HostInstance } from 'react-native';
 import { Check, X } from 'lucide-react-native';
 import { cn } from '@/lib/utils';
 import { Icon } from '@/components/ui/icon';
@@ -231,13 +231,13 @@ export function Select<T extends string>({
   className?: string;
   renderValue?: (option: SelectOption<T>) => React.ReactNode;
   triggerContent?: React.ReactNode;
-  menuAnchorRef?: React.RefObject<View | null>;
+  menuAnchorRef?: React.RefObject<HostInstance | null>;
   onOpenChange?: (open: boolean) => void;
   pinnedValues?: T[];
 }) {
   const [open, setOpen] = React.useState(false);
   const [anchor, setAnchor] = React.useState<Anchor | null>(null);
-  const triggerRef = React.useRef<View>(null);
+  const triggerRef = React.useRef<HostInstance>(null);
   const current = options.find((o) => o.value === value);
   const openDropdown = () =>
     (menuAnchorRef ?? triggerRef).current?.measureInWindow((left, top, width, height) => {
@@ -306,7 +306,7 @@ export function MultiSelect<T extends string>({
 }) {
   const [open, setOpen] = React.useState(false);
   const [anchor, setAnchor] = React.useState<Anchor | null>(null);
-  const triggerRef = React.useRef<View>(null);
+  const triggerRef = React.useRef<HostInstance>(null);
   const label = options
     .filter((o) => values.includes(o.value))
     .map((o) => o.label)

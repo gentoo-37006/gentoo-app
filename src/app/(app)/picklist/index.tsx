@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, View, type HostInstance } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -566,9 +566,9 @@ export default function PicklistScreen() {
 
   // ---- Filter popup anchoring --------------------------------------------------
 
-  const rootRef = React.useRef<View>(null);
+  const rootRef = React.useRef<HostInstance>(null);
   const rootRect = React.useRef({ x: 0, y: 0 });
-  const filterBtnRef = React.useRef<View>(null);
+  const filterBtnRef = React.useRef<HostInstance>(null);
   const measureRoot = React.useCallback(() => {
     rootRef.current?.measureInWindow((x, y) => {
       rootRect.current = { x, y };
@@ -611,7 +611,7 @@ export default function PicklistScreen() {
   } | null>(null);
   const nativeMoveFrame = React.useRef<number | null>(null);
 
-  const boardRef = React.useRef<View>(null);
+  const boardRef = React.useRef<HostInstance>(null);
   const boardRect = React.useRef({ x: 0, y: 0, w: 0, h: 0 });
   const hScroll = React.useRef(0);
   const vScroll = React.useRef<Record<string, number>>({});

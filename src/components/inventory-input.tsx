@@ -3,7 +3,7 @@ import { type TextInput } from 'react-native';
 import { Input, type InputProps } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
-export const InventoryInput = React.forwardRef<TextInput, InputProps>(
+export const InventoryInput = React.forwardRef<React.ComponentRef<typeof TextInput>, InputProps>(
   (
     {
       className,

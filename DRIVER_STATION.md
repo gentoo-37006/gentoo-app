@@ -14,10 +14,15 @@ even when there is no back history.
 Native update reloads are deferred while this page is open.
 Autonomous and TeleOp each open a separate filtered OpMode dropdown.
 
-`patches/expo-screen-orientation+56.0.5.patch` keeps orientation callbacks off
-the registry queue: UIKit can synchronously read that queue on the main thread,
-so notifying UIKit from inside it deadlocks launch or screen transitions.
-`npm install` reapplies the patch. This fix requires a native rebuild, not an OTA.
+Leaving the page by any route unmounts it; `useDriverStation`'s cleanup then
+disconnects the client, and `disconnect()` sends STOP for a running OpMode
+(Expo Router 58 removed the `beforeRemove` event that used to do this).
+
+Orientation callbacks used to deadlock launch and screen transitions (UIKit
+synchronously reads the screen-orientation registry queue on the main thread).
+`patches/expo-screen-orientation+56.0.5.patch` fixed that until Expo SDK 58,
+whose expo-screen-orientation notifies listeners on a separate queue
+(expo/expo#49367), so the patch is gone.
 
 ## Robot Wi-Fi
 
