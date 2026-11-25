@@ -1,6 +1,13 @@
-import { currentSeason, getEventDetails, getEventMatches, getEventTeams, populateTeamNames } from '@/lib/api/ftcscout';
-import { useAuth } from '@/lib/auth';
-import { isDemoMode } from '@/lib/demo';
+import {
+  currentSeason,
+  getEventAwards,
+  getEventDetails,
+  getEventMatches,
+  getEventTeams,
+  populateTeamNames,
+  type FTCScoutAward,
+} from '@/lib/api/ftcscout';
+import { demoEventDetails, isDemoMode } from '@/lib/demo';
 import { supabase } from '@/lib/supabase';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { matchKeys } from './matches';
@@ -25,16 +32,29 @@ interface FTCScoutTeamInput {
 }
 
 export function useFTCScoutEvent(eventCode: string, season: number) {
-  const { isDemo } = useAuth();
   return useQuery({
     queryKey: ['ftcscout_event', season, eventCode],
-    enabled: !!eventCode && !isDemo,
+    enabled: !!eventCode,
     staleTime: 30 * 60_000,
     retry: 1,
     queryFn: async () => {
-      if (isDemoMode()) return null;
+      if (isDemoMode()) return demoEventDetails(eventCode, season);
       if (!eventCode) return null;
       return getEventDetails(eventCode, season);
+    },
+  });
+}
+
+/** Awards given at the event, for showing ours; refreshed every few minutes while it runs. */
+export function useFTCScoutAwards(eventCode: string, season: number, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: ['ftcscout_awards', season, eventCode],
+    enabled: !!eventCode && enabled,
+    staleTime: 5 * 60_000,
+    retry: 1,
+    queryFn: async (): Promise<FTCScoutAward[]> => {
+      if (isDemoMode()) return [];
+      return getEventAwards(eventCode, season);
     },
   });
 }

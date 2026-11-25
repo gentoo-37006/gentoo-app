@@ -4,11 +4,15 @@ import { Linking } from 'react-native';
 import { ActiveEventCard } from './active-event-card';
 import { useAuth } from '@/lib/auth';
 import { useAppSetting } from '@/lib/queries/settings';
-import { useFTCScoutEvent } from '@/lib/queries/ftcscout';
+import { useFTCScoutAwards, useFTCScoutEvent } from '@/lib/queries/ftcscout';
+import { useMatches } from '@/lib/queries/matches';
+import { useTeamScores } from '@/lib/queries/scouting';
 
 jest.mock('@/lib/auth', () => ({ useAuth: jest.fn() }));
 jest.mock('@/lib/queries/settings', () => ({ ACTIVE_EVENT_KEY: 'active_event', useAppSetting: jest.fn() }));
-jest.mock('@/lib/queries/ftcscout', () => ({ useFTCScoutEvent: jest.fn() }));
+jest.mock('@/lib/queries/ftcscout', () => ({ useFTCScoutEvent: jest.fn(), useFTCScoutAwards: jest.fn() }));
+jest.mock('@/lib/queries/scouting', () => ({ useTeamScores: jest.fn() }));
+jest.mock('@/lib/queries/matches', () => ({ useMatches: jest.fn() }));
 jest.mock('@/lib/use-now', () => ({ useNow: () => new Date(2026, 10, 5).getTime() }));
 jest.mock('expo-router', () => ({ Link: ({ children }: { children: React.ReactNode }) => children }));
 
@@ -43,6 +47,9 @@ beforeEach(() => {
   jest.mocked(useAuth).mockReturnValue({ isDemo: false } as ReturnType<typeof useAuth>);
   mockSetting(settingResult);
   mockEvent(eventResult);
+  jest.mocked(useTeamScores).mockReturnValue({ data: [] } as unknown as ReturnType<typeof useTeamScores>);
+  jest.mocked(useMatches).mockReturnValue({ data: [] } as unknown as ReturnType<typeof useMatches>);
+  jest.mocked(useFTCScoutAwards).mockReturnValue({ data: [] } as unknown as ReturnType<typeof useFTCScoutAwards>);
 });
 
 describe('active event overview', () => {
@@ -87,17 +94,46 @@ describe('active event overview', () => {
     await screen.unmount();
   });
 
-  it('shows an empty state for an unconfigured workspace and for demo mode', async () => {
+  it('shows an empty state for an unconfigured workspace', async () => {
     mockSetting({ ...settingResult, data: null });
     const screen = await render(<ActiveEventCard />);
     expect(screen.getByText('No active event')).toBeTruthy();
     expect(screen.getByText('Go to Settings')).toBeTruthy();
-    mockSetting(settingResult);
-    jest.mocked(useAuth).mockReturnValue({ isDemo: true } as ReturnType<typeof useAuth>);
-    await screen.rerender(<ActiveEventCard />);
-    expect(screen.getByText('No active event')).toBeTruthy();
     expect(screen.queryByLabelText('View event on FTCScout')).toBeNull();
     expect(useFTCScoutEvent).toHaveBeenLastCalledWith('', 2026);
+    await screen.unmount();
+  });
+
+  it('shows our standing, our awards and the event links', async () => {
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+    mockEvent({
+      ...eventResult,
+      data: { ...eventResult.data, type: 'Championship', fieldCount: 2, liveStreamURL: 'https://ftc.example.tv', finished: true },
+    });
+    jest.mocked(useTeamScores).mockReturnValue({
+      data: [
+        { team_number: 37006, official_rank: 3, official_wins: 5, official_losses: 1, official_ties: 0, official_avg_points: 142.25 },
+        { team_number: 7244, official_rank: 1, official_wins: 6, official_losses: 0, official_ties: 0, official_avg_points: 160 },
+      ],
+    } as unknown as ReturnType<typeof useTeamScores>);
+    jest.mocked(useFTCScoutAwards).mockReturnValue({
+      data: [
+        { type: 'Think', placement: 1, teamNumber: 37006, personName: null },
+        { type: 'Inspire', placement: 1, teamNumber: 7244, personName: null },
+      ],
+    } as unknown as ReturnType<typeof useFTCScoutAwards>);
+    const screen = await render(<ActiveEventCard />);
+    expect(screen.getByText('Championship')).toBeTruthy();
+    expect(screen.getByText('2 fields · 2 teams')).toBeTruthy();
+    expect(screen.getByText('#3')).toBeTruthy();
+    expect(screen.getByText('5-1-0')).toBeTruthy();
+    expect(screen.getByText('142.3')).toBeTruthy();
+    expect(screen.getByText('Think Award')).toBeTruthy();
+    expect(screen.queryByText('Inspire Award')).toBeNull();
+    expect(screen.getByText('Finished')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Livestream'));
+    expect(openURL).toHaveBeenCalledWith('https://ftc.example.tv');
+    openURL.mockRestore();
     await screen.unmount();
   });
 

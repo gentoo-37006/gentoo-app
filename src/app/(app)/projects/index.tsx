@@ -13,7 +13,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { ListChecks, Plus, ChevronRight } from 'lucide-react-native';
+import { ChartGantt, ListChecks, Plus, ChevronRight } from 'lucide-react-native';
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
@@ -178,6 +178,14 @@ export default function ProjectsScreen() {
   return (
     <Screen>
       <ScreenHeader title="Projects" description="Organize work into projects and tasks.">
+        <Button
+          variant="outline"
+          size="sm"
+          label="Timeline"
+          icon={ChartGantt}
+          accessibilityLabel="View the timeline"
+          onPress={() => router.push('/timeline' as any)}
+        />
         <Button
           variant="outline"
           size="sm"

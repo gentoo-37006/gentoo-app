@@ -104,6 +104,27 @@ values from EAS secrets / environment variables instead.
   table to the query-key roots it invalidates, batched so a bulk import refetches each family
   once. **Adding a table means adding it to `REALTIME_QUERY_ROOTS`** or its screens go stale.
 
+### Timeline, competition day and task notes
+
+- **Timeline** (`src/app/(app)/timeline.tsx`, top-level so the nav doesn't also light up
+  Projects): a Gantt view of every task plus a "Coming up" deadline list. The layout is pure
+  (`src/lib/timeline.ts`, tested): dates are day numbers through UTC, a task with a start and
+  due date is a bar, due-only is a milestone. `tasks.start_date` comes from migration 0031;
+  until it is applied the column is simply absent and the Start field says so.
+- **Competition** narrows the synced event to our team, `OUR_TEAM_NUMBER` in `src/lib/team.ts`
+  (logic in `src/lib/competition.ts`, tested). The event-day agenda (arrival, inspection,
+  judging, ceremonies) is admin-edited and stored in `app_settings` under `event_agenda` as
+  `{ eventCode, items }`, so a newly synced event starts empty. Awards come from FTC Scout's
+  GraphQL `eventByCode.awards`. Admins can reset scouting data from the bottom of the screen;
+  the deletes rely on the existing admin-only RLS policies (0003/0004), no RPC.
+- **Task notes** are edited in place with Tiptap (`src/components/notes-editor/`). The editor
+  is an Expo DOM component (`'use dom'`): inline on web, a WebView (react-native-webview) on
+  iOS/Android, so native needs a new build, not an EAS update. Notes stay markdown; underline
+  is stored as `<u>…</u>`. Markdown shortcuts fire per keystroke, so a test that pastes
+  "# Title" in one go won't convert it.
+- Demo mode stores app settings in the workspace (`demoAppSetting`), with a sample event
+  (`DEMO_EVENT_CODE`) and agenda, so all of the above works offline.
+
 ### Styling
 
 NativeWind v4 (`className`) with `tailwind.config.js`; design-system primitives in

@@ -3,15 +3,14 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   BellRing,
+  CalendarClock,
   CalendarDays,
   ChevronLeft,
   CircleDot,
-  Eye,
   ExternalLink,
   FileX,
   Flag,
   FolderKanban,
-  Pencil,
   Tag,
   Trash2,
   Users,
@@ -20,14 +19,13 @@ import {
 import { Screen, ScreenHeader } from '@/components/ui/screen';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
-import { Textarea } from '@/components/ui/textarea';
 import { AutoGrowingTextInput } from '@/components/ui/auto-growing-text-input';
 import { Button } from '@/components/ui/button';
 import { DeleteButton } from '@/components/ui/delete-button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { Icon } from '@/components/ui/icon';
-import { Markdown } from '@/components/ui/markdown';
+import { NotesEditor } from '@/components/notes-editor/notes-editor';
 import { MultiSelect, Select } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
 import { TaskTagsSelect } from '@/components/task-tags-select';
@@ -211,13 +209,13 @@ export default function TaskNotesScreen() {
   const deleteTask = useDeleteTask();
   const task = data?.tasks.find((t) => t.id === taskId);
 
-  // Seed the draft once the task arrives; the page always opens in preview.
+  // Seed the draft once the task arrives.
   const [loadedId, setLoadedId] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState('');
-  const [editing, setEditing] = React.useState(false);
   const [titleDraft, setTitleDraft] = React.useState('');
   const [pingNotice, setPingNotice] = React.useState<string | null>(null);
   const [blockerError, setBlockerError] = React.useState<string | null>(null);
+  const [startError, setStartError] = React.useState<string | null>(null);
   const [projectHovered, setProjectHovered] = React.useState(false);
   const titleSaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const notesSaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -232,7 +230,6 @@ export default function TaskNotesScreen() {
   if (task && loadedId !== task.id) {
     setLoadedId(task.id);
     setDraft(task.notes ?? '');
-    setEditing(false);
     setTitleDraft(task.title);
   }
 
@@ -327,10 +324,6 @@ export default function TaskNotesScreen() {
     clearTimeout(notesSaveTimer.current);
     notesSaveTimer.current = null;
     commitNotes(draft);
-  };
-  const toggleNotesMode = () => {
-    if (editing) flushNotes();
-    setEditing((value) => !value);
   };
   return (
     <Screen maxWidth="max-w-6xl" contentClassName="gap-7">
@@ -478,6 +471,33 @@ export default function TaskNotesScreen() {
           ) : null}
         </TaskField>
 
+        <TaskField icon={CalendarClock} label="Start">
+          <DatePicker
+            value={task.start_date ?? null}
+            placeholder="No start date"
+            onChange={(start_date) => {
+              setStartError(null);
+              update.mutate(
+                { id: task.id, start_date },
+                {
+                  onError: (error) =>
+                    setStartError(
+                      error.message.includes('start_date')
+                        ? 'Start dates need database migration 0031.'
+                        : error.message || 'Could not save the start date.'
+                    ),
+                }
+              );
+            }}
+            className="border-transparent bg-transparent px-2 hover:bg-accent"
+          />
+          {startError ? (
+            <Text variant="small" className="mt-1 text-destructive">
+              {startError}
+            </Text>
+          ) : null}
+        </TaskField>
+
         <TaskField icon={CalendarDays} label="Due">
           <DatePicker
             value={task.due_date}
@@ -522,36 +542,14 @@ export default function TaskNotesScreen() {
         </TaskField>
       </View>
 
-      <View className="gap-2">
-        <View className="flex-row justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            label={editing ? 'Preview' : 'Edit'}
-            icon={editing ? Eye : Pencil}
-            onPress={toggleNotesMode}
-          />
-        </View>
-        <View className="min-h-[420px] border-t border-border pt-4">
-          {editing ? (
-            <Textarea
-              autoFocus
-              value={draft}
-              onChangeText={changeNotes}
-              onBlur={flushNotes}
-              placeholder={'# Heading\n\nWrite anything - **bold**, lists, `code`, [links](https://example.com).'}
-              className="min-h-[380px] resize-none rounded-none border-0 bg-transparent p-0 text-base outline-none focus:border-transparent"
-            />
-          ) : draft ? (
-            <View className="min-h-[320px]">
-              <Markdown value={draft} />
-            </View>
-          ) : (
-            <View className="min-h-[280px]">
-              <Text variant="muted">No notes yet. Switch to Edit to add them.</Text>
-            </View>
-          )}
-        </View>
+      <View className="min-h-[420px] border-t border-border pt-4">
+        <NotesEditor
+          key={task.id}
+          value={draft}
+          onChange={changeNotes}
+          onBlur={flushNotes}
+          placeholder="Write notes. Type # for a heading, - for a list, [ ] for a checklist."
+        />
       </View>
     </Screen>
   );

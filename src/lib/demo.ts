@@ -27,6 +27,8 @@ import type {
 import type { ParsedMatch } from '@/lib/csv';
 import type { GeneratedShift } from '@/lib/scheduler';
 import { nextTaskSortOrder } from '@/lib/task-order';
+import { OUR_TEAM_NUMBER } from '@/lib/team';
+import { currentSeason, type FTCScoutEvent } from '@/lib/api/ftcscout';
 import {
   CARD_LIFETIME_MS,
   DEFAULT_CARD_FIELDS,
@@ -35,7 +37,7 @@ import {
   type CardField,
 } from '@/lib/alliance-card';
 
-const STORAGE_KEY = 'gentoo.demo.workspace.v3';
+const STORAGE_KEY = 'gentoo.demo.workspace.v4';
 const AUTH_KEY = 'gentoo.demo.enabled.v1';
 
 export const DEMO_USER_ID = 'demo-user';
@@ -66,8 +68,13 @@ type DemoWorkspace = {
   /** Optional: workspaces saved before scouting cards existed have neither. */
   allianceCards?: AllianceCard[];
   allianceCardTemplate?: CardField[];
+  /** app_settings rows by key (active event, event agenda). */
+  appSettings?: Record<string, Record<string, unknown>>;
   seededAt: string;
 };
+
+/** Event code the demo workspace pretends to be at. */
+export const DEMO_EVENT_CODE = 'DEMOQ1';
 
 const now = () => new Date().toISOString();
 const id = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -142,7 +149,7 @@ function seedWorkspace(): DemoWorkspace {
   }));
 
   const teams: ScoutedTeam[] = [
-    ['team-11248', 11248, 'Gentoo Robotics', 'Fast cycle time; verify climb under defense.', 'tier1'],
+    ['team-37006', OUR_TEAM_NUMBER, 'Gentoo Robotics', 'Fast cycle time; verify climb under defense.', 'tier1'],
     ['team-7244', 7244, 'Out of the Box', 'Great autonomous path, average endgame.', 'tier2'],
     ['team-3596', 3596, 'Circuit Breakers', 'Strong defense and consistent driver control.', 'tier2'],
   ].map(([teamId, number, name, notes, tier], index) => ({
@@ -187,13 +194,14 @@ function seedWorkspace(): DemoWorkspace {
   // Times are relative to the seed moment so the countdown and "my shifts"
   // cards always look alive; getDemoWorkspace() re-rolls stale workspaces.
   const matches: Match[] = [
-    { id: 'match-1', match_number: 1, label: 'Qual 1', scheduled_time: hoursFromNow(0.75), red1: 11248, red2: 7244, blue1: 3596, blue2: 9915, created_at: timestamp },
-    { id: 'match-2', match_number: 2, label: 'Qual 2', scheduled_time: hoursFromNow(1.75), red1: 7244, red2: 3596, blue1: 11248, blue2: 14133, created_at: timestamp },
-    { id: 'match-3', match_number: 3, label: 'Qual 3', scheduled_time: hoursFromNow(2.75), red1: 9915, red2: 11248, blue1: 7244, blue2: 3596, created_at: timestamp },
+    { id: 'match-0', match_number: 1, label: 'Qual 1', scheduled_time: hoursFromNow(-1.25), red1: OUR_TEAM_NUMBER, red2: 7244, blue1: 3596, blue2: 9915, has_been_played: true, red_score: 152, red_auto: 40, red_dc: 102, red_penalty: 10, blue_score: 118, blue_auto: 28, blue_dc: 80, blue_penalty: 10, created_at: timestamp },
+    { id: 'match-1', match_number: 2, label: 'Qual 2', scheduled_time: hoursFromNow(0.75), red1: 9915, red2: 7244, blue1: 3596, blue2: 14133, created_at: timestamp },
+    { id: 'match-2', match_number: 3, label: 'Qual 3', scheduled_time: hoursFromNow(1.75), red1: 7244, red2: 3596, blue1: OUR_TEAM_NUMBER, blue2: 14133, created_at: timestamp },
+    { id: 'match-3', match_number: 4, label: 'Qual 4', scheduled_time: hoursFromNow(2.75), red1: 9915, red2: OUR_TEAM_NUMBER, blue1: 7244, blue2: 3596, created_at: timestamp },
   ];
 
   const assignments: ScoutingAssignment[] = [
-    { id: 'assignment-1', match_id: 'match-1', scouter_id: DEMO_ADMIN_ID, team_number: 11248, status: 'assigned', assigned_by: DEMO_STRATEGIST_ID, created_at: timestamp },
+    { id: 'assignment-1', match_id: 'match-1', scouter_id: DEMO_ADMIN_ID, team_number: 9915, status: 'assigned', assigned_by: DEMO_STRATEGIST_ID, created_at: timestamp },
     { id: 'assignment-2', match_id: 'match-2', scouter_id: DEMO_SCOUTER_ID, team_number: 7244, status: 'submitted', assigned_by: DEMO_STRATEGIST_ID, created_at: timestamp },
   ];
 
@@ -203,13 +211,21 @@ function seedWorkspace(): DemoWorkspace {
 
   const projects: Project[] = [
     { id: 'project-pit', name: 'Pit readiness', description: 'Prep the pit before inspection.', status: 'active', priority: 'high', sort_order: 10, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
+    { id: 'project-robot', name: 'Robot v2', description: 'Second-generation intake and wiring.', status: 'active', priority: 'urgent', sort_order: 15, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
     { id: 'project-scouting', name: 'Scouting setup', description: 'Validate match schedule and roles.', status: 'planning', priority: 'medium', sort_order: 20, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
   ];
 
   const tasks: Task[] = [
-    { id: 'task-1', project_id: 'project-pit', title: 'Label battery cables', notes: '## Why\n\nInspectors flagged unlabeled leads last event.\n\n- [ ] Print labels\n- [ ] Wrap both ends\n- [ ] Photograph for the log', status: 'in_progress', assignee_ids: [DEMO_PIT_ID, DEMO_ADMIN_ID], blocked_by: null, blocked_by_project: null, due_date: dateFromNow(1), priority: 'high', tags: ['pit', 'electrical'], sort_order: 10, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
-    { id: 'task-2', project_id: 'project-pit', title: 'Charge driver station laptop', notes: null, status: 'blocked', assignee_ids: [DEMO_ADMIN_ID], blocked_by: 'task-1', blocked_by_project: null, due_date: dateFromNow(0), priority: 'urgent', tags: ['drive'], sort_order: 20, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
-    { id: 'task-3', project_id: 'project-scouting', title: 'Import qualification schedule', notes: null, status: 'todo', assignee_ids: [DEMO_STRATEGIST_ID], blocked_by: null, blocked_by_project: null, due_date: null, priority: 'medium', tags: ['scouting'], sort_order: 10, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
+    { id: 'task-1', project_id: 'project-pit', title: 'Label battery cables', notes: '## Why\n\nInspectors flagged unlabeled leads last event.\n\n- [ ] Print labels\n- [ ] Wrap both ends\n- [ ] Photograph for the log', status: 'in_progress', assignee_ids: [DEMO_PIT_ID, DEMO_ADMIN_ID], blocked_by: null, blocked_by_project: null, start_date: dateFromNow(-3), due_date: dateFromNow(1), priority: 'high', tags: ['pit', 'electrical'], sort_order: 10, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
+    { id: 'task-2', project_id: 'project-pit', title: 'Charge driver station laptop', notes: null, status: 'blocked', assignee_ids: [DEMO_ADMIN_ID], blocked_by: 'task-1', blocked_by_project: null, start_date: null, due_date: dateFromNow(0), priority: 'urgent', tags: ['drive'], sort_order: 20, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
+    { id: 'task-4', project_id: 'project-pit', title: 'Pack the pit toolbox', notes: null, status: 'todo', assignee_ids: [DEMO_PIT_ID], blocked_by: null, blocked_by_project: null, start_date: dateFromNow(2), due_date: dateFromNow(5), priority: 'medium', tags: ['pit'], sort_order: 30, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
+    { id: 'task-5', project_id: 'project-robot', title: 'Order spare servos', notes: null, status: 'done', assignee_ids: [DEMO_ADMIN_ID], blocked_by: null, blocked_by_project: null, start_date: dateFromNow(-20), due_date: dateFromNow(-12), priority: 'medium', tags: ['parts'], sort_order: 10, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
+    { id: 'task-6', project_id: 'project-robot', title: 'Build intake v2', notes: null, status: 'in_progress', assignee_ids: [DEMO_ADMIN_ID, DEMO_SCOUTER_ID], blocked_by: null, blocked_by_project: null, start_date: dateFromNow(-10), due_date: dateFromNow(-2), priority: 'urgent', tags: ['mechanical'], sort_order: 20, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
+    { id: 'task-7', project_id: 'project-robot', title: 'Rewire the control hub', notes: null, status: 'todo', assignee_ids: [DEMO_PIT_ID], blocked_by: null, blocked_by_project: null, start_date: dateFromNow(4), due_date: dateFromNow(16), priority: 'high', tags: ['electrical'], sort_order: 30, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
+    { id: 'task-8', project_id: 'project-robot', title: 'Driver practice block', notes: null, status: 'todo', assignee_ids: [DEMO_ADMIN_ID], blocked_by: null, blocked_by_project: null, start_date: dateFromNow(8), due_date: dateFromNow(34), priority: 'medium', tags: ['drive'], sort_order: 40, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
+    { id: 'task-9', project_id: 'project-robot', title: 'Engineering portfolio draft', notes: null, status: 'todo', assignee_ids: [DEMO_STRATEGIST_ID, DEMO_ADMIN_ID], blocked_by: null, blocked_by_project: null, start_date: null, due_date: dateFromNow(9), priority: 'high', tags: ['judging'], sort_order: 50, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
+    { id: 'task-3', project_id: 'project-scouting', title: 'Import qualification schedule', notes: null, status: 'todo', assignee_ids: [DEMO_STRATEGIST_ID], blocked_by: null, blocked_by_project: null, start_date: null, due_date: null, priority: 'medium', tags: ['scouting'], sort_order: 10, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
+    { id: 'task-10', project_id: 'project-scouting', title: 'Train new scouters', notes: null, status: 'todo', assignee_ids: [DEMO_STRATEGIST_ID, DEMO_SCOUTER_ID], blocked_by: null, blocked_by_project: null, start_date: dateFromNow(6), due_date: dateFromNow(12), priority: 'low', tags: ['scouting'], sort_order: 20, created_by: DEMO_ADMIN_ID, created_at: timestamp, updated_at: timestamp, deleted_at: null },
   ];
 
   const parts: Part[] = [
@@ -234,7 +250,7 @@ function seedWorkspace(): DemoWorkspace {
       makeProfile({ id: DEMO_STRATEGIST_ID, full_name: 'Yan Xu', email: 'yan@example.com', role: 'member', functional_roles: ['strategist'] }),
     ],
     notifications: [
-      { id: 'notif-1', user_id: DEMO_ADMIN_ID, type: 'assignment', title: 'New scouting assignment', body: 'Scout team 11248 in Qual 1', data: { matchId: 'match-1' }, read: false, created_at: timestamp },
+      { id: 'notif-1', user_id: DEMO_ADMIN_ID, type: 'assignment', title: 'New scouting assignment', body: 'Scout team 9915 in Qual 2', data: { matchId: 'match-1' }, read: false, created_at: timestamp },
       { id: 'notif-2', user_id: DEMO_ADMIN_ID, type: 'talkie_request', title: 'Talkie: team 7244', body: 'Ask whether they have spare string for their lift.', data: { teamNumber: 7244 }, read: true, created_at: daysFromNow(-1) },
     ],
     capabilityQuestions: questions,
@@ -290,6 +306,20 @@ function seedWorkspace(): DemoWorkspace {
         expires_at: hoursFromNow(20),
       },
     ],
+    appSettings: {
+      active_event: { eventCode: DEMO_EVENT_CODE, season: currentSeason(), last_synced: hoursFromNow(-0.5) },
+      event_agenda: {
+        eventCode: DEMO_EVENT_CODE,
+        items: [
+          { id: 'agenda-arrive', kind: 'arrival', title: 'Load in and set up the pit', start: hoursFromNow(-2.5), end: hoursFromNow(-2), location: 'Pit 14', notes: null },
+          { id: 'agenda-inspect', kind: 'inspection', title: 'Robot and field inspection', start: hoursFromNow(-2), end: hoursFromNow(-1.5), location: 'Inspection table B', notes: 'Bring the sizing tool and the signed inspection sheet.' },
+          { id: 'agenda-drivers', kind: 'meeting', title: 'Drivers meeting', start: hoursFromNow(-1.75), end: null, location: 'Main gym', notes: null },
+          { id: 'agenda-judging', kind: 'judging', title: 'Judging interview', start: hoursFromNow(1.25), end: hoursFromNow(1.5), location: 'Room 112', notes: 'Bring the portfolio, the robot and the two presenters. Arrive ten minutes early.' },
+          { id: 'agenda-selection', kind: 'selection', title: 'Alliance selection', start: hoursFromNow(5), end: null, location: 'Main gym', notes: null },
+          { id: 'agenda-awards', kind: 'awards', title: 'Awards ceremony', start: hoursFromNow(7), end: hoursFromNow(7.75), location: 'Main gym', notes: null },
+        ],
+      },
+    },
     seededAt: timestamp,
   };
 }
@@ -869,7 +899,7 @@ export async function demoReorderProjects(projectIds: string[]) {
   await persist();
 }
 
-export async function demoCreateTask(vars: { project_id: string; title: string; notes: string | null; status: TaskStatus; assignee_ids: string[]; blocked_by: string | null; blocked_by_project: string | null; due_date: string | null; priority: Priority; tags: string[]; sort_order?: number }) {
+export async function demoCreateTask(vars: { project_id: string; title: string; notes: string | null; status: TaskStatus; assignee_ids: string[]; blocked_by: string | null; blocked_by_project: string | null; start_date?: string | null; due_date: string | null; priority: Priority; tags: string[]; sort_order?: number }) {
   const db = await getDemoWorkspace();
   const taskId = id('task');
   const sortOrder =
@@ -1155,4 +1185,76 @@ export async function demoSaveCardTemplate(fields: CardField[]) {
   const db = await getDemoWorkspace();
   db.allianceCardTemplate = fields;
   await persist();
+}
+
+// ---- App settings and the demo event ------------------------------------------
+
+export async function demoAppSetting(key: string) {
+  const db = await getDemoWorkspace();
+  const value = db.appSettings?.[key];
+  return value ? { key, value, updated_at: db.seededAt } : null;
+}
+
+export async function demoSetAppSetting(key: string, value: Record<string, unknown>) {
+  const db = await getDemoWorkspace();
+  db.appSettings = { ...(db.appSettings ?? {}), [key]: value };
+  await persist();
+}
+
+/** Stands in for FTC Scout's event endpoint: a two-day qualifier starting today. */
+export function demoEventDetails(eventCode: string, season: number): FTCScoutEvent {
+  return {
+    season,
+    code: eventCode,
+    name: 'Demo League Qualifier',
+    start: dateFromNow(0),
+    end: dateFromNow(1),
+    venue: 'Northside Secondary School',
+    address: '100 Example Road',
+    city: 'Toronto',
+    state: 'ON',
+    country: 'Canada',
+    type: 'Qualifier',
+    website: null,
+    liveStreamURL: null,
+    timezone: 'America/Toronto',
+    fieldCount: 2,
+    remote: false,
+    started: true,
+    ongoing: true,
+    finished: false,
+  };
+}
+
+// ---- Scouting reset ---------------------------------------------------------------
+
+export async function demoResetScouting(options: {
+  pit: boolean;
+  matches: boolean;
+  picklist: boolean;
+}): Promise<Partial<Record<'match_reports' | 'scouting_assignments' | 'pit_scouting_entries' | 'scouted_teams', number>>> {
+  const db = await getDemoWorkspace();
+  const result: Partial<Record<'match_reports' | 'scouting_assignments' | 'pit_scouting_entries' | 'scouted_teams', number>> = {};
+  if (options.matches) {
+    result.match_reports = db.matchReports.length;
+    result.scouting_assignments = db.assignments.length;
+    db.matchReports = [];
+    db.assignments = [];
+  }
+  if (options.pit) {
+    result.pit_scouting_entries = db.pitEntries.length;
+    db.pitEntries = [];
+    db.pitAnswers = [];
+  }
+  if (options.pit || options.picklist) {
+    result.scouted_teams = db.scoutedTeams.length;
+    db.scoutedTeams = db.scoutedTeams.map((team) => ({
+      ...team,
+      ...(options.pit ? { notes: null } : {}),
+      ...(options.picklist ? { picklist_tier: null, picklist_rank: null, picklist_notes: null } : {}),
+      updated_at: now(),
+    }));
+  }
+  await persist();
+  return result;
 }

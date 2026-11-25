@@ -315,6 +315,11 @@ export type Task = {
   blocked_by: string | null;
   /** Project this one waits on instead of an individual task. */
   blocked_by_project: string | null;
+  /**
+   * First day of work, for the timeline. Optional because databases without
+   * migration 0031 don't return the column at all.
+   */
+  start_date?: string | null;
   due_date: string | null;
   priority: Priority;
   tags: string[];

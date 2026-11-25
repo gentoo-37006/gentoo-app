@@ -25,6 +25,56 @@ export interface FTCScoutEvent {
   city: string | null;
   state: string | null;
   country: string | null;
+  /** The fields below are newer additions to the endpoint; treat each as optional. */
+  /** e.g. "Qualifier", "LeagueTournament", "Championship". */
+  type?: string | null;
+  address?: string | null;
+  website?: string | null;
+  liveStreamURL?: string | null;
+  /** IANA zone the schedule is in, e.g. "America/Toronto". */
+  timezone?: string | null;
+  fieldCount?: number | null;
+  remote?: boolean | null;
+  started?: boolean | null;
+  ongoing?: boolean | null;
+  finished?: boolean | null;
+}
+
+export interface FTCScoutAward {
+  /** e.g. "Inspire", "Think", "Winner"; see awardName() in lib/competition. */
+  type: string;
+  placement: number | null;
+  teamNumber: number | null;
+  /** Set for person awards such as Dean's List. */
+  personName: string | null;
+}
+
+/** Awards given at an event; empty until the event publishes them. */
+export async function getEventAwards(eventCode: string, season: number): Promise<FTCScoutAward[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(GRAPHQL_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query:
+          'query EventAwards($season: Int!, $code: String!) { eventByCode(season: $season, code: $code) { awards { type placement teamNumber personName } } }',
+        variables: { season, code: eventCode },
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`Failed to fetch awards for ${eventCode}: ${res.status}`);
+    const json = await res.json();
+    return (json?.data?.eventByCode?.awards ?? []) as FTCScoutAward[];
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request to FTC Scout API timed out (Awards).');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function getEventDetails(eventCode: string, season: number): Promise<FTCScoutEvent> {
