@@ -212,12 +212,21 @@ function Sidebar({
   );
 }
 
-function NavBarLink({ item, active }: { item: NavItem; active: boolean }) {
+/**
+ * Below this width the top bar's links don't fit with their labels, so they
+ * show icons only (the current page keeps its label).
+ */
+const TOP_NAV_LABEL_MIN_WIDTH = 1180;
+
+function NavBarLink({ item, active, compact = false }: { item: NavItem; active: boolean; compact?: boolean }) {
+  const showLabel = !compact || active;
   return (
     <Link href={item.href as any} asChild>
       <Pressable
+        accessibilityLabel={item.label}
         className={cn(
-          'flex-row items-center gap-2 rounded-sm px-3 py-2',
+          'flex-row items-center gap-2 rounded-sm py-2',
+          showLabel ? 'px-3' : 'px-2.5',
           active ? 'bg-primary' : 'hover:bg-accent active:bg-accent'
         )}
       >
@@ -226,14 +235,16 @@ function NavBarLink({ item, active }: { item: NavItem; active: boolean }) {
           size={16}
           className={active ? 'text-primary-foreground' : 'text-muted-foreground'}
         />
-        <Text
-          className={cn(
-            'text-[13px] font-semibold',
-            active ? 'text-primary-foreground' : 'text-foreground'
-          )}
-        >
-          {item.label}
-        </Text>
+        {showLabel ? (
+          <Text
+            className={cn(
+              'text-[13px] font-semibold',
+              active ? 'text-primary-foreground' : 'text-foreground'
+            )}
+          >
+            {item.label}
+          </Text>
+        ) : null}
       </Pressable>
     </Link>
   );
@@ -286,6 +297,8 @@ function TopNav({
       (!i.webOnly || Platform.OS === 'web')
   );
   const scoutingActive = SCOUTING_MENU.some((i) => isActiveRoute(i.href, pathname));
+  const { width } = useBreakpoint();
+  const compact = width < TOP_NAV_LABEL_MIN_WIDTH;
 
   return (
     <View className="border-b border-border bg-card">
@@ -294,13 +307,13 @@ function TopNav({
         <NavDivider />
 
         {/* General */}
-        {[GENERAL_NAV[0], GENERAL_NAV[1], GENERAL_NAV[2]].map((item) => (
-          <NavBarLink key={item.name} item={item} active={isActiveRoute(item.href, pathname)} />
+        {GENERAL_NAV.filter((item) => !item.mobileOnly).map((item) => (
+          <NavBarLink key={item.name} item={item} active={isActiveRoute(item.href, pathname)} compact={compact} />
         ))}
         <NavDivider />
 
         {/* Competition */}
-        <NavBarLink item={COMPETITION_NAV[0]} active={isActiveRoute(COMPETITION_NAV[0].href, pathname)} />
+        <NavBarLink item={COMPETITION_NAV[0]} active={isActiveRoute(COMPETITION_NAV[0].href, pathname)} compact={compact} />
         <View className="relative">
           <Pressable
             accessibilityRole="button"
@@ -316,14 +329,16 @@ function TopNav({
               size={16}
               className={scoutingActive ? 'text-primary-foreground' : 'text-muted-foreground'}
             />
-            <Text
-              className={cn(
-                'text-[13px] font-semibold',
-                scoutingActive ? 'text-primary-foreground' : 'text-foreground'
-              )}
-            >
-              Scouting
-            </Text>
+            {!compact || scoutingActive ? (
+              <Text
+                className={cn(
+                  'text-[13px] font-semibold',
+                  scoutingActive ? 'text-primary-foreground' : 'text-foreground'
+                )}
+              >
+                Scouting
+              </Text>
+            ) : null}
             <Icon
               as={ChevronDown}
               size={14}
@@ -362,7 +377,7 @@ function TopNav({
             </View>
           ) : null}
         </View>
-        <NavBarLink item={COMPETITION_NAV[4]} active={isActiveRoute(COMPETITION_NAV[4].href, pathname)} />
+        <NavBarLink item={COMPETITION_NAV[4]} active={isActiveRoute(COMPETITION_NAV[4].href, pathname)} compact={compact} />
 
         <View className="flex-1" />
 

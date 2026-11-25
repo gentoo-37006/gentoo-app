@@ -26,11 +26,11 @@ function dateValue(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function dateLabel(value: string | null) {
+function dateLabel(value: string | null, placeholder: string) {
   const date = parseDate(value);
   return date
     ? date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
-    : 'No due date';
+    : placeholder;
 }
 
 function menuPosition(anchor: Anchor) {
@@ -51,12 +51,15 @@ export function DatePicker({
   className,
   compact = false,
   onOpenChange,
+  placeholder = 'No due date',
 }: {
   value: string | null;
   onChange: (value: string | null) => void;
   className?: string;
   compact?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Shown when no date is set. */
+  placeholder?: string;
 }) {
   const [open, setOpen] = React.useState(false);
   const [anchor, setAnchor] = React.useState<Anchor | null>(null);
@@ -91,7 +94,7 @@ export function DatePicker({
       >
         {!compact ? <Icon as={CalendarDays} size={16} className="text-muted-foreground" /> : null}
         <Text className={cn('flex-1 text-sm font-medium', !value && 'text-muted-foreground')}>
-          {dateLabel(value)}
+          {dateLabel(value, placeholder)}
         </Text>
       </Pressable>
 

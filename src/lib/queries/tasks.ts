@@ -391,6 +391,8 @@ export type TaskInput = {
   assignee_ids: string[];
   blocked_by: string | null;
   blocked_by_project: string | null;
+  /** Left out of inserts unless set, so creating tasks works before migration 0031. */
+  start_date?: string | null;
   due_date: string | null;
   priority: Priority;
   tags: string[];

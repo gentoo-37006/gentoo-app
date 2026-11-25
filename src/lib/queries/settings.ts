@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { isDemoMode } from '@/lib/demo';
+import { demoAppSetting, demoSetAppSetting, isDemoMode } from '@/lib/demo';
 import type { AppSetting } from '@/lib/types';
 
 export const ACTIVE_EVENT_KEY = 'active_event';
@@ -25,7 +25,7 @@ export function useAppSetting(key: string, { enabled = true }: { enabled?: boole
     queryKey: appSettingKey(key),
     enabled,
     queryFn: async (): Promise<AppSetting | null> => {
-      if (isDemoMode()) return null;
+      if (isDemoMode()) return demoAppSetting(key);
       // Settings can gate the startup route, so an offline request must settle.
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10_000);
@@ -49,7 +49,7 @@ export function useSetAppSetting() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ key, value }: { key: string; value: Record<string, unknown> }) => {
-      if (isDemoMode()) return;
+      if (isDemoMode()) return demoSetAppSetting(key, value);
       const { error } = await supabase
         .from('app_settings')
         .upsert({ key, value, updated_at: new Date().toISOString() });
